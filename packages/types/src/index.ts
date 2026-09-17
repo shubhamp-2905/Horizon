@@ -1,0 +1,160 @@
+/**
+ * @file @horizon/types
+ * Core domain interfaces, DTOs, and geospatial types for the Horizon platform.
+ */
+
+export type UserRole = 'contributor' | 'reviewer' | 'admin';
+export type UserStatus = 'active' | 'suspended' | 'pending';
+
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  displayName?: string;
+  status: UserStatus;
+  role: UserRole;
+  avatarUrl?: string;
+  profileData?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TaskStatus = 'draft' | 'active' | 'in_progress' | 'completed' | 'expired';
+
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface GeoPolygon {
+  coordinates: [number, number][][];
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  artifactType: string;
+  status: TaskStatus;
+  difficulty: number;
+  scarcity: number;
+  baseReward: number;
+  commitmentStake: number;
+  locationPoint?: GeoPoint;
+  geographicArea?: GeoPolygon;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskFormSchema {
+  id: string;
+  taskId: string;
+  schemaDefinition: Record<string, unknown>;
+  version: number;
+  createdAt: string;
+}
+
+export type ClaimStatus = 'claimed' | 'submitted' | 'expired' | 'abandoned';
+
+export interface TaskClaim {
+  id: string;
+  taskId: string;
+  userId: string;
+  stakeAmount: number;
+  status: ClaimStatus;
+  claimedAt: string;
+  completedAt?: string;
+}
+
+export type SubmissionStatus = 'submitted' | 'validating' | 'verified' | 'rejected';
+
+export interface Submission {
+  id: string;
+  taskId: string;
+  userId: string;
+  location?: GeoPoint;
+  gpsAccuracy: number;
+  capturedAt: string;
+  submittedAt: string;
+  status: SubmissionStatus;
+  formData: Record<string, unknown>;
+}
+
+export interface SubmissionMedia {
+  id: string;
+  submissionId: string;
+  storageKey: string;
+  mediaType: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'disputed';
+
+export interface Verification {
+  id: string;
+  submissionId: string;
+  status: VerificationStatus;
+  reviewerId?: string;
+  notes?: string;
+  aiConfidenceScore?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RewardStatus = 'pending' | 'granted' | 'revoked';
+
+export interface Reward {
+  id: string;
+  submissionId: string;
+  baseValue: number;
+  difficultyFactor: number;
+  scarcityFactor: number;
+  qualityFactor: number;
+  calculatedReward: number;
+  status: RewardStatus;
+  createdAt: string;
+}
+
+export interface TokenAccount {
+  id: string;
+  userId: string;
+  availableBalance: number;
+  lockedBalance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TransactionType =
+  | 'starter_grant'
+  | 'stake_lock'
+  | 'stake_unlock'
+  | 'reward_payout'
+  | 'penalty';
+
+export interface TokenTransaction {
+  id: string;
+  tokenAccountId: string;
+  transactionType: TransactionType;
+  amount: number;
+  referenceType?: string;
+  referenceId?: string;
+  createdAt: string;
+}
+
+export interface Reputation {
+  id: string;
+  userId: string;
+  score: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HealthResponse {
+  status: 'ok' | 'degraded';
+  service: string;
+  environment: string;
+  version: string;
+  database: 'connected' | 'disconnected';
+}

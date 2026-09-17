@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: horizon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-horizon_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-horizon_password}
+      POSTGRES_DB: ${POSTGRES_DB:-horizon_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-horizon_user} -d ${POSTGRES_DB:-horizon_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2024-03-03T17-50-24Z
+    container_name: horizon-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: horizon-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-horizon_user}:${POSTGRES_PASSWORD:-horizon_password}@postgres:5432/${POSTGRES_DB:-horizon_db}
+      - API_HOST=0.0.0.0
+      - API_PORT=4000
+      - AI_SERVICE_URL=http://ai:8000
+      - S3_ENDPOINT=http://minio:9000
+      - S3_BUCKET=horizon-media
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app
+
+  ai:
+    build:
+      context: ./services/ai
+      dockerfile: Dockerfile
+    container_name: horizon-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - AI_SERVICE_HOST=0.0.0.0
+      - AI_SERVICE_PORT=8000
+    volumes:
+      - ./services/ai:/app
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local

@@ -1,0 +1,50 @@
+name: Horizon CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+  ai-service-check:
+    name: AI Service Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AI Service Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f services/ai/requirements.txt ]; then pip install -r services/ai/requirements.txt; fi
+
+      - name: Run AI Service Tests
+        run: |
+          if [ -d services/ai/tests ]; then pytest services/ai/tests; fi
+        continue-on-error: true

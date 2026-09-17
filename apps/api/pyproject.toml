@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "horizon-api"
+version = "0.1.0"
+description = "Authoritative FastAPI Backend for Horizon Geospatial Platform"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.8.0",
+    "sqlalchemy>=2.0.38",
+    "alembic>=1.14.0",
+    "psycopg2-binary>=2.9.10",
+    "geoalchemy2>=0.17.0",
+    "shapely>=2.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

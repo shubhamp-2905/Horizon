@@ -1,0 +1,32 @@
+{
+  "name": "horizon-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first, task-driven geospatial community contribution platform",
+  "workspaces": [
+    "apps/mobile",
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@horizon/web",
+    "dev:mobile": "npm run start --workspace=@horizon/mobile",
+    "build:web": "npm run build --workspace=@horizon/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "keywords": [
+    "geospatial",
+    "offline-first",
+    "postgis",
+    "crowdsourcing",
+    "verification",
+    "horizon"
+  ],
+  "license": "UNLICENSED"
+}
