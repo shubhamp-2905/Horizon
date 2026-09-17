@@ -1,6 +1,6 @@
 # Horizon
 
-> **Status:** Phase 1 — Foundation & System Core Complete  
+> **Status:** Phase 2 — Task Discovery & Contributor Experience Completed  
 > **Concept:** Offline-first, task-driven geospatial community contribution platform feeding verified ground-truth data into downstream geospatial intelligence systems (Loupe).
 
 ---
@@ -9,21 +9,22 @@
 
 **Horizon** is a platform enabling distributed community contributors to discover, capture, validate, and verify high-value geospatial data in offline-first environments. Contributor submissions undergo multi-stage automated and peer verification before triggering auditable token rewards and streaming validated datasets into downstream analytics pipelines (such as Loupe).
 
-### Core Product Workflow
+### Core Product Workflow (Phase 2 Completed)
 
 ```text
-DATA GAP ──> TASK ──> COMMUNITY CONTRIBUTOR ──> GPS + FORM + PHOTOS 
-  ──> VALIDATION ──> VERIFICATION ──> REWARD ──> VERIFIED GEOSPATIAL DATA 
-  ──> LOUPE DATA PIPELINE
+AUTHENTICATION (Register/Login) ──> CONTRIBUTOR IDENTITY (100 Starter Tokens)
+  ──> ADMIN TASK CREATION (PostGIS Spatial Geometries) ──> TASK PUBLISHING
+  ──> GEOSPATIAL PROXIMITY DISCOVERY (ST_DWithin / ST_Distance)
+  ──> TASK DETAILS & REQUIREMENTS ──> COMMITMENT CLAIM (Row-Locked Escrow)
+  ──> AUDIT LEDGER MUTATION (STARTER_GRANT +100, TASK_STAKE_LOCK -20)
+  ──> MOBILE CONTRIBUTOR & WEB ADMIN CONSOLES
 ```
 
-1. **Task Publication:** Geospatial gaps are published with boundary polygons and commitment stake requirements.
-2. **Commitment / Staking:** Contributors commit to a task window using internal Starter Tokens, preventing duplicate work.
-3. **Offline Field Capture:** Contributors record high-accuracy GPS coordinates, structured forms, and photos without network dependencies.
-4. **Resilient Sync:** Submissions are queued in local SQLite and batch-synchronized upon network reconnection.
-5. **Multi-Stage Verification:** PostGIS boundary checks, deterministic validation, and isolated AI verification signals (anti-spoofing, semantic quality) inform reviewer consensus.
-6. **Authoritative Reward:** The server-authoritative engine returns staked tokens and awards bounties to an append-only transaction ledger.
-7. **Downstream Ingestion:** Verified geospatial datasets stream into Loupe intelligence pipelines.
+1. **Contributor Onboarding:** Registered contributors receive an authoritative `TokenAccount` automatically seeded with 100 Starter Tokens and an immutable `STARTER_GRANT` audit ledger transaction.
+2. **Admin Task Creation & Lifecycle:** Admins create tasks with WGS84 coordinates (`SRID 4326`), reward structures, difficulty factors, and requirements. Tasks transition between `draft` and `published`.
+3. **PostGIS Task Discovery:** Non-admin contributors discover published tasks within a specified radius (e.g. 5,000m) ordered by physical proximity to their GPS fix using native PostGIS spatial functions (`ST_DWithin`, `ST_Distance`).
+4. **Atomic Commitment Staking:** Claiming a task executes an atomic row-locked transaction (`with_for_update()`), moving the commitment stake (e.g. 20 tokens) from `available_balance` to `locked_balance`, creating an immutable `TASK_STAKE_LOCK` ledger entry. Duplicate active claims and claims with insufficient token balances are rejected.
+5. **Multi-Platform Interfaces:** Mobile contributor app (React Native/Expo) with auth, discovery, interactive map, task details, and wallet screens; alongside an administrative Next.js console with real-time task creation and status toggles.
 
 ---
 
@@ -120,18 +121,14 @@ Run the monorepo test suite across all Python services (`apps/api` and `services
 ```bash
 python scripts/test_all.py
 ```
-Or run individually:
-```bash
-# Backend tests
-cd apps/api
-python -m pytest tests -v
 
-# AI service tests
-cd ../../services/ai
-python -m pytest tests -v
+#### B. Run 17-Step Phase 2 Acceptance Demo
+Executes the comprehensive 17-step end-to-end acceptance flow (admin creation, task creation, publishing, contributor onboarding with 100 Starter Tokens, proximity discovery, atomic commitment stake locking, ledger auditing, duplicate claim rejection, and insufficient token rejection):
+```bash
+python scripts/demo_phase2.py
 ```
 
-#### B. Run Database Migrations (Alembic)
+#### C. Run Database Migrations (Alembic)
 ```bash
 cd apps/api
 # Apply migrations to database:

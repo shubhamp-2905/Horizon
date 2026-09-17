@@ -158,3 +158,87 @@ export interface HealthResponse {
   version: string;
   database: 'connected' | 'disconnected';
 }
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    full_name?: string;
+    role: string;
+    status: string;
+  };
+  starter_tokens_granted: boolean;
+}
+
+export interface TaskResponseDTO {
+  id: string;
+  title: string;
+  description?: string;
+  artifact_type: string;
+  status: string;
+  difficulty: number;
+  scarcity: number;
+  base_reward: number;
+  commitment_stake: number;
+  estimated_effort_minutes?: number;
+  requirements?: string[];
+  latitude?: number;
+  longitude?: number;
+  distance_meters?: number;
+  created_at: string;
+}
+
+export interface TaskListResponseDTO {
+  tasks: TaskResponseDTO[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface WalletSummaryDTO {
+  available_balance: number;
+  available_tokens: number;
+  locked_balance: number;
+  locked_tokens: number;
+  total_tokens: number;
+  transactions: Array<{
+    id: string;
+    type: string;
+    transaction_type: string;
+    amount: number;
+    description?: string;
+    reference_type?: string;
+    reference_id?: string;
+    created_at: string;
+  }>;
+  recent_transactions?: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    description?: string;
+    created_at: string;
+  }>;
+}
+
+export interface ClaimResponseDTO {
+  claim_id: string;
+  task_id: string;
+  user_id: string;
+  stake_amount: number;
+  status: string;
+  claimed_at: string;
+  available_tokens: number;
+  locked_tokens: number;
+}
+
+export interface UserClaimedTaskDTO {
+  claim_id: string;
+  status: string;
+  stake_amount: number;
+  claimed_at?: string;
+  completed_at?: string;
+  task: TaskResponseDTO;
+}

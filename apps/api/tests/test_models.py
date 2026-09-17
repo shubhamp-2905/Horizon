@@ -19,6 +19,7 @@ def test_user_and_token_account_lifecycle(db_session):
     user = User(
         email="contributor@example.com",
         username="earth_scout_01",
+        hashed_password="hash123",
         display_name="Earth Scout 01",
         role="contributor",
         status="active",
@@ -66,8 +67,8 @@ def test_user_and_token_account_lifecycle(db_session):
 
 def test_task_submission_and_verification_lifecycle(db_session):
     # 1. Create Contributor & Reviewer
-    contributor = User(email="c1@test.com", username="c1")
-    reviewer = User(email="r1@test.com", username="r1", role="reviewer")
+    contributor = User(email="c1@test.com", username="c1", hashed_password="hash123")
+    reviewer = User(email="r1@test.com", username="r1", role="reviewer", hashed_password="hash123")
     db_session.add_all([contributor, reviewer])
     db_session.flush()
 

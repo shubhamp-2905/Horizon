@@ -63,3 +63,36 @@
 - **Context:** High-resolution ground photos and sensor datasets would quickly bloat the PostgreSQL database if stored as binary blobs (`BYTEA`).
 - **Decision:** Store media files in S3-compatible object storage (Cloudflare R2, AWS S3, or local MinIO), storing only object keys, content types, and metadata hashes in PostgreSQL.
 - **Consequences:** Unlimited scalable media capacity, direct presigned upload support from mobile clients, and minimal database backup footprints.
+
+---
+
+## ADR-009: JWT Bearer Authentication & Role Separation
+- **Status:** Accepted
+- **Context:** Mobile contributors and web administrators require stateless, secure authentication across distributed networks.
+- **Decision:** Implement OAuth2 password bearer tokens with HMAC-SHA256 JWTs using `python-jose` and direct `bcrypt` password hashing. Enforce role separation (`admin` vs `contributor`) at the API route dependency layer via `require_role(...)`.
+- **Consequences:** Stateless auth eliminates server session storage bottlenecks, while standard `Authorization: Bearer <token>` headers seamlessly support both Expo mobile clients and Next.js admin dashboards.
+
+---
+
+## ADR-010: Idempotent Starter Token Grant Initialization
+- **Status:** Accepted
+- **Context:** New contributors need initial stake tokens (100 Starter Tokens) to participate in task discovery without friction, while ensuring malicious users cannot game registration or duplicate accounts to siphon tokens.
+- **Decision:** Initialize a server-authoritative `TokenAccount` with 100 available tokens upon contributor registration, accompanied by an immutable `starter_grant` entry in `TokenTransaction`. Check for existing ledger grants before allocating to enforce strict idempotency.
+- **Consequences:** Contributor identity is paired with an authoritative token wallet on day one. Contributor mobile clients display the server-derived balance without client-side calculation.
+
+---
+
+## ADR-011: Row-Level Locking for Concurrent Commitment Stake Escrow
+- **Status:** Accepted
+- **Context:** Multiple contributors or simultaneous requests could attempt to commit to tasks or double-spend available tokens.
+- **Decision:** Enforce atomic task claiming wrapped in an ACID transaction using SQLAlchemy's `with_for_update()` row-level locking on `TokenAccount`. If available balance is less than `commitment_stake`, immediately abort and raise HTTP 409 Conflict (`INSUFFICIENT_TOKENS`). Record an append-only `task_stake_lock` audit record in `TokenTransaction`.
+- **Consequences:** Prevents race conditions, negative token balances, and duplicate claims. Eliminates distributed lock service overhead while leveraging PostgreSQL's native MVCC row locks.
+
+---
+
+## ADR-012: PostGIS Native Proximity Discovery with Test Dialect Support
+- **Status:** Accepted
+- **Context:** Mobile contributors discover collection tasks based on physical proximity to their GPS fix, filtered by maximum search radius and artifact categories.
+- **Decision:** Leverage PostGIS `ST_DWithin` and `ST_Distance` on WGS84 coordinates (`SRID 4326`) cast to `Geography` for accurate spherical earth distance calculations in meters. Provide an automated Haversine math fallback during in-memory SQLite unit test execution.
+- **Consequences:** High-performance spatial indexing via PostGIS GiST indexes on PostgreSQL production, paired with zero-dependency fast test runs in local and CI SQLite environments.
+

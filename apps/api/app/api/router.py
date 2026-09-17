@@ -1,17 +1,23 @@
 from fastapi import APIRouter
 from app.api.v1 import health
+from app.modules.auth.router import router as auth_router
+from app.modules.tokens.router import router as tokens_router
+from app.modules.tasks.router import router as tasks_router
+from app.modules.admin.router import router as admin_router
 
 api_router = APIRouter()
 
-# Core system endpoints
+# Health & System
 api_router.include_router(health.router)
 
-# Future domain module routers will be mounted here:
-# api_router.include_router(users.router, prefix="/users", tags=["Users"])
-# api_router.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
-# api_router.include_router(submissions.router, prefix="/submissions", tags=["Submissions"])
-# api_router.include_router(verification.router, prefix="/verification", tags=["Verification"])
-# api_router.include_router(rewards.router, prefix="/rewards", tags=["Rewards"])
-# api_router.include_router(tokens.router, prefix="/tokens", tags=["Tokens"])
-# api_router.include_router(reputation.router, prefix="/reputation", tags=["Reputation"])
-# api_router.include_router(media.router, prefix="/media", tags=["Media"])
+# Authentication & Contributor Identity
+api_router.include_router(auth_router)
+
+# Wallet & Tokens
+api_router.include_router(tokens_router)
+
+# Tasks & Geospatial Discovery
+api_router.include_router(tasks_router)
+
+# Admin Task Management
+api_router.include_router(admin_router)
