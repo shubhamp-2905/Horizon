@@ -1,5 +1,6 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database.session import get_db
 from app.database.models.user import User
 from app.database.models.reputation import Reputation
@@ -10,11 +11,15 @@ from app.modules.tokens.service import grant_starter_tokens_idempotent
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def _build_profile_response(user: User, db: Session) -> UserProfileResponse:
+def _build_profile_response(user: User, db: Optional[Session] = None) -> UserProfileResponse:
     account = user.token_account
     available = account.available_balance if account else 0
     locked = account.locked_balance if account else 0
-    rep = db.query(Reputation).filter(Reputation.user_id == user.id).first()
+    
+    # Use eager-loaded reputation if available, else query
+    rep = user.reputation
+    if rep is None and db is not None:
+        rep = db.query(Reputation).filter(Reputation.user_id == user.id).first()
     reputation_score = rep.score if rep else 100.0
 
     return UserProfileResponse(
@@ -73,9 +78,21 @@ def register_user(payload: UserRegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login_user(payload: UserLoginRequest, db: Session = Depends(get_db)):
     """Authenticate contributor or admin credentials and return signed JWT."""
+    ident = payload.email_or_username.strip()
+    if not ident or not payload.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "MISSING_CREDENTIALS", "message": "Email/username and password are required"},
+        )
+
+    # Perform a single consolidated query with eager-loaded account and reputation
     user = (
         db.query(User)
-        .filter((User.email == payload.email_or_username) | (User.username == payload.email_or_username))
+        .options(
+            joinedload(User.token_account),
+            joinedload(User.reputation),
+        )
+        .filter((User.email == ident) | (User.username == ident))
         .first()
     )
     if not user or not verify_password(payload.password, user.hashed_password):

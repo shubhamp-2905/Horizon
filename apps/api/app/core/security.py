@@ -66,7 +66,13 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id).first()
+    from sqlalchemy.orm import joinedload
+    user = (
+        db.query(User)
+        .options(joinedload(User.token_account), joinedload(User.reputation))
+        .filter(User.id == user_id)
+        .first()
+    )
     if user is None:
         raise credentials_exception
     if user.status != "active":

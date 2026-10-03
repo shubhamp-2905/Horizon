@@ -49,16 +49,44 @@ function resolveDefaultBaseUrl(): string {
   return 'http://localhost:4000/api/v1';
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 15000
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: any) {
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      throw new Error(
+        `Connection timed out (${Math.round(timeoutMs / 1000)}s). If using Render's free tier, the server may take 30-45s to wake up from cold sleep. Please retry.`
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export class HorizonApiClient {
   private baseUrl: string;
   private token: string | null = null;
+  private currentSession: AuthTokenResponse | null = null;
+  private activeLoginKey: string | null = null;
+  private activeLoginPromise: Promise<AuthTokenResponse> | null = null;
 
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || resolveDefaultBaseUrl();
   }
 
   setBaseUrl(url: string): void {
-    this.baseUrl = url;
+    this.baseUrl = url.replace(/\/+$/, '');
   }
 
   getBaseUrl(): string {
@@ -73,6 +101,20 @@ export class HorizonApiClient {
     return this.token;
   }
 
+  saveSession(session: AuthTokenResponse): void {
+    this.currentSession = session;
+    this.setToken(session.access_token);
+  }
+
+  clearSession(): void {
+    this.currentSession = null;
+    this.setToken(null);
+  }
+
+  getCurrentSession(): AuthTokenResponse | null {
+    return this.currentSession;
+  }
+
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -85,7 +127,7 @@ export class HorizonApiClient {
 
   async checkHealth(): Promise<HealthResponse> {
     try {
-      const res = await fetch(`${this.baseUrl}/health`);
+      const res = await fetchWithTimeout(`${this.baseUrl}/health`, {}, 8000);
       if (!res.ok) {
         throw new Error(`API health check failed with status: ${res.status}`);
       }
@@ -102,46 +144,70 @@ export class HorizonApiClient {
     full_name?: string;
   }): Promise<AuthTokenResponse> {
     try {
-      const res = await fetch(`${this.baseUrl}/auth/register`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ ...params, role: 'contributor' }),
-      });
+      const res = await fetchWithTimeout(
+        `${this.baseUrl}/auth/register`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ ...params, role: 'contributor' }),
+        },
+        20000
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(extractErrorMessage(err, 'Registration failed'));
       }
       const data: AuthTokenResponse = await res.json();
-      this.setToken(data.access_token);
+      this.saveSession(data);
       return data;
     } catch (err: any) {
       if (err.name === 'TypeError' || err.message?.includes('Network request failed')) {
-        throw new Error(`Unable to reach backend at ${this.baseUrl}. Please verify Wi-Fi connectivity.`);
+        throw new Error(`Unable to reach backend at ${this.baseUrl}. Please verify network connectivity.`);
       }
       throw err;
     }
   }
 
   async login(emailOrUsername: string, password: string): Promise<AuthTokenResponse> {
-    try {
-      const res = await fetch(`${this.baseUrl}/auth/login`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ email_or_username: emailOrUsername, password }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(extractErrorMessage(err, 'Invalid login credentials'));
-      }
-      const data: AuthTokenResponse = await res.json();
-      this.setToken(data.access_token);
-      return data;
-    } catch (err: any) {
-      if (err.name === 'TypeError' || err.message?.includes('Network request failed')) {
-        throw new Error(`Unable to reach backend at ${this.baseUrl}. Please verify Wi-Fi connectivity.`);
-      }
-      throw err;
+    const trimmedIdent = emailOrUsername.trim();
+
+    // In-flight deduping: prevent duplicate simultaneous login requests for the same identity
+    if (this.activeLoginKey === trimmedIdent && this.activeLoginPromise) {
+      return this.activeLoginPromise;
     }
+
+    const execLogin = async (): Promise<AuthTokenResponse> => {
+      try {
+        const res = await fetchWithTimeout(
+          `${this.baseUrl}/auth/login`,
+          {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ email_or_username: trimmedIdent, password }),
+          },
+          25000 // Accommodate cold-start on free-tier cloud containers
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(extractErrorMessage(err, 'Invalid login credentials'));
+        }
+        const data: AuthTokenResponse = await res.json();
+        this.saveSession(data);
+        return data;
+      } catch (err: any) {
+        if (err.name === 'TypeError' || err.message?.includes('Network request failed')) {
+          throw new Error(`Unable to reach backend at ${this.baseUrl}. Please check network or verify backend is awake.`);
+        }
+        throw err;
+      } finally {
+        this.activeLoginKey = null;
+        this.activeLoginPromise = null;
+      }
+    };
+
+    this.activeLoginKey = trimmedIdent;
+    this.activeLoginPromise = execLogin();
+    return this.activeLoginPromise;
   }
 
   async getMe(): Promise<any> {

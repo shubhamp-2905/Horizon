@@ -183,6 +183,10 @@ export interface AuthTokenResponse {
     full_name?: string;
     role: string;
     status: string;
+    available_tokens?: number;
+    locked_tokens?: number;
+    total_tokens?: number;
+    reputation_score?: number;
   };
   starter_tokens_granted: boolean;
 }
@@ -218,6 +222,7 @@ export interface WalletSummaryDTO {
   locked_balance: number;
   locked_tokens: number;
   total_tokens: number;
+  reputation_score?: number;
   transactions: Array<{
     id: string;
     type: string;

@@ -22,7 +22,14 @@ import { taskRepo, claimRepo } from '../offline/repositories';
 interface HomeScreenProps {
   onNavigate: (tab: 'discover' | 'tasks' | 'wallet') => void;
   onSelectTask?: (task: TaskResponseDTO) => void;
-  user?: { username: string; email: string; full_name?: string } | null;
+  user?: {
+    username: string;
+    email: string;
+    full_name?: string;
+    available_tokens?: number;
+    locked_tokens?: number;
+    reputation_score?: number;
+  } | null;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -30,16 +37,91 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectTask,
   user,
 }) => {
-  const [wallet, setWallet] = useState<WalletSummaryDTO | null>(null);
+  // Immediately initialize wallet from authenticated user payload to avoid blocking render
+  const [wallet, setWallet] = useState<WalletSummaryDTO | null>(() => {
+    if (user && user.available_tokens !== undefined) {
+      const avail = user.available_tokens;
+      const locked = user.locked_tokens ?? 0;
+      return {
+        available_balance: avail,
+        available_tokens: avail,
+        locked_balance: locked,
+        locked_tokens: locked,
+        total_tokens: avail + locked,
+        reputation_score: user.reputation_score ?? 100,
+        transactions: [],
+        recent_transactions: [],
+      };
+    }
+    return null;
+  });
   const [activeTasks, setActiveTasks] = useState<UserClaimedTaskDTO[]>([]);
   const [nearbyTasks, setNearbyTasks] = useState<TaskResponseDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncState, setSyncState] = useState<SyncEngineState>(syncEngine.getState());
 
   useEffect(() => {
     const unsub = syncEngine.subscribe(setSyncState);
     return unsub;
+  }, []);
+
+  // Pre-populate with local cached data immediately on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [cachedClaims, cachedTasks] = await Promise.all([
+          claimRepo.getCachedClaims(),
+          taskRepo.getAllCachedTasks(),
+        ]);
+        if (!mounted) return;
+        if (cachedClaims.length > 0) {
+          setActiveTasks(
+            cachedClaims.map((c) => ({
+              claim_id: c.claim_id,
+              status: c.status,
+              stake_amount: c.stake_amount,
+              claimed_at: c.claimed_at,
+              task: {
+                id: c.task_id,
+                title: 'Cached Task',
+                artifact_type: 'offline_task',
+                status: 'published',
+                difficulty: 1.0,
+                scarcity: 1.0,
+                base_reward: 50,
+                commitment_stake: c.stake_amount,
+                created_at: c.claimed_at,
+              },
+            }))
+          );
+        }
+        if (cachedTasks.length > 0) {
+          setNearbyTasks(
+            cachedTasks.slice(0, 2).map((t) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description,
+              artifact_type: t.artifact_type,
+              status: t.status,
+              difficulty: t.difficulty,
+              scarcity: t.scarcity,
+              base_reward: t.base_reward,
+              commitment_stake: t.commitment_stake,
+              estimated_effort_minutes: t.estimated_effort_minutes,
+              requirements: t.requirements,
+              created_at: t.last_synced_at,
+            }))
+          );
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const loadDashboardData = useCallback(async () => {

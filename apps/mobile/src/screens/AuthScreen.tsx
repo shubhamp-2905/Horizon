@@ -25,6 +25,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   const [password, setPassword] = useState('Contributor123!');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<string | null>(null);
+  const isSubmittingRef = React.useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState(apiClient.getBaseUrl());
@@ -77,10 +79,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   };
 
   const handleSubmit = async () => {
+    // Prevent duplicate submissions and concurrent taps
+    if (loading || isSubmittingRef.current) return;
     if (!validateForm()) return;
 
+    isSubmittingRef.current = true;
     setLoading(true);
     setErrorMessage(null);
+    setLoadingStage('Signing in...');
+
+    // Feedback for cloud cold starts
+    const stageTimer = setTimeout(() => {
+      if (isSubmittingRef.current) {
+        setLoadingStage('Connecting to cloud server (Render free tier may take 15–30s to wake up)...');
+      }
+    }, 3500);
+
     try {
       let authResponse: AuthTokenResponse;
       if (isLogin) {
@@ -97,7 +111,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication request failed');
     } finally {
+      clearTimeout(stageTimer);
       setLoading(false);
+      setLoadingStage(null);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -275,12 +292,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
         )}
 
         <HorizonButton
-          title={isLogin ? 'Sign In' : 'Create Contributor Account'}
+          title={
+            loading
+              ? (isLogin ? 'Signing In...' : 'Creating Account...')
+              : (isLogin ? 'Sign In' : 'Create Contributor Account')
+          }
           onPress={handleSubmit}
           loading={loading}
+          disabled={loading}
           size="lg"
           style={styles.submitBtn}
         />
+
+        {loadingStage && (
+          <View style={styles.loadingStageBox}>
+            <Text style={styles.loadingStageText}>{loadingStage}</Text>
+          </View>
+        )}
 
         {/* Server Connection Indicator / Config for Expo Go & LAN */}
         <View style={styles.serverCard}>
@@ -300,6 +328,44 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
               <Text style={styles.serverHelpText}>
                 Expo Go connects over Wi-Fi. Modify host IP if running on a physical phone.
               </Text>
+              
+              {/* Quick Preset Selector */}
+              <View style={styles.presetRow}>
+                <TouchableOpacity
+                  style={styles.presetPill}
+                  onPress={() => {
+                    const u = 'https://horizon-backend-api.onrender.com/api/v1';
+                    setServerUrl(u);
+                    apiClient.setBaseUrl(u);
+                    setServerStatus(null);
+                  }}
+                >
+                  <Text style={styles.presetPillText}>☁ Render</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetPill}
+                  onPress={() => {
+                    const u = 'http://10.67.243.54:4000/api/v1';
+                    setServerUrl(u);
+                    apiClient.setBaseUrl(u);
+                    setServerStatus(null);
+                  }}
+                >
+                  <Text style={styles.presetPillText}>📶 Wi-Fi LAN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetPill}
+                  onPress={() => {
+                    const u = 'http://localhost:4000/api/v1';
+                    setServerUrl(u);
+                    apiClient.setBaseUrl(u);
+                    setServerStatus(null);
+                  }}
+                >
+                  <Text style={styles.presetPillText}>💻 Localhost</Text>
+                </TouchableOpacity>
+              </View>
+
               <TextInput
                 style={styles.serverInput}
                 value={serverUrl}
@@ -588,5 +654,41 @@ const styles = StyleSheet.create({
   },
   serverStatusError: {
     color: colors.statusError,
+  },
+  loadingStageBox: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#EFF6FF',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+  },
+  loadingStageText: {
+    fontSize: 12,
+    color: '#1D4ED8',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginVertical: 4,
+  },
+  presetPill: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    alignItems: 'center',
+  },
+  presetPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
 });

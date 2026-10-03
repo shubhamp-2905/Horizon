@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -18,16 +18,24 @@ export const RootNavigator: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<TaskResponseDTO | null>(null);
   const [availableTokens, setAvailableTokens] = useState<number>(100);
 
+  // Restore cached session if available on startup
+  useEffect(() => {
+    const existing = apiClient.getCurrentSession();
+    if (existing && existing.access_token) {
+      setAuth(existing);
+      setAvailableTokens(existing.user?.available_tokens ?? 100);
+    }
+  }, []);
+
   const handleAuthenticated = (authData: AuthTokenResponse) => {
+    // Instant local state transition without waiting for redundant network roundtrips
     setAuth(authData);
-    apiClient
-      .getWallet()
-      .then((w) => setAvailableTokens(w.available_balance))
-      .catch(() => setAvailableTokens(100));
+    setAvailableTokens(authData.user?.available_tokens ?? 100);
+    apiClient.saveSession(authData);
   };
 
   const handleSignOut = () => {
-    apiClient.setToken(null);
+    apiClient.clearSession();
     setAuth(null);
     setCurrentTab('home');
     setSelectedTask(null);
