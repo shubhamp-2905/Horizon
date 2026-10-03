@@ -58,6 +58,8 @@ def register_sqlite_spatial_functions(dbapi_connection, connection_record):
 
 def create_db_engine():
     db_url = settings.DATABASE_URL
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
     is_sqlite = db_url.startswith("sqlite")
 
     # If Postgres is configured, test if it's reachable. If not, fallback to SQLite for local dev.
