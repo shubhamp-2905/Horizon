@@ -64,23 +64,31 @@ def create_db_engine():
 
     # If Postgres is configured, test if it's reachable. If not, fallback to SQLite for local dev.
     if not is_sqlite:
-        try:
-            test_engine = create_engine(
-                db_url,
-                pool_pre_ping=True,
-                connect_args={"connect_timeout": 2},
-            )
-            with test_engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            logger.info("Successfully connected to primary PostgreSQL database.")
-            return test_engine
-        except Exception as exc:
-            logger.warning(
-                f"PostgreSQL connection to {db_url} failed ({exc}). "
-                f"Falling back to local SQLite database for development."
-            )
-            db_url = "sqlite:///./horizon_dev.db"
-            is_sqlite = True
+        candidates = [db_url]
+        if db_url.startswith("postgresql://"):
+            # Provide explicit driver alternatives in case one dialect is preferred
+            candidates.append(db_url.replace("postgresql://", "postgresql+psycopg2://", 1))
+            candidates.append(db_url.replace("postgresql://", "postgresql+psycopg://", 1))
+
+        for candidate_url in candidates:
+            try:
+                test_engine = create_engine(
+                    candidate_url,
+                    pool_pre_ping=True,
+                    connect_args={"connect_timeout": 4},
+                )
+                with test_engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                logger.info(f"Successfully connected to primary PostgreSQL database using {candidate_url.split('@')[-1]}.")
+                return test_engine
+            except Exception as exc:
+                logger.warning(f"Connection attempt to {candidate_url.split('@')[-1]} failed: {exc}")
+
+        logger.warning(
+            f"All PostgreSQL connection attempts failed. Falling back to local SQLite database for development."
+        )
+        db_url = "sqlite:///./horizon_dev.db"
+        is_sqlite = True
 
     engine_kwargs = {"connect_args": {"check_same_thread": False}}
     eng = create_engine(db_url, **engine_kwargs)
