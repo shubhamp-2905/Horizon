@@ -1,6 +1,6 @@
 # Horizon
 
-> **Status:** Phase 2 — Task Discovery & Contributor Experience Completed  
+> **Status:** Phase 4 — Automated Data Validation & AI Quality Evaluation Completed  
 > **Concept:** Offline-first, task-driven geospatial community contribution platform feeding verified ground-truth data into downstream geospatial intelligence systems (Loupe).
 
 ---
@@ -122,11 +122,27 @@ Run the monorepo test suite across all Python services (`apps/api` and `services
 python scripts/test_all.py
 ```
 
-#### B. Run 17-Step Phase 2 Acceptance Demo
-Executes the comprehensive 17-step end-to-end acceptance flow (admin creation, task creation, publishing, contributor onboarding with 100 Starter Tokens, proximity discovery, atomic commitment stake locking, ledger auditing, duplicate claim rejection, and insufficient token rejection):
-```bash
-python scripts/demo_phase2.py
-```
+#### B. Run Acceptance Demonstrations
+- **Phase 1 (Submission Lifecycle & Verification Foundation):**
+  ```bash
+  python scripts/demo_phase1.py
+  ```
+- **Phase 2 (Task Discovery & Economics):**
+  ```bash
+  python scripts/demo_phase2.py
+  ```
+- **Phase 2 (Offline-First SQLite & Sync Engine):**
+  ```bash
+  python scripts/demo_phase2_offline.py
+  ```
+- **Phase 3 (Field Collection Survey UX):**
+  ```bash
+  python scripts/demo_phase3_survey.py
+  ```
+- **Phase 4 (Automated Data Validation & AI Quality Evaluation):**
+  ```bash
+  python scripts/demo_phase4_validation.py
+  ```
 
 #### C. Run Database Migrations (Alembic)
 ```bash
@@ -138,7 +154,7 @@ alembic upgrade head
 alembic upgrade head --sql
 ```
 
-#### C. Start Authoritative Backend API
+#### D. Start Authoritative Backend API
 ```bash
 cd apps/api
 uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
@@ -147,7 +163,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
 - Health check: `http://localhost:4000/health` or `http://localhost:4000/api/v1/health`
 - Interactive OpenAPI Swagger Docs: `http://localhost:4000/docs`
 
-#### D. Start AI Verification Service
+#### E. Start AI Verification Service
 ```bash
 cd services/ai
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -155,14 +171,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - Health check: `http://localhost:8000/health`
 - Interactive Swagger Docs: `http://localhost:8000/docs`
 
-#### E. Start Reviewer & Admin Web Console (Next.js)
+#### F. Start Reviewer & Admin Web Console (Next.js)
 ```bash
 cd apps/web
 npm run dev
 ```
 - Web console URL: `http://localhost:3000`
 
-#### F. Start Contributor Mobile App (Expo)
+#### G. Start Contributor Mobile App (Expo)
 ```bash
 cd apps/mobile
 npm run start

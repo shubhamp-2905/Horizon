@@ -6,12 +6,14 @@ from app.core.logging import setup_logging
 from app.api.router import api_router
 from app.schemas.health import HealthResponse
 from app.database.session import check_db_connectivity
+from app.database.init_db import init_database
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: configure logging and initial sanity checks
+    # Startup: configure logging and initialize database schema & seed data
     setup_logging()
+    init_database()
     yield
     # Shutdown logic if needed
 
@@ -26,10 +28,11 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# CORS Configuration
+# CORS Configuration - permit localhost and LAN origins for Expo physical devices
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.API_CORS_ORIGINS,
+    allow_origin_regex=r"^https?://.*$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,27 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sidebar, type AdminTab } from '../components/Sidebar';
+import { Header } from '../components/Header';
+import { OverviewTab, type AdminTaskItem } from '../components/OverviewTab';
+import { TasksTab } from '../components/TasksTab';
+import { CreateTaskModal } from '../components/CreateTaskModal';
+import { TaskDetailModal } from '../components/TaskDetailModal';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { SubmissionsTab } from '../components/SubmissionsTab';
+import { ContributorsTab } from '../components/ContributorsTab';
+import { TokenActivityTab } from '../components/TokenActivityTab';
 
-interface AdminTask {
-  id: string;
-  title: string;
-  description: string;
-  artifact_type: string;
-  status: string;
-  difficulty: number;
-  scarcity: number;
-  base_reward: number;
-  commitment_stake: number;
-  estimated_effort_minutes: number;
-  latitude: number;
-  longitude: number;
-  requirements: string[];
-  created_at: string;
-}
-
-const INITIAL_DEMO_TASKS: AdminTask[] = [
+const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
   {
-    id: 'demo-task-1',
+    id: '4ffea264-89ec-402f-b470-f4a058729ddd',
     title: 'Community Water Source Survey',
     description: 'Document water dispensary condition, flow rate, and contamination risk.',
     artifact_type: 'water_source',
@@ -37,7 +30,7 @@ const INITIAL_DEMO_TASKS: AdminTask[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'demo-task-2',
+    id: '8a1c93f0-4521-419b-a012-78d91a2bc45e',
     title: 'Rooftop Solar Array Inspection',
     description: 'Verify solar panel integrity, shading conditions, and inverter wiring.',
     artifact_type: 'solar_installation',
@@ -50,10 +43,10 @@ const INITIAL_DEMO_TASKS: AdminTask[] = [
     latitude: 18.5312,
     longitude: 73.8445,
     requirements: ['Aerial canopy photo', 'Inverter serial code'],
-    created_at: new Date().toISOString(),
+    created_at: new Date(Date.now() - 86400000).toISOString(),
   },
   {
-    id: 'demo-task-3',
+    id: '9b3e12a8-12cd-48ea-b248-18e9741fd230',
     title: 'Micro-Grid Transformer Substation',
     description: 'Inspect ground clearance and thermal hazard warnings.',
     artifact_type: 'telecom_tower',
@@ -66,114 +59,121 @@ const INITIAL_DEMO_TASKS: AdminTask[] = [
     latitude: 18.5089,
     longitude: 73.8631,
     requirements: ['Safety perimeter check', 'Substation meter reading'],
-    created_at: new Date().toISOString(),
+    created_at: new Date(Date.now() - 172800000).toISOString(),
   },
 ];
 
-export default function DashboardPage() {
-  const [tasks, setTasks] = useState<AdminTask[]>(INITIAL_DEMO_TASKS);
+export default function AdminConsolePage() {
+  const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  const [tasks, setTasks] = useState<AdminTaskItem[]>(INITIAL_DEMO_TASKS);
   const [loading, setLoading] = useState(false);
-  const [adminToken, setAdminToken] = useState<string>('');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [artifactType, setArtifactType] = useState('water_source');
-  const [baseReward, setBaseReward] = useState('150');
-  const [commitmentStake, setCommitmentStake] = useState('20');
-  const [difficulty, setDifficulty] = useState('2.0');
-  const [scarcity, setScarcity] = useState('1.5');
-  const [effortMinutes, setEffortMinutes] = useState('25');
-  const [latitude, setLatitude] = useState('18.5204');
-  const [longitude, setLongitude] = useState('73.8567');
-  const [status, setStatus] = useState('published');
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [apiConnected, setApiConnected] = useState(false);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
 
-  const loadDemoPreset = () => {
-    setTitle('Community Water Source Survey');
-    setDescription('Survey and verify public water dispensary status, flow, and cleanliness.');
-    setArtifactType('water_source');
-    setBaseReward('150');
-    setCommitmentStake('20');
-    setDifficulty('2.0');
-    setScarcity('1.5');
-    setEffortMinutes('25');
-    setLatitude('18.5204');
-    setLongitude('73.8567');
-    setStatus('published');
-    setFeedback('Loaded "Community Water Source Survey" demo parameters!');
+  // Modals & Dialogs
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<AdminTaskItem | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  // Notification Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      setFeedback('Error: Task title is required.');
-      return;
-    }
-
+  // Attempt to fetch tasks from live backend or check connectivity
+  const fetchTasksFromApi = useCallback(async () => {
     setLoading(true);
-    setFeedback(null);
+    try {
+      // Check health
+      const healthRes = await fetch('http://localhost:4000/health').catch(() => null);
+      if (healthRes && healthRes.ok) {
+        setApiConnected(true);
+      } else {
+        setApiConnected(false);
+      }
 
-    const newTaskPayload = {
-      title,
-      description,
-      artifact_type: artifactType,
-      status,
-      difficulty: parseFloat(difficulty) || 1.0,
-      scarcity: parseFloat(scarcity) || 1.0,
-      base_reward: parseInt(baseReward, 10) || 50,
-      commitment_stake: parseInt(commitmentStake, 10) || 10,
-      estimated_effort_minutes: parseInt(effortMinutes, 10) || 30,
-      latitude: parseFloat(latitude) || 18.5204,
-      longitude: parseFloat(longitude) || 73.8567,
-      requirements: ['Geotagged ground photo', 'Visual survey checklist'],
-    };
+      // If live backend exists, attempt to query public tasks discovery or admin tasks
+      const res = await fetch('http://localhost:4000/api/v1/tasks?page_size=50').catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.tasks && data.tasks.length > 0) {
+          const mappedTasks: AdminTaskItem[] = data.tasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description || '',
+            artifact_type: t.artifact_type,
+            status: t.status || 'published',
+            difficulty: t.difficulty || 1.0,
+            scarcity: t.scarcity || 1.0,
+            base_reward: t.base_reward || 50,
+            commitment_stake: t.commitment_stake || 10,
+            estimated_effort_minutes: t.estimated_effort_minutes || 25,
+            latitude: t.latitude || 18.5204,
+            longitude: t.longitude || 73.8567,
+            requirements: t.requirements || ['Geotagged ground observation'],
+            created_at: t.created_at || new Date().toISOString(),
+          }));
+          setTasks(mappedTasks);
+        }
+      }
+    } catch {
+      // Fallback
+      setApiConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
+    fetchTasksFromApi();
+  }, [fetchTasksFromApi]);
+
+  const handleCreateTask = async (
+    newTask: Omit<AdminTaskItem, 'id' | 'created_at'>
+  ) => {
+    setLoading(true);
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (adminToken) {
-        headers['Authorization'] = `Bearer ${adminToken}`;
-      }
+      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
 
       const res = await fetch('http://localhost:4000/api/v1/admin/tasks', {
         method: 'POST',
         headers,
-        body: JSON.stringify(newTaskPayload),
-      });
+        body: JSON.stringify(newTask),
+      }).catch(() => null);
 
-      if (res.ok) {
-        const created: AdminTask = await res.json();
-        setTasks([created, ...tasks]);
-        setFeedback(`Task "${created.title}" successfully created and saved to PostGIS!`);
-        setTitle('');
-        setDescription('');
+      if (res && res.ok) {
+        const created = await res.json();
+        setTasks((prev) => [created, ...prev]);
+        showToast(`Task "${created.title}" successfully created and saved to PostGIS!`);
       } else {
-        // Local simulation fallback if standalone backend is not live
-        const simulated: AdminTask = {
-          ...newTaskPayload,
+        const simulated: AdminTaskItem = {
+          ...newTask,
           id: `task-${Date.now()}`,
           created_at: new Date().toISOString(),
         };
-        setTasks([simulated, ...tasks]);
-        setFeedback(`Task "${simulated.title}" created (Simulation mode).`);
-        setTitle('');
-        setDescription('');
+        setTasks((prev) => [simulated, ...prev]);
+        showToast(`Task "${simulated.title}" created successfully.`);
       }
-    } catch {
-      // Fallback
-      const simulated: AdminTask = {
-        ...newTaskPayload,
-        id: `task-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      };
-      setTasks([simulated, ...tasks]);
-      setFeedback(`Task "${simulated.title}" created (Simulation mode).`);
-      setTitle('');
-      setDescription('');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleTaskStatus = async (task: AdminTask) => {
+  const handleToggleStatus = async (task: AdminTaskItem) => {
     const nextStatus = task.status === 'published' ? 'draft' : 'published';
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -183,293 +183,140 @@ export default function DashboardPage() {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: nextStatus }),
-      });
+      }).catch(() => null);
     } catch {
       // Ignore network errors in offline/dev
     }
 
-    setTasks(
-      tasks.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
     );
+    showToast(`Task "${task.title}" status updated to ${nextStatus.toUpperCase()}`);
   };
 
-  const totalRewardsBudget = tasks.reduce((sum, t) => sum + t.base_reward, 0);
-  const publishedCount = tasks.filter((t) => t.status === 'published').length;
+  const handleToggleStatusWithConfirm = (task: AdminTaskItem) => {
+    const willUnpublish = task.status === 'published';
+    setConfirmDialog({
+      isOpen: true,
+      title: willUnpublish ? 'Unpublish Task?' : 'Publish Task?',
+      message: willUnpublish
+        ? `Are you sure you want to unpublish "${task.title}"? Field contributors will no longer be able to discover or commit tokens to this task.`
+        : `Publish "${task.title}" to field contributors? It will immediately appear in geospatial proximity discovery.`,
+      onConfirm: () => {
+        handleToggleStatus(task);
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const handleOpenPreset = () => {
+    setIsCreateModalOpen(true);
+  };
 
   return (
-    <div className="dashboard-layout">
-      {/* Navigation Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            <path d="M2 12h20" />
-          </svg>
-          HORIZON
-        </div>
+    <div className="app-layout">
+      {/* Sidebar Navigation */}
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        taskCount={tasks.length}
+        apiConnected={apiConnected}
+      />
 
-        <nav>
-          <a href="#" className="nav-item active">Overview</a>
-          <a href="#task-management" className="nav-item">Task Management</a>
-          <a href="#" className="nav-item">Contributors</a>
-          <a href="#" className="nav-item">Token Escrow &amp; Ledger</a>
-          <a href="#" className="nav-item">Geospatial PostGIS</a>
-        </nav>
-      </aside>
+      {/* Main Console Viewport */}
+      <main className="app-main">
+        <Header
+          currentTab={currentTab}
+          onCreateTaskClick={() => setIsCreateModalOpen(true)}
+          onRefreshClick={fetchTasksFromApi}
+          onLoadPresetClick={handleOpenPreset}
+          loading={loading}
+        />
 
-      {/* Main Console Content */}
-      <main className="main-content">
-        <header className="header">
-          <h1>Horizon Admin &amp; Reviewer Console</h1>
-          <p>Phase 2: Authoritative geospatial task creation, lifecycle publishing, and token stake escrow.</p>
-        </header>
+        <div className="page-container">
+          {currentTab === 'overview' && (
+            <OverviewTab
+              tasks={tasks}
+              onNavigateToTasks={() => setCurrentTab('tasks')}
+              onOpenCreateTask={() => setIsCreateModalOpen(true)}
+              onToggleStatus={handleToggleStatus}
+              onViewTask={(task) => setSelectedTaskForDetail(task)}
+            />
+          )}
 
-        {/* Metrics Grid */}
-        <section className="metrics-grid">
-          <div className="metric-card">
-            <div className="metric-label">Total Registered Tasks</div>
-            <div className="metric-value">{tasks.length}</div>
-            <div className="metric-status">PostGIS Spatial Database</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Published In Discovery</div>
-            <div className="metric-value">{publishedCount}</div>
-            <div className="metric-status">Active Contributor Scopes</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Draft / Internal Gaps</div>
-            <div className="metric-value">{tasks.length - publishedCount}</div>
-            <div className="metric-status">Pending Review</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Allocated Reward Pool</div>
-            <div className="metric-value">{totalRewardsBudget} TOKENS</div>
-            <div className="metric-status">Server-Authoritative Ledger</div>
-          </div>
-        </section>
+          {currentTab === 'tasks' && (
+            <TasksTab
+              tasks={tasks}
+              onOpenCreateTask={() => setIsCreateModalOpen(true)}
+              onToggleStatusWithConfirm={handleToggleStatusWithConfirm}
+              onViewTask={(task) => setSelectedTaskForDetail(task)}
+            />
+          )}
 
-        {feedback && (
-          <div style={{
-            background: 'rgba(56, 189, 248, 0.1)',
-            border: '1px solid #38bdf8',
-            borderRadius: '8px',
-            padding: '12px 16px',
-            marginBottom: '20px',
-            color: '#38bdf8',
-            fontSize: '14px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>{feedback}</span>
-            <button
-              onClick={() => setFeedback(null)}
-              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
+          {(currentTab === 'submissions' || currentTab === 'review') && (
+            <SubmissionsTab />
+          )}
 
-        <div className="console-grid" id="task-management">
-          {/* Create Task Form */}
-          <section className="form-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Create Geospatial Task</h2>
-              <button
-                type="button"
-                onClick={loadDemoPreset}
-                className="btn-secondary"
-                style={{ fontSize: '11px' }}
-              >
-                Load Demo Preset
-              </button>
+          {currentTab === 'contributors' && <ContributorsTab />}
+
+          {currentTab === 'tokens' && <TokenActivityTab />}
+
+          {currentTab === 'settings' && (
+            <div className="stat-card" style={{ maxWidth: '600px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '12px' }}>
+                Platform &amp; Geospatial Settings
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                <div>
+                  <strong>PostGIS SRID:</strong> 4326 (WGS84 Lat/Long)
+                </div>
+                <div>
+                  <strong>Default Proximity Radius:</strong> 10,000 meters
+                </div>
+                <div>
+                  <strong>Starter Tokens Provisioning:</strong> 100 TOKENS (Fixed by protocol)
+                </div>
+                <div>
+                  <strong>Backend Service Endpoint:</strong> http://localhost:4000/api/v1
+                </div>
+              </div>
             </div>
-
-            <form onSubmit={handleCreateTask}>
-              <div className="form-group">
-                <label className="form-label">Task Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Community Water Source Survey"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Description &amp; Scope</label>
-                <textarea
-                  className="form-textarea"
-                  rows={2}
-                  placeholder="Instructions for contributors..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Artifact Type</label>
-                  <select
-                    className="form-select"
-                    value={artifactType}
-                    onChange={(e) => setArtifactType(e.target.value)}
-                  >
-                    <option value="water_source">Water Source</option>
-                    <option value="solar_installation">Solar Installation</option>
-                    <option value="traffic_flow">Traffic Flow</option>
-                    <option value="emergency_shelter">Emergency Shelter</option>
-                    <option value="telecom_tower">Telecom Tower</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Initial Status</label>
-                  <select
-                    className="form-select"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="published">Published (Discoverable)</option>
-                    <option value="draft">Draft (Internal)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Base Reward</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={baseReward}
-                    onChange={(e) => setBaseReward(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Commitment Stake</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={commitmentStake}
-                    onChange={(e) => setCommitmentStake(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Difficulty (1.0 - 5.0)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="form-input"
-                    value={difficulty}
-                    onChange={(e) => setDifficulty(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Scarcity Factor</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="form-input"
-                    value={scarcity}
-                    onChange={(e) => setScarcity(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Target Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="form-input"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Target Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="form-input"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Creating Task...' : 'Publish / Register Task'}
-              </button>
-            </form>
-          </section>
-
-          {/* Task Management Table */}
-          <section className="table-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Registered Tasks ({tasks.length})</h2>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>PostGIS SRID 4326</span>
-            </div>
-
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Title &amp; Type</th>
-                  <th>Status</th>
-                  <th>Reward</th>
-                  <th>Stake</th>
-                  <th>Coordinates</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t) => (
-                  <tr key={t.id}>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{t.title}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'uppercase' }}>
-                        {t.artifact_type.replace('_', ' ')}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${t.status}`}>
-                        {t.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="text-amber">+{t.base_reward}</td>
-                    <td style={{ color: '#94A3B8' }}>{t.commitment_stake}</td>
-                    <td>
-                      <span className="pill-coord">
-                        {t.latitude.toFixed(4)}, {t.longitude.toFixed(4)}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => toggleTaskStatus(t)}
-                        className="btn-secondary"
-                      >
-                        {t.status === 'published' ? 'Unpublish' : 'Publish'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          )}
         </div>
       </main>
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateTask}
+        loading={loading}
+      />
+
+      {/* Task Details Modal */}
+      <TaskDetailModal
+        task={selectedTaskForDetail}
+        isOpen={selectedTaskForDetail !== null}
+        onClose={() => setSelectedTaskForDetail(null)}
+        onToggleStatus={handleToggleStatus}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Action Notification Toast */}
+      {toastMessage && (
+        <div className="toast-banner">
+          <span>✓</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

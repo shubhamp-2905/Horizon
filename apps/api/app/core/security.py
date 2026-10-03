@@ -77,13 +77,21 @@ def get_current_user(
     return user
 
 
-def require_role(required_role: str):
-    """Dependency factory ensuring user has the necessary role (e.g. admin)."""
+def require_role(*required_roles):
+    """Dependency factory ensuring user has the necessary role (e.g. admin or reviewer)."""
+    if len(required_roles) == 1 and isinstance(required_roles[0], (list, tuple, set)):
+        roles = list(required_roles[0])
+    else:
+        roles = list(required_roles)
+
     def role_checker(current_user = Depends(get_current_user)):
-        if current_user.role != required_role:
+        if current_user.role not in roles:
+            roles_str = " or ".join(roles)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Operation requires {required_role} privileges",
+                detail=f"Operation requires {roles_str} privileges",
             )
         return current_user
+
     return role_checker
+

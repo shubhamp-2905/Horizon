@@ -1,1535 +1,1551 @@
-PROJECT: HORIZON
-PHASE 2 — TASK DISCOVERY & CONTRIBUTOR EXPERIENCE
+PROJECT HORIZON
+PHASE 2 — OFFLINE-FIRST MOBILE
 
-You are continuing development of Project Horizon.
+============================================================
+CURRENT STATUS
+============================================================
 
-IMPORTANT:
-Phase 1 has already been completed and verified.
-
-DO NOT rebuild Phase 1.
-DO NOT replace the existing architecture.
-DO NOT introduce Node.js/NestJS.
-DO NOT unnecessarily refactor working Phase 1 code.
-
-Your job is to build Phase 2 ON TOP OF the existing Phase 1 foundation.
-
-==================================================
-1. PROJECT CONTEXT
-==================================================
-
-Horizon is an offline-first, task-driven geospatial community contribution platform.
-
-The core product loop is:
-
-JOIN
-→ STARTER TOKENS
-→ DISCOVER TASK
-→ COMMIT TO TASK
-→ DOCUMENT
-→ SUBMIT
-→ VALIDATE
-→ VERIFY
-→ REWARD
-→ VERIFIED DATA
-→ LOUPE DATA PIPELINE
-
-Horizon allows contributors to discover geographic data gaps, claim specific tasks, visit locations, collect evidence, and eventually submit verified ground-truth information.
-
-Phase 2 is focused specifically on:
-
-AUTHENTICATION
-→ CONTRIBUTOR IDENTITY
-→ STARTER TOKENS
-→ TASK CREATION
-→ GEOSPATIAL TASK DISCOVERY
-→ TASK DETAILS
-→ TASK CLAIMING
-→ COMMITMENT STAKE
-
-Field data collection itself belongs to Phase 3.
-
-AI/ML belongs primarily to Phase 4.
-
-Production hardening and Loupe integration belong to Phase 5.
-
-==================================================
-2. TECHNOLOGY REQUIREMENTS
-==================================================
-
-Use the existing Phase 1 stack.
-
-MOBILE:
-- React Native
-- Expo
-- TypeScript
-
-WEB / ADMIN:
-- Next.js
-- TypeScript
-
-BACKEND:
-- Python
-- FastAPI
-- SQLAlchemy 2.0
-- Pydantic
-- Alembic
-- GeoAlchemy2
-
-DATABASE:
-- PostgreSQL
-- PostGIS
-
-MEDIA:
-- Existing S3-compatible abstraction / MinIO for local development
-
-OFFLINE:
-- SQLite on mobile
-
-AI:
-- Separate Python + FastAPI service
-- DO NOT implement AI models in Phase 2
-
-IMPORTANT:
-Python + FastAPI is mandatory for the backend.
-Do not introduce Node.js or NestJS.
-
-==================================================
-3. PHASE 2 OBJECTIVE
-==================================================
-
-At the end of Phase 2, a contributor must be able to:
-
-1. Open Horizon.
-2. Register.
-3. Log in.
-4. Receive their initial Starter Tokens.
-5. See their token balance.
-6. View available geographic tasks.
-7. View tasks on a map.
-8. Filter tasks.
-9. Open task details.
-10. See task requirements.
-11. See estimated effort.
-12. See reward information.
-13. See commitment stake.
-14. Commit to a task.
-15. Have the commitment stake locked server-side.
-16. See the task appear in their claimed/active tasks.
-17. See their available and locked token balances update correctly.
-18. Be prevented from claiming a task if they do not have sufficient tokens.
-19. Be prevented from invalid or duplicate claims.
-
-Admin/reviewer users must be able to:
-
-1. Log in.
-2. Create a task.
-3. Define task location/geographic area.
-4. Define reward parameters.
-5. Define commitment stake.
-6. Define task requirements.
-7. Publish/unpublish tasks.
-8. View existing tasks.
-
-This is the Phase 2 definition of done.
-
-==================================================
-4. IMPORTANT SCOPE BOUNDARY
-==================================================
-
-DO NOT IMPLEMENT THE FOLLOWING IN PHASE 2:
-
-- Camera capture
-- Photo upload workflow
-- Dynamic submission forms
-- GPS evidence capture during field work
-- Offline submission synchronization
-- AI image quality
-- MobileCLIP
-- DINOv2
-- pHash
-- LightGBM
-- Human verification
-- Automated submission validation
-- Final reward calculation after verification
-- Reputation scoring
-- Fraud detection
-- Loupe pipeline integration
-- EarthLens integration
-- Complex production deployment
-
-Those belong to later phases.
-
-Phase 2 is about:
-
-AUTH + TASKS + MAP + CLAIMING + TOKEN COMMITMENT.
-
-==================================================
-5. FIRST STEP — INSPECT PHASE 1
-==================================================
-
-Before writing code:
-
-1. Inspect the entire existing Horizon repository.
-2. Inspect the Phase 1 database models.
-3. Inspect the existing FastAPI architecture.
-4. Inspect the existing mobile architecture.
-5. Inspect the existing Next.js architecture.
-6. Inspect shared TypeScript packages.
-7. Inspect existing migrations.
-8. Inspect tests.
-9. Inspect README and architecture documentation.
-
-Identify what already exists and reuse it.
-
-DO NOT recreate existing models.
-
-DO NOT duplicate utilities.
-
-DO NOT create a second configuration system.
-
-DO NOT create a second database connection layer.
-
-DO NOT replace working Phase 1 code unless absolutely necessary.
-
-Before implementation, provide a short internal implementation plan based on the actual repository.
-
-==================================================
-6. AUTHENTICATION & IDENTITY
-==================================================
-
-Implement a clean authentication foundation.
-
-The contributor must be able to:
-
-- Register
-- Log in
-- Log out
-- Maintain authenticated session
-- Retrieve current user profile
-
-Use secure password hashing.
-
-Use JWT-based authentication unless the existing Phase 1 architecture already establishes another secure mechanism.
-
-Backend endpoints should be approximately:
-
-POST /api/v1/auth/register
-POST /api/v1/auth/login
-POST /api/v1/auth/logout
-GET  /api/v1/auth/me
-
-If logout is implemented as client-side token invalidation for the MVP, document the security tradeoff.
-
-Use access tokens appropriately.
-
-Do not store plaintext passwords.
-
-Do not expose password hashes through APIs.
-
-==================================================
-7. USER ROLES
-==================================================
-
-The Phase 1 User model supports:
-
-- contributor
-- reviewer
-- admin
-
-Implement role handling sufficiently for Phase 2.
-
-Contributor:
-- discover tasks
-- claim tasks
-- view own tasks
-- view own wallet
-
-Reviewer:
-- access reviewer functionality where required
-
-Admin:
-- create/update/publish tasks
-
-Do not build a complete role/permission management system yet.
-
-Use backend authorization checks.
-
-Never rely only on the mobile/web UI to enforce permissions.
-
-==================================================
-8. STARTER TOKENS
-==================================================
-
-Implement the initial Starter Token grant.
-
-IMPORTANT:
-
-Starter Tokens are NOT earned rewards.
-
-They are initial participation credits used to enable the task commitment mechanism.
-
-The current Phase 1 configuration contains:
-
-STARTER_TOKEN_GRANT = 100
-
-Treat this as a PROVISIONAL MVP configuration value.
-
-Do not hardcode 100 throughout the application.
-
-Read it from the shared/configuration layer.
-
-When a new contributor is successfully created:
-
-- create their TokenAccount if one does not exist
-- grant the configured Starter Token amount
-- create an immutable TokenTransaction describing the grant
-
-Example:
-
-New user:
-
-Available = 100
-Locked = 0
-
-Ledger:
-
-STARTER_GRANT +100
-
-This operation must be idempotent.
-
-A user must never receive Starter Tokens multiple times because of:
-
-- repeated API calls
-- retry requests
-- application restarts
-- duplicated registration attempts
-
-==================================================
-9. TOKEN ACCOUNT RULES
-==================================================
-
-The backend is the ONLY authority for token balances.
-
-The mobile application must NEVER calculate authoritative token balances.
-
-Do not allow:
-
-POST /wallet
-{
-  "balance": 500
-}
-
-or any equivalent client-controlled balance update.
-
-The backend must derive balances from trusted server-side state.
-
-The Phase 1 model contains:
-
-available_balance
-locked_balance
-
-Use these correctly.
-
-For Phase 2:
-
-Available Tokens:
-Tokens the contributor can use.
-
-Locked Tokens:
-Tokens currently committed to active task claims.
-
-Total balance:
-
-available + locked
-
-==================================================
-10. TOKEN LEDGER
-==================================================
-
-Use the existing TokenTransaction model.
-
-Treat it as an append-only audit ledger.
-
-Phase 2 transaction types should include at minimum:
-
-STARTER_GRANT
-TASK_STAKE_LOCK
-
-Do NOT implement final reward issuance yet.
-
-The ledger must record:
-
-- transaction ID
-- user/account
-- amount
-- transaction type
-- reference type
-- reference ID
-- timestamp
-
-Use positive/negative amounts consistently and document the convention.
-
-Example:
-
-STARTER_GRANT
-+100
-
-TASK_STAKE_LOCK
--20
-
-The locked balance should increase by 20 when the stake is committed.
-
-Do not simply mutate balances without recording the corresponding ledger event.
-
-==================================================
-11. TASK DOMAIN
-==================================================
-
-Use the existing Task model from Phase 1.
-
-A task represents a geographic data-collection opportunity.
-
-A task should expose:
-
-- ID
-- title
-- description
-- artifact type
-- status
-- geographic location
-- geographic boundary if available
-- difficulty
-- scarcity
-- base reward
-- commitment stake
-- estimated effort
-- estimated distance if calculated for a contributor
-- requirements
-- creation timestamp
-- expiry if available
-
-Do not redesign the existing Task model unnecessarily.
-
-If a required field is missing, add a migration only when necessary.
-
-==================================================
-12. TASK STATUS
-==================================================
-
-Use explicit task lifecycle states.
-
-At minimum:
-
-DRAFT
-PUBLISHED
-PAUSED
+Phase 0 — Baseline Audit:
 COMPLETED
-EXPIRED
-ARCHIVED
 
-Only PUBLISHED tasks should be discoverable by normal contributors.
+Phase 1 — Field Submission Foundation:
+COMPLETED
 
-Admins can create and modify tasks.
+Current verified state:
 
-Do not allow contributors to modify tasks.
+- Backend tests: 18/18 passing
+- Phase 1 acceptance: 13/13 passing
+- Phase 2 previous acceptance flow: 17/17 passing
+- Next.js production build: passing
+- Mobile TypeScript: passing
+- No known regressions
 
-==================================================
-13. TASK CREATION — ADMIN
-==================================================
+Phase 1 now provides:
 
-Implement admin task creation.
+- Submission lifecycle
+- Draft creation/update
+- Dynamic task form schemas
+- GPS/location telemetry
+- Media metadata
+- Submission media registration
+- Claim/submission state synchronization
+- Submission API
+- Verification persistence
+- Admin review foundation
 
-Endpoint approximately:
+Existing mobile offline foundation:
 
-POST /api/v1/admin/tasks
+- React Native + Expo
+- TypeScript
+- SQLite foundation
+- queue.ts
+- Existing API client
 
-Admin should be able to define:
+============================================================
+PHASE 2 OBJECTIVE
+============================================================
 
-- title
-- description
-- artifact type
-- latitude/longitude
-- geographic boundary where applicable
-- difficulty
-- scarcity
-- base reward
-- commitment stake
-- estimated effort
-- requirements
-- status
+Complete the REAL offline-first field workflow.
 
-Provide validation.
+A contributor must be able to perform field work even when there is:
 
-Examples:
+- no internet
+- intermittent internet
+- weak internet
+- network switching
+- app restart
 
-- latitude must be valid
-- longitude must be valid
-- reward cannot be negative
-- stake cannot be negative
-- difficulty must be within configured bounds
-- scarcity must be within configured bounds
-- published tasks must contain required geographic information
+The core requirement is:
 
-Do not allow arbitrary invalid geographic data.
+ONLINE
+  ↓
+Download/cache task
+  ↓
+Start task
+  ↓
+OFFLINE
+  ↓
+Capture location
+  ↓
+Capture images
+  ↓
+Fill observations
+  ↓
+Save locally
+  ↓
+Create local submission
+  ↓
+Queue synchronization
+  ↓
+NETWORK RETURNS
+  ↓
+Synchronize safely
+  ↓
+Server confirms
+  ↓
+Local state becomes synced
 
-==================================================
-14. GEOSPATIAL TASK DISCOVERY
-==================================================
+The user must NEVER lose collected evidence because the network disappeared.
 
-This is a major Phase 2 feature.
+============================================================
+CRITICAL RULES
+============================================================
 
-Use PostgreSQL + PostGIS.
+1. DO NOT rewrite the mobile application.
 
-Do NOT fetch every task and calculate distance in Python.
+2. DO NOT replace React Native.
 
-Use PostGIS for spatial queries.
+3. DO NOT replace Expo.
 
-Support:
+4. DO NOT replace SQLite.
 
-- nearby tasks
-- tasks within a radius
-- geographic filtering
-- task location
-- task boundary
+5. DO NOT introduce another local database.
 
-Use appropriate PostGIS functions such as:
+6. DO NOT introduce Redux/MobX/Zustand/etc. unless the repository already uses one and it is necessary.
 
-ST_DWithin
-ST_Distance
-ST_Contains
+7. DO NOT modify FastAPI architecture unnecessarily.
 
-where appropriate.
+8. DO NOT modify token economics.
 
-Use existing spatial indexes.
+9. DO NOT modify AI functionality.
 
-Do not remove GIST indexes created in Phase 1.
+10. DO NOT implement MobileNetV3, MobileCLIP, DINOv2, pHash, or LightGBM in this phase.
 
-==================================================
-15. TASK DISCOVERY API
-==================================================
+11. DO NOT redesign the entire UI.
 
-Create contributor endpoints approximately:
+12. DO improve the existing mobile screens where necessary to communicate offline state.
 
-GET /api/v1/tasks
-GET /api/v1/tasks/{task_id}
+13. Preserve every existing passing test.
 
-Task list should support parameters such as:
+14. Do not fake synchronization.
 
-latitude
-longitude
-radius
-status
-artifact_type
-difficulty
-minimum_reward
-maximum_reward
+15. Do not silently discard failed operations.
 
-Do not overcomplicate filtering.
+============================================================
+1. FIRST — INSPECT CURRENT OFFLINE IMPLEMENTATION
+============================================================
 
-The most important query is:
+Inspect:
 
-"Give me published tasks near this location."
+apps/mobile/
 
-Example:
+especially:
 
-GET /api/v1/tasks?lat=18.52&lng=73.85&radius=5000
+- queue.ts
+- API client
+- SQLite/database layer
+- navigation
+- task screens
+- TaskDetailScreen
+- MyTasksScreen
+- submission screens if already present
+- authentication persistence
+- existing state management
+- existing network detection
+- existing storage utilities
 
-Return tasks sorted appropriately.
+Also inspect:
 
-For initial MVP, prioritize geographic proximity.
+packages/types/
 
-Do not claim that this is a personalized recommendation engine.
+and backend APIs related to:
 
-==================================================
-16. TASK DETAIL API
-==================================================
+- tasks
+- claims
+- submissions
+- media
+- task form schemas
 
-GET /api/v1/tasks/{task_id}
+Determine exactly what is already implemented.
 
-Return enough information for the contributor to understand the task before claiming it.
+Do not create duplicate abstractions.
 
-Include:
+Before coding, produce a concise:
 
+CURRENT OFFLINE ARCHITECTURE
+
+showing:
+
+SERVER
+↓
+API CLIENT
+↓
+LOCAL DATABASE
+↓
+QUEUE
+↓
+SYNC ENGINE
+↓
+UI STATE
+
+Then implement the missing pieces.
+
+============================================================
+2. OFFLINE-FIRST DATA MODEL
+============================================================
+
+SQLite should become the local source of truth for field operations while offline.
+
+At minimum, locally cache:
+
+TASKS
+CLAIMS
+FORM SCHEMAS
+SUBMISSION DRAFTS
+OBSERVATIONS
+LOCATIONS
+MEDIA REFERENCES
+SYNC OPERATIONS
+
+Do NOT attempt to replicate the entire PostgreSQL database locally.
+
+Only cache data necessary for the contributor workflow.
+
+============================================================
+3. LOCAL TASK CACHE
+============================================================
+
+When the contributor has connectivity:
+
+Fetch relevant tasks.
+
+Store locally:
+
+- task ID
 - title
 - description
 - artifact type
 - location
-- approximate distance
+- radius/area information
 - difficulty
-- estimated effort
 - reward information
-- commitment stake
 - requirements
 - task status
+- created/updated timestamps
+- last synced timestamp
 
-Do not expose internal admin-only fields.
+Use the server as the authoritative source.
 
-==================================================
-17. TASK CLAIMING
-==================================================
+SQLite is the offline working copy.
 
-Implement task claiming.
+============================================================
+4. FORM SCHEMA CACHE
+============================================================
 
-Endpoint approximately:
+Task-specific form schemas must also be cached.
 
-POST /api/v1/tasks/{task_id}/claim
-
-The server must perform ALL validation.
-
-Before claiming:
-
-1. User is authenticated.
-2. Task exists.
-3. Task is PUBLISHED.
-4. Task is claimable.
-5. User does not already have an active claim for the same task.
-6. User has enough available tokens.
-7. Commitment stake is valid.
-
-Then atomically:
-
-1. Lock the required token amount.
-2. Decrease available balance.
-3. Increase locked balance.
-4. Create TaskClaim.
-5. Create TASK_STAKE_LOCK TokenTransaction.
-
-This must happen inside a database transaction.
-
-If any step fails, the entire operation must roll back.
-
-Never allow:
-
-- negative available balance
-- duplicate active claims
-- partial token locking
-- token deduction without a claim
-
-==================================================
-18. COMMITMENT STAKE
-==================================================
-
-Use the existing Phase 1 concept.
-
-Starter Tokens give the contributor an initial participation balance.
-
-A task has a commitment stake.
-
-For example:
-
-Contributor:
-
-Available = 100
+Example:
 
 Task:
-
-Reward = 150
-Commitment = 20
-
-After claiming:
-
-Available = 80
-Locked = 20
-
-The 20 tokens are NOT spent permanently at this point.
-
-They are locked as a commitment.
-
-The exact stake-return/forfeiture behavior belongs to Phase 3 when the submission and verification lifecycle exists.
-
-For Phase 2:
-
-ONLY LOCK THE STAKE.
-
-Do not implement final stake return yet.
-
-Do not implement fraud penalties yet.
-
-==================================================
-19. CONCURRENCY & TRANSACTION SAFETY
-==================================================
-
-This is important.
-
-Two requests must not be able to spend the same token balance.
-
-Example:
-
-User has 10 tokens.
-
-Two simultaneous requests attempt to claim tasks requiring 10 tokens.
-
-Only one should succeed.
-
-Use appropriate database transaction/isolation/row-locking techniques.
-
-The operation should be atomic.
-
-Test concurrent/duplicate claim behavior where practical.
-
-==================================================
-20. CLAIMED TASKS
-==================================================
-
-Implement an endpoint:
-
-GET /api/v1/me/tasks
-
-Return tasks currently claimed by the authenticated contributor.
-
-Show:
-
-- task
-- claim status
-- stake
-- claimed_at
-- task status
-- next action placeholder
-
-Do not build the full submission workflow.
-
-The mobile app should show the task as:
-
-"Committed"
-
-rather than pretending it is already completed.
-
-==================================================
-21. MOBILE APP — AUTH
-==================================================
-
-Implement contributor authentication screens.
-
-Create:
-
-- Welcome / landing
-- Register
-- Login
-- Basic authenticated home
-
-Use a clean mobile-first UX.
-
-Do not overdesign.
-
-Focus on usability.
-
-==================================================
-22. MOBILE APP — HOME
-==================================================
-
-Create the first real Horizon contributor home screen.
-
-It should show:
-
-HORIZON
-
-Token balance
-
-Available tokens
-Locked tokens
-
-Nearby task summary
-
-Active/committed tasks
-
-Navigation to:
-
-- Discover
-- My Tasks
-- Wallet
-- Profile
-
-Keep the UI consistent and clean.
-
-==================================================
-23. MOBILE APP — TASK DISCOVERY
-==================================================
-
-Build the contributor task discovery experience.
-
-Primary experience:
-
-MAP-FIRST + TASK-FIRST
-
-The contributor should be able to:
-
-1. View available tasks.
-2. See task markers.
-3. Tap a marker.
-4. Open task information.
-5. View nearby task list.
-6. Filter tasks.
-
-Use a map library compatible with React Native + Expo.
-
-Do not create fake geographic data in production code.
-
-For development, a small seed dataset may be created.
-
-==================================================
-24. TASK CARD
-==================================================
-
-Create a reusable TaskCard component.
-
-Show:
-
-Task title
-
-Artifact type
-
-Distance
-
-Estimated effort
-
-Reward
-
-Commitment stake
-
-Difficulty
-
-Status
-
-Example:
-
---------------------------------
 Water Source Survey
 
-2.4 km
-~25 min
+Schema:
+- water_source_type
+- condition
+- accessibility
+- water_present
+- seasonal
+- required photos
 
-Reward
-150 tokens
+The contributor must be able to open a previously downloaded/claimed task and continue working without a network connection.
 
-Commitment
-20 tokens
+Do not require a network request just to render the form.
 
-Difficulty
-Medium
+If a task has no locally cached schema:
 
-[ VIEW TASK ]
---------------------------------
+show a clear state rather than crashing.
 
-Do not overload the card.
+============================================================
+5. LOCAL CLAIM CACHE
+============================================================
 
-==================================================
-25. TASK DETAIL SCREEN
-==================================================
+A claimed task must remain accessible offline.
 
-Create a detailed task screen.
+Store locally:
 
-Structure:
+- task ID
+- claim ID
+- claim status
+- stake amount
+- claimed timestamp
+- local synchronization state
 
-TASK TITLE
+The local app must distinguish:
 
-Location / map preview
+SERVER CONFIRMED CLAIM
 
-Description
+from
 
-What you need to collect
+LOCAL PENDING ACTION
 
-Required evidence summary
-
-Estimated effort
-
-Difficulty
-
-Reward
-
-Commitment stake
-
-Important notes
-
-[ COMMIT TO TASK ]
-
-Before committing, clearly explain:
-
-"You will lock X tokens to commit to this task."
-
-The contributor must understand that these tokens are locked, not immediately consumed.
-
-==================================================
-26. TOKEN WALLET UI
-==================================================
-
-Create a basic wallet screen.
-
-Show:
-
-TOTAL
-Available
-Locked
-
-Transaction history.
-
-Example:
-
-+100 Starter Tokens
-
--20 Task Commitment
-
-Do not allow any manual balance modification.
-
-Wallet data comes from backend APIs.
-
-==================================================
-27. MOBILE API CLIENT
-==================================================
-
-Replace placeholder API client functionality where necessary.
-
-Create typed functions for:
-
-register
-login
-logout
-getCurrentUser
-getWallet
-getTasks
-getTask
-claimTask
-getMyTasks
-
-Keep API communication centralized.
-
-Do not scatter fetch calls throughout screens.
-
-==================================================
-28. AUTH SESSION STORAGE
-==================================================
-
-Store authentication state securely on mobile.
-
-Do not store sensitive credentials in plain AsyncStorage.
-
-Use an appropriate secure storage mechanism supported by Expo.
-
-Handle:
-
-- login
-- session restoration
-- logout
-- expired token
-
-==================================================
-29. WEB ADMIN CONSOLE
-==================================================
-
-Extend the existing Next.js dashboard from Phase 1.
-
-Do not redesign the entire dashboard.
-
-Add:
-
-TASK MANAGEMENT
-
-Pages/components:
-
-- Task list
-- Create task
-- Edit task
-- Publish/unpublish
-- Task details
-
-Show:
-
-Task title
-Artifact type
-Location
-Status
-Difficulty
-Reward
-Stake
-
-==================================================
-30. ADMIN TASK CREATION UI
-==================================================
-
-Create a functional task creation form.
-
-Fields:
-
-Title
-Description
-Artifact type
-Latitude
-Longitude
-Geographic boundary if supported
-Difficulty
-Scarcity
-Base reward
-Commitment stake
-Estimated effort
-Requirements
-
-Add client-side validation.
-
-Backend validation remains authoritative.
-
-After creation:
-
-show success state.
-
-Allow admin to publish the task.
-
-==================================================
-31. SEED DATA
-==================================================
-
-Create a small DEVELOPMENT-ONLY seed dataset.
-
-Use realistic sample tasks.
-
-For example:
-
-1. Community Water Source
-2. Community Education Center
-3. Local Sacred Site
-4. Unmapped Archaeological Feature
-5. Community Gathering Point
-
-These are only development examples.
-
-Clearly mark seed data as development data.
-
-Do not present fake data as real Loupe data.
-
-Use realistic coordinates only if clearly marked as development/demo data.
-
-==================================================
-32. DATABASE MIGRATIONS
-==================================================
-
-Inspect whether Phase 1 models already support all required Phase 2 functionality.
-
-If changes are needed:
-
-1. Modify SQLAlchemy models.
-2. Create a new Alembic migration.
-3. Do NOT edit the existing Phase 1 migration unless there is a genuine migration error.
-
-Migration must be reversible where practical.
-
-==================================================
-33. BACKEND API STRUCTURE
-==================================================
-
-Keep the existing modular monolith.
-
-Organize functionality approximately:
-
-app/modules/
-    auth/
-    users/
-    tasks/
-    tokens/
-    admin/
-
-Do not create unnecessary microservices.
-
-The AI service remains separate but is NOT required for Phase 2.
-
-==================================================
-34. SECURITY
-==================================================
-
-Implement basic security correctly.
-
-Requirements:
-
-- Password hashing
-- JWT validation
-- Authentication middleware/dependencies
-- Role authorization
-- Input validation
-- SQL injection protection through SQLAlchemy
-- No hardcoded secrets
-- No token manipulation from clients
-- No admin operations available to contributors
-
-Do not claim enterprise-grade security.
-
-==================================================
-35. ERROR HANDLING
-==================================================
-
-Create clean API errors.
-
-Examples:
-
-401 Unauthorized
-
-403 Forbidden
-
-404 Task not found
-
-409 Task already claimed
-
-409 Insufficient token balance
-
-422 Validation error
-
-Return structured errors suitable for mobile UI.
-
-Example:
-
-{
-  "error": {
-    "code": "INSUFFICIENT_TOKENS",
-    "message": "You do not have enough available tokens to commit to this task."
-  }
-}
-
-==================================================
-36. TESTING
-==================================================
-
-Add real tests.
-
-Backend tests should cover at minimum:
-
-AUTH:
-- registration
-- duplicate registration
-- login
-- invalid password
-- authenticated user
-
-TOKENS:
-- Starter Token grant
-- grant idempotency
-- wallet retrieval
-
-TASKS:
-- create task as admin
-- contributor cannot create task
-- publish task
-- unpublished task not visible to contributor
-- task retrieval
-- geographic task query
-
-CLAIMING:
-- successful claim
-- insufficient tokens
-- duplicate claim
-- unpublished task cannot be claimed
-- token balance updates
-- locked balance updates
-- ledger transaction created
-
-SECURITY:
-- unauthorized endpoints
-- contributor cannot access admin endpoints
-
-Use database-backed tests where required.
-
-Do not mock away the entire business logic.
-
-==================================================
-37. GEOSPATIAL TESTING
-==================================================
-
-Create at least basic tests proving:
-
-1. Nearby published task can be discovered.
-2. Distant task is excluded from radius query.
-3. Geographic coordinates are stored correctly.
-4. Task geographic data uses SRID 4326.
-5. Spatial indexes remain available.
-
-==================================================
-38. API DOCUMENTATION
-==================================================
-
-FastAPI automatically exposes OpenAPI documentation.
-
-Ensure endpoints have:
-
-- clear names
-- descriptions
-- request models
-- response models
-- authentication requirements
-- useful error responses
-
-Keep the API documentation understandable.
-
-==================================================
-39. PRODUCT RULES
-==================================================
-
-Keep these rules explicit.
-
-RULE 1:
-Starter Tokens are initial participation credits.
-
-RULE 2:
-Task rewards are NOT paid when a task is claimed.
-
-RULE 3:
-Claiming locks the commitment stake.
-
-RULE 4:
-Only the backend can modify token state.
-
-RULE 5:
-Only published tasks are visible to contributors.
-
-RULE 6:
-A contributor cannot have multiple active claims for the same task.
-
-RULE 7:
-Token operations must be auditable.
-
-RULE 8:
-Geospatial filtering should be performed by PostGIS.
-
-RULE 9:
-The client cannot decide reward or token balances.
-
-RULE 10:
-AI is not part of Phase 2 business logic.
-
-==================================================
-40. IMPORTANT PRODUCT CLARIFICATION
-==================================================
-
-Do NOT implement the old concept where contributors receive tokens in exchange for EarthLens report access.
-
-That is NOT the Horizon direction.
-
-Horizon tokens are an internal participation/reward mechanism.
-
-EarthLens remains a downstream consumer of verified geospatial intelligence.
-
-==================================================
-41. UX PRINCIPLES
-==================================================
-
-The contributor experience should be:
-
-MAP-FIRST
-TASK-FIRST
-FIELD-FIRST
-
-Prioritize:
-
-- clarity
-- minimal steps
-- obvious reward
-- obvious commitment requirement
-- clear location
-- clear task requirements
-- clear token state
-
-Avoid:
-
-- unnecessary animations
-- excessive dashboards
-- complicated onboarding
-- cryptocurrency-style wallet UI
-- unnecessary gamification
-- technical terminology
-
-The product should feel like a serious geospatial field-data platform.
-
-==================================================
-42. NO OVER-ENGINEERING
-==================================================
-
-Do not introduce:
-
-- Kubernetes
-- Kafka
-- Redis unless genuinely required
-- GraphQL
-- blockchain
-- cryptocurrency
-- microservices for every domain
-- event-driven architecture
-- complex recommendation systems
-
-The current architecture should remain:
-
-React Native
-+
-Next.js
-+
-FastAPI modular monolith
-+
-PostgreSQL/PostGIS
-+
-S3-compatible storage
-+
-separate AI service
-
-==================================================
-43. DEFINITION OF DONE
-==================================================
-
-Phase 2 is complete only when:
-
-AUTH
-[ ] Contributor can register
-[ ] Contributor can log in
-[ ] Contributor can log out
-[ ] Current user endpoint works
-[ ] Role authorization works
-
-TOKENS
-[ ] New contributor receives Starter Tokens
-[ ] Starter grant is idempotent
-[ ] Wallet shows available/locked balance
-[ ] Token ledger records Starter Token grant
-
-TASKS
-[ ] Admin can create task
-[ ] Admin can edit task
-[ ] Admin can publish/unpublish task
-[ ] Published tasks are discoverable
-[ ] Task details work
-[ ] Geographic task queries work
-[ ] PostGIS is used for spatial filtering
-
-CLAIMING
-[ ] Contributor can claim task
-[ ] Commitment stake locks
-[ ] Available balance decreases
-[ ] Locked balance increases
-[ ] Ledger transaction is created
-[ ] Duplicate claims are prevented
-[ ] Insufficient token balance is rejected
-[ ] Concurrent claims are handled safely
-
-MOBILE
-[ ] Auth screens work
-[ ] Home screen works
-[ ] Task map works
-[ ] Task list works
-[ ] Task detail works
-[ ] Commit task works
-[ ] Wallet works
-[ ] My Tasks works
-
-ADMIN
-[ ] Admin dashboard works
-[ ] Task creation works
-[ ] Task management works
-
-TESTING
-[ ] Backend tests pass
-[ ] Geospatial tests pass
-[ ] Authentication tests pass
-[ ] Token tests pass
-[ ] Claiming tests pass
-
-DOCUMENTATION
-[ ] API documentation updated
-[ ] Phase 2 architecture notes updated
-[ ] README updated
-[ ] Product workflow updated
-
-==================================================
-44. VERIFICATION / DEMO FLOW
-==================================================
-
-Before declaring Phase 2 complete, perform this exact demonstration:
-
-STEP 1
-Create an admin user.
-
-STEP 2
-Login as admin.
-
-STEP 3
-Create:
-
-"Community Water Source Survey"
-
-Reward:
-150 tokens
-
-Commitment:
-20 tokens
-
-Difficulty:
-2.0
-
-Scarcity:
-1.5
-
-Location:
-Development/demo geographic coordinate.
-
-STEP 4
-Publish the task.
-
-STEP 5
-Create a contributor.
-
-STEP 6
-Verify Starter Tokens:
-
-Available = 100
-Locked = 0
-
-STEP 7
-Open mobile app.
-
-STEP 8
-Login as contributor.
-
-STEP 9
-Open Discover.
-
-STEP 10
-See the task on the map/list.
-
-STEP 11
-Open task details.
-
-STEP 12
-Verify:
-
-Reward = 150
-Commitment = 20
-
-STEP 13
-Commit to task.
-
-STEP 14
-Verify:
-
-Available = 80
-Locked = 20
-
-STEP 15
-Verify ledger:
-
-STARTER_GRANT +100
-TASK_STAKE_LOCK -20
-
-STEP 16
-Attempt to claim the same task again.
-
-It must fail.
-
-STEP 17
-Attempt another task requiring more tokens than available.
-
-It must fail with a clear error.
-
-This demonstration is the minimum end-to-end Phase 2 acceptance test.
-
-==================================================
-45. PERFORMANCE
-==================================================
-
-Do not prematurely optimize.
-
-But ensure:
-
-- database indexes are used
-- spatial queries use PostGIS
-- pagination exists for task lists
-- APIs don't return unnecessary data
-- mobile task lists are efficiently rendered
-
-==================================================
-46. DOCUMENTATION OF DECISIONS
-==================================================
-
-Update:
-
-docs/architecture/decisions.md
-
-Add Phase 2 decisions such as:
-
-- JWT authentication approach
-- Starter Token initialization
-- server-authoritative token balances
-- task commitment mechanism
-- PostGIS spatial discovery
-- transactional token locking
-- contributor/admin separation
-
-==================================================
-47. FINAL EXECUTION INSTRUCTIONS
-==================================================
-
-Before coding:
-
-1. Inspect Phase 1.
-2. Identify reusable components.
-3. Identify any missing requirements.
-4. Create an implementation plan.
-
-Then implement Phase 2 incrementally.
-
-Recommended implementation order:
-
-1. Authentication backend
-2. Authentication database integration
-3. Starter token initialization
-4. Wallet APIs
-5. Task APIs
-6. PostGIS spatial discovery
-7. Task claiming transaction
-8. Backend tests
-9. Mobile authentication
-10. Mobile home
-11. Mobile task discovery
-12. Mobile map
-13. Task details
-14. Commit task
-15. Wallet
-16. My Tasks
-17. Admin task management
-18. Seed data
-19. Integration testing
-20. Documentation
-
-After implementation:
-
-Run:
-
-- backend tests
-- migration checks
-- API checks
-- frontend type checks
-- Next.js build
-- mobile TypeScript checks/build validation where available
-
-Perform the complete Phase 2 demo flow described above.
-
-Fix errors introduced during implementation.
-
-Do not move to Phase 3 automatically.
-
-==================================================
-48. FINAL RESPONSE REQUIRED FROM ANTIGRAVITY
-==================================================
-
-When Phase 2 is complete, provide:
-
-1. Summary of what was implemented.
-2. Files/modules added or modified.
-3. Database migrations created.
-4. API endpoints created.
-5. Mobile screens created.
-6. Admin functionality created.
-7. Token flow implemented.
-8. PostGIS functionality implemented.
-9. Tests executed and results.
-10. Build results.
-11. Demo flow verification results.
-12. Known limitations.
-13. Recommended next step.
+Do not let an offline client invent a server-authoritative claim.
 
 IMPORTANT:
 
-DO NOT claim Phase 2 is complete if the acceptance/demo flow fails.
+If claiming currently requires a live server request, preserve that behavior unless the existing architecture explicitly supports offline claiming.
 
-Do not proceed automatically to Phase 3.
+Phase 2 priority is:
 
-STOP after Phase 2.
+OFFLINE WORK AFTER A VALID CLAIM
+
+not speculative offline claiming.
+
+============================================================
+6. LOCAL SUBMISSION DRAFT
+============================================================
+
+When a contributor starts a field survey:
+
+Create or load the local draft.
+
+Local draft should contain:
+
+- local submission ID
+- server submission ID if known
+- task ID
+- claim ID
+- observations
+- location
+- media references
+- draft status
+- created timestamp
+- updated timestamp
+- sync status
+
+Possible local states:
+
+LOCAL_DRAFT
+READY_TO_SYNC
+SYNCING
+SYNCED
+SYNC_FAILED
+
+Do not confuse local synchronization state with server submission status.
+
+Example:
+
+Local:
+SYNCED
+
+Server:
+SUBMITTED
+
+or:
+
+Local:
+READY_TO_SYNC
+
+Server:
+no submission yet
+
+These are different concepts.
+
+============================================================
+7. CLIENT-GENERATED IDENTIFIERS
+============================================================
+
+Every locally created submission must have a stable client-generated ID.
+
+Use UUID or the repository's existing identifier mechanism.
+
+Example:
+
+local_submission_id
+
+This ID must survive:
+
+- app restart
+- retries
+- network changes
+- process termination
+
+It must not be regenerated every time synchronization is attempted.
+
+This is essential for idempotency.
+
+============================================================
+8. SYNC QUEUE
+============================================================
+
+Complete the existing queue.ts implementation.
+
+The queue must support operations such as:
+
+CREATE_SUBMISSION
+UPDATE_SUBMISSION
+ATTACH_MEDIA
+FINALIZE_SUBMISSION
+
+Only include operations actually required by the existing API.
+
+Each queue item should contain conceptually:
+
+- operation ID
+- operation type
+- local entity ID
+- server entity ID if known
+- payload/reference
+- created timestamp
+- retry count
+- last attempt
+- status
+- error information
+
+Possible states:
+
+PENDING
+SYNCING
+FAILED
+COMPLETED
+
+Avoid ambiguous boolean fields such as:
+
+synced = true/false
+
+A real state machine is easier to debug.
+
+============================================================
+9. SYNC ORDER
+============================================================
+
+Synchronization must respect dependencies.
+
+Example:
+
+CREATE_SUBMISSION
+        ↓
+UPDATE_SUBMISSION
+        ↓
+ATTACH_MEDIA
+        ↓
+FINALIZE_SUBMISSION
+
+Do NOT upload media before the server knows which submission it belongs to.
+
+Do NOT finalize a submission before required evidence has synchronized.
+
+The sync engine must understand operation dependencies.
+
+============================================================
+10. IDEMPOTENT SYNCHRONIZATION
+============================================================
+
+This is one of the most important requirements.
+
+Consider:
+
+Client sends:
+
+CREATE_SUBMISSION
+
+Server successfully creates it.
+
+Network fails before client receives response.
+
+Client retries.
+
+The server must NOT create a second submission.
+
+Use the Phase 1 client-generated identifier / idempotency mechanism.
+
+Same principle for:
+
+- media attachment
+- final submission
+
+Retries must be safe.
+
+============================================================
+11. NETWORK DETECTION
+============================================================
+
+Use the existing Expo-compatible network capability if already present.
+
+Detect:
+
+ONLINE
+OFFLINE
+
+Also handle:
+
+NETWORK_UNSTABLE
+
+Do not assume:
+
+"network connected"
+
+means:
+
+"server request will succeed."
+
+A request can still fail due to:
+
+- timeout
+- DNS
+- server unavailable
+- API error
+
+The sync engine must treat request failures separately from actual connectivity state.
+
+============================================================
+12. AUTOMATIC SYNC
+============================================================
+
+When network becomes available:
+
+Automatically attempt synchronization.
+
+Flow:
+
+OFFLINE
+  ↓
+NETWORK AVAILABLE
+  ↓
+SYNC QUEUE
+  ↓
+PROCESS OPERATIONS
+  ↓
+SERVER CONFIRMATION
+  ↓
+UPDATE LOCAL STATE
+
+Do not block the entire application while synchronization happens.
+
+Sync should run safely in the background where Expo architecture permits.
+
+============================================================
+13. MANUAL SYNC
+============================================================
+
+Also provide a manual synchronization action.
+
+Example:
+
+Sync Now
+
+Display:
+
+Syncing...
+
+or:
+
+All changes synced
+
+or:
+
+3 items waiting to sync
+
+This is important for field users who want confidence that their evidence has reached the server.
+
+============================================================
+14. RETRY ENGINE
+============================================================
+
+Failed operations must be retried safely.
+
+Do not retry infinitely at maximum speed.
+
+Use bounded retry behavior.
+
+Example strategy:
+
+Attempt 1
+↓
+short delay
+
+Attempt 2
+↓
+longer delay
+
+Attempt 3
+↓
+longer delay
+
+Eventually:
+
+FAILED
+
+Then wait for:
+
+- network restoration
+- manual retry
+- application retry policy
+
+Do not create aggressive polling.
+
+============================================================
+15. ERROR CLASSIFICATION
+============================================================
+
+Not every error should be retried.
+
+Classify errors.
+
+RETRYABLE:
+
+- timeout
+- connection failure
+- server temporarily unavailable
+- 5xx
+
+NOT AUTOMATICALLY RETRYABLE:
+
+- 400 validation error
+- 401 authentication failure
+- 403 authorization
+- 404 invalid entity
+- 409 business conflict
+
+For non-retryable errors:
+
+mark the queue operation appropriately.
+
+Show the user enough information to fix the issue.
+
+Do not hide permanent failures.
+
+============================================================
+16. SYNC STATUS UI
+============================================================
+
+The mobile application must clearly communicate synchronization.
+
+Add a global sync indicator where appropriate.
+
+Possible states:
+
+✓ Synced
+
+⟳ Syncing...
+
+3 changes waiting
+
+⚠ Sync failed
+
+Offline
+
+Example:
+
+--------------------------------
+OFFLINE
+
+Your work is saved on this device.
+
+3 items waiting to sync.
+--------------------------------
+
+When synchronized:
+
+--------------------------------
+✓ ALL CHANGES SYNCED
+
+Last synced:
+09:42 AM
+--------------------------------
+
+The user should never wonder:
+
+"Did my data disappear?"
+
+============================================================
+17. FIELD COLLECTION OFFLINE UX
+============================================================
+
+When offline:
+
+DO NOT disable:
+
+- viewing cached tasks
+- opening claimed tasks
+- viewing cached form schema
+- editing local draft
+- capturing images
+- capturing location
+- entering observations
+- reviewing draft
+
+Instead:
+
+Show:
+
+OFFLINE
+
+and explain:
+
+"Your work will sync automatically when you're back online."
+
+============================================================
+18. MEDIA OFFLINE STORAGE
+============================================================
+
+This is critical.
+
+When the contributor captures an image offline:
+
+The image must be stored locally.
+
+Do NOT store only a remote URL.
+
+Store:
+
+- local URI
+- local media ID
+- submission ID
+- MIME type
+- file size
+- dimensions where available
+- capture timestamp
+- GPS metadata where available
+- upload/sync status
+- content hash where possible
+
+Example:
+
+LOCAL MEDIA
+
+local_media_id
+submission_id
+local_uri
+status = PENDING_UPLOAD
+
+When network returns:
+
+LOCAL FILE
+↓
+UPLOAD
+↓
+SERVER STORAGE
+↓
+MEDIA RECORD
+↓
+LOCAL STATUS = SYNCED
+
+============================================================
+19. IMAGE STORAGE SAFETY
+============================================================
+
+Do not allow app cleanup mechanisms to delete unsynchronized evidence.
+
+A media file should only be deleted locally when:
+
+- server upload succeeded
+- server media record exists
+- local state is safely marked synced
+
+Even then, preserve the file if the product's offline recovery policy requires it.
+
+Never delete pending evidence simply because:
+
+"cache cleanup"
+
+occurred.
+
+============================================================
+20. APP RESTART RECOVERY
+============================================================
+
+Test this scenario:
+
+1. User claims task.
+2. User starts submission.
+3. User goes offline.
+4. Captures GPS.
+5. Captures 4 images.
+6. Completes form.
+7. App is killed.
+8. App is reopened.
+9. Network remains offline.
+
+Expected:
+
+Draft is still present.
+
+Images are still present.
+
+Observations are still present.
+
+Location is still present.
+
+Sync status is preserved.
+
+Then:
+
+10. Network returns.
+11. Sync starts.
+12. Submission reaches server.
+
+============================================================
+21. PARTIAL SYNC RECOVERY
+============================================================
+
+Test:
+
+Submission created successfully.
+
+Media 1 uploaded.
+
+Media 2 failed.
+
+Media 3 uploaded.
+
+Network disappears.
+
+Expected:
+
+Do NOT recreate submission.
+
+Do NOT re-upload media 1 unnecessarily.
+
+Do NOT lose media 2.
+
+When network returns:
+
+Resume from the failed operation.
+
+This requires operation-level synchronization state.
+
+============================================================
+22. DUPLICATE PREVENTION
+============================================================
+
+Ensure that repeated synchronization does not create:
+
+- duplicate submission
+- duplicate media
+- duplicate observation
+- duplicate finalization
+- duplicate server records
+
+Use:
+
+client IDs
++
+idempotency keys
++
+server uniqueness constraints where appropriate.
+
+Do not rely solely on client-side checks.
+
+============================================================
+23. SERVER-SIDE IDEMPOTENCY
+============================================================
+
+Review Phase 1 APIs.
+
+If required, extend the FastAPI backend so requests include:
+
+Idempotency-Key
+
+or a stable client-generated resource identifier.
+
+For example:
+
+POST /tasks/{task_id}/submission
+
+with:
+
+client_submission_id
+
+The server should recognize repeated creation attempts.
+
+Do not introduce a generic distributed idempotency system unless necessary.
+
+Keep it simple and reliable.
+
+============================================================
+24. CONFLICT HANDLING
+============================================================
+
+Define behavior for:
+
+- submission already submitted
+- claim released
+- task no longer available
+- server record deleted/invalid
+- stale draft
+- media already uploaded
+
+Do not overwrite server data blindly.
+
+Examples:
+
+If server says:
+
+SUBMISSION ALREADY SUBMITTED
+
+local state should become:
+
+SYNCED / SUBMITTED
+
+not:
+
+FAILED
+
+If server says:
+
+CLAIM NO LONGER VALID
+
+show:
+
+"This task can no longer be submitted."
+
+Preserve local evidence.
+
+Do not delete it automatically.
+
+============================================================
+25. AUTHENTICATION OFFLINE
+============================================================
+
+Inspect the existing authentication persistence.
+
+The app should remain usable for active field work after temporary network loss.
+
+Do NOT implement offline registration.
+
+Do NOT allow sensitive authentication operations without the server.
+
+Use the existing authentication architecture.
+
+If an access token expires while offline:
+
+- preserve local work
+- do not lose drafts
+- require reauthentication when synchronization requires it
+
+Never delete local evidence because authentication failed.
+
+============================================================
+26. TASK CACHE EXPIRATION
+============================================================
+
+Cached data should include:
+
+last_synced_at
+
+Do not aggressively delete task data.
+
+A user may need to finish a task after losing connectivity.
+
+Clearly indicate stale data when appropriate.
+
+Example:
+
+Task information
+Last synced 2h ago
+
+Do not prevent useful field work solely because cached metadata is old unless the task's server-side rules require it.
+
+============================================================
+27. SQLITE DATA MODEL
+============================================================
+
+Inspect existing SQLite implementation.
+
+Extend it rather than creating a parallel system.
+
+Potential local tables:
+
+cached_tasks
+cached_claims
+cached_form_schemas
+local_submissions
+local_observations
+local_locations
+local_media
+sync_operations
+
+Only create tables that do not already exist.
+
+Each table must have a clear purpose.
+
+Avoid copying every PostgreSQL field into SQLite.
+
+============================================================
+28. SQLITE MIGRATIONS
+============================================================
+
+If the local database schema changes:
+
+Implement a proper local migration/versioning strategy.
+
+Do not simply delete the local database during development.
+
+Existing user data should survive app updates.
+
+============================================================
+29. SYNC ENGINE ARCHITECTURE
+============================================================
+
+Use a clear separation:
+
+LOCAL REPOSITORY
+        ↓
+SYNC QUEUE
+        ↓
+SYNC ENGINE
+        ↓
+API CLIENT
+        ↓
+FASTAPI
+
+The UI should not manually orchestrate:
+
+create submission
+then upload media
+then finalize
+
+directly when offline.
+
+Instead:
+
+UI
+ ↓
+Local Repository
+ ↓
+Local DB
+ ↓
+Queue
+ ↓
+Sync Engine
+
+This is the foundation for reliable offline-first architecture.
+
+============================================================
+30. LOCAL REPOSITORY
+============================================================
+
+Create a clean abstraction if the repository does not already have one.
+
+Example:
+
+TaskRepository
+SubmissionRepository
+MediaRepository
+SyncRepository
+
+The mobile UI should interact with repositories rather than directly manipulating SQLite.
+
+Do not over-engineer.
+
+The goal is:
+
+UI
+→ repository
+→ SQLite
+
+and:
+
+sync engine
+→ repository
+→ API
+
+============================================================
+31. UI STATE
+============================================================
+
+The UI must distinguish:
+
+LOCAL DRAFT
+SYNCING
+SYNCED
+SYNC FAILED
+
+For example:
+
+Task Detail
+
+Status:
+In Progress
+
+Sync:
+✓ Synced
+
+or:
+
+Sync:
+3 changes pending
+
+Submission:
+
+Draft saved locally
+
+This should be visible but not intrusive.
+
+============================================================
+32. HOME SCREEN
+============================================================
+
+Improve the existing HomeScreen to surface useful sync information.
+
+Potential cards:
+
+ACTIVE TASKS
+2
+
+PENDING SYNC
+3
+
+COMPLETED
+14
+
+TOKENS
+320
+
+Do not add fake metrics.
+
+Only show data that exists.
+
+A compact sync status component is especially important.
+
+============================================================
+33. MY TASKS
+============================================================
+
+Show task status clearly.
+
+Example:
+
+WATER SOURCE SURVEY
+
+Claimed
+
+Draft saved locally
+
+or:
+
+Submitted
+
+or:
+
+Waiting for sync
+
+Do not make the user guess what happened.
+
+============================================================
+34. SUBMISSION STATUS
+============================================================
+
+Separate:
+
+SERVER STATUS
+
+from:
+
+SYNC STATUS
+
+Example:
+
+Server:
+DRAFT
+
+Sync:
+SYNCED
+
+or:
+
+Server:
+SUBMITTED
+
+Sync:
+SYNCED
+
+or:
+
+Server:
+unknown
+
+Sync:
+PENDING
+
+This distinction is mandatory.
+
+============================================================
+35. NETWORK CHANGE TESTING
+============================================================
+
+Test:
+
+ONLINE
+→ OFFLINE
+→ ONLINE
+
+and:
+
+ONLINE
+→ OFFLINE
+→ app restart
+→ ONLINE
+
+and:
+
+ONLINE
+→ weak connection
+→ timeout
+→ retry
+→ success
+
+and:
+
+OFFLINE
+→ capture multiple tasks
+→ ONLINE
+→ sync multiple operations
+
+============================================================
+36. PERFORMANCE
+============================================================
+
+Do not block the UI during sync.
+
+Do not:
+
+- reload entire task lists unnecessarily
+- upload all media simultaneously
+- create excessive API calls
+- repeatedly re-render the entire app
+
+Use controlled synchronization.
+
+If multiple media files exist:
+
+Use a safe sequential or bounded-concurrency strategy.
+
+Do not exhaust memory.
+
+============================================================
+37. SECURITY
+============================================================
+
+Never store:
+
+- passwords
+- refresh secrets unnecessarily
+- sensitive credentials
+
+in plain text.
+
+If authentication tokens are persisted, follow the existing secure storage architecture.
+
+Local field evidence is sensitive product data.
+
+Do not expose file paths unnecessarily.
+
+============================================================
+38. OBSERVABILITY
+============================================================
+
+Add useful local sync logs.
+
+Example:
+
+SYNC STARTED
+operation=abc
+
+UPLOAD MEDIA
+media=123
+
+SYNC SUCCESS
+operation=abc
+
+or:
+
+SYNC FAILED
+operation=abc
+reason=timeout
+retry_count=2
+
+Do not log:
+
+- passwords
+- tokens/secrets
+- unnecessary sensitive data
+
+============================================================
+39. TESTING
+============================================================
+
+Add tests for:
+
+LOCAL DATABASE:
+
+1. Task caching
+2. Form schema caching
+3. Draft persistence
+4. Media persistence
+5. Queue persistence
+
+SYNC:
+
+6. Queue insertion
+7. Queue ordering
+8. Successful sync
+9. Failed sync
+10. Retry
+11. Retry limit
+12. Resume after failure
+13. Idempotent submission creation
+14. Idempotent media upload
+15. Duplicate prevention
+
+OFFLINE:
+
+16. Create draft offline
+17. Update draft offline
+18. Capture location offline
+19. Capture media offline
+20. App restart recovery
+
+CONFLICTS:
+
+21. Already submitted
+22. Invalid claim
+23. Server conflict
+24. Authentication failure
+
+REGRESSION:
+
+All existing backend tests must remain passing.
+
+Phase 1 acceptance must remain passing.
+
+Phase 2 original acceptance must remain passing.
+
+============================================================
+40. END-TO-END ACCEPTANCE TEST
+============================================================
+
+Create:
+
+scripts/demo_phase2_offline.py
+
+or equivalent appropriate test mechanism.
+
+Demonstrate:
+
+1. Contributor logs in.
+2. Contributor has a claimed task.
+3. Task and schema are cached.
+4. Network becomes unavailable.
+5. Contributor opens task.
+6. Contributor creates/loads draft.
+7. Contributor captures location.
+8. Contributor captures required images.
+9. Contributor enters observations.
+10. Contributor saves draft.
+11. App restart is simulated.
+12. Draft remains.
+13. Network restored.
+14. Sync begins.
+15. Submission created on server.
+16. Media uploaded.
+17. Draft updated.
+18. Submission finalized.
+19. Server confirms submission.
+20. Local sync state becomes synced.
+21. Re-running sync does not create duplicates.
+
+============================================================
+41. WEB
+============================================================
+
+Do not significantly modify the web application in this phase.
+
+Only make changes if necessary to expose useful sync/submission information.
+
+Do not redesign the admin console.
+
+============================================================
+42. BACKEND
+============================================================
+
+Only modify FastAPI where required for:
+
+- idempotency
+- client-generated identifiers
+- safe repeated requests
+- synchronization compatibility
+
+Do not rewrite submission logic.
+
+Do not change business rules.
+
+============================================================
+43. AI
+============================================================
+
+No AI model implementation in this phase.
+
+Do not implement:
+
+MobileNetV3
+MobileCLIP
+pHash
+DINOv2
+LightGBM
+
+The purpose of this phase is to create reliable evidence transport.
+
+============================================================
+44. ACCEPTANCE CRITERIA
+============================================================
+
+Phase 2 is complete only if:
+
+OFFLINE FIELD WORK:
+
+✓ Cached claimed task opens offline
+
+✓ Cached form schema opens offline
+
+✓ Submission draft works offline
+
+✓ Observations work offline
+
+✓ GPS data can be stored offline
+
+✓ Images can be captured/stored offline
+
+✓ App restart does not lose work
+
+✓ Sync queue survives restart
+
+✓ Network restoration triggers sync
+
+✓ Failed operations retry safely
+
+✓ Partial sync resumes
+
+✓ Duplicate records are prevented
+
+✓ Sync status is visible
+
+✓ User can manually retry
+
+SERVER:
+
+✓ Idempotent submission creation
+
+✓ Idempotent media attachment
+
+✓ Final submission remains safe
+
+✓ Existing Phase 1 behavior preserved
+
+DATABASE:
+
+✓ Local migrations work
+
+✓ No data loss
+
+TESTS:
+
+✓ Existing backend tests pass
+
+✓ Phase 1 acceptance passes
+
+✓ Phase 2 acceptance passes
+
+✓ New offline tests pass
+
+MOBILE:
+
+✓ TypeScript passes
+
+✓ No runtime TypeScript errors
+
+✓ Main offline workflow verified
+
+============================================================
+45. REQUIRED COMPLETION REPORT
+============================================================
+
+After implementation, report exactly:
+
+### PHASE
+Phase 2 — Offline-First Mobile
+
+### STATUS
+Completed / Partially Completed / Blocked
+
+### OFFLINE ARCHITECTURE
+- ...
+
+### SQLITE CHANGES
+- ...
+
+### SYNC QUEUE
+- ...
+
+### SYNC ENGINE
+- ...
+
+### API CHANGES
+- ...
+
+### IDEMPOTENCY
+- ...
+
+### MEDIA OFFLINE STORAGE
+- ...
+
+### NETWORK HANDLING
+- ...
+
+### UI CHANGES
+- ...
+
+### FILES CREATED
+- ...
+
+### FILES MODIFIED
+- ...
+
+### DATABASE/MIGRATION CHANGES
+- ...
+
+### TESTS
+- Backend: X/X
+- Phase 1 acceptance: X/X
+- Phase 2 acceptance: X/X
+- Offline tests: X/X
+- Web build: PASS/FAIL
+- Mobile TypeScript: PASS/FAIL
+
+### OFFLINE SCENARIOS VERIFIED
+- Offline draft
+- App restart
+- Network recovery
+- Partial sync
+- Retry
+- Duplicate prevention
+- Conflict handling
+
+### REGRESSIONS
+- None
+or
+- ...
+
+### KNOWN LIMITATIONS
+- ...
+
+### NEXT PHASE
+Phase 3 — Field Collection UX
+
+============================================================
+FINAL INSTRUCTION
+============================================================
+
+Implement Phase 2 now.
+
+First inspect the existing mobile SQLite and queue implementation.
+
+Do not recreate it.
+
+Complete the existing offline foundation.
+
+Preserve all working functionality from Phase 0 and Phase 1.
+
+Do not move automatically to Phase 3 after completion.
+
+Do not claim completion unless the offline scenarios and tests have actually been verified.

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -8,6 +8,7 @@ import { WalletScreen } from '../screens/WalletScreen';
 import { MyTasksScreen } from '../screens/MyTasksScreen';
 import { apiClient } from '../services/api';
 import type { AuthTokenResponse, TaskResponseDTO } from '@horizon/types';
+import { colors, radius } from '../theme/colors';
 
 type Tab = 'home' | 'discover' | 'tasks' | 'wallet';
 
@@ -19,7 +20,6 @@ export const RootNavigator: React.FC = () => {
 
   const handleAuthenticated = (authData: AuthTokenResponse) => {
     setAuth(authData);
-    // Fetch initial wallet balance
     apiClient
       .getWallet()
       .then((w) => setAvailableTokens(w.available_balance))
@@ -34,7 +34,6 @@ export const RootNavigator: React.FC = () => {
   };
 
   const handleTaskClaimSuccess = () => {
-    // Refresh balance and transition to My Tasks
     apiClient
       .getWallet()
       .then((w) => setAvailableTokens(w.available_balance))
@@ -46,6 +45,7 @@ export const RootNavigator: React.FC = () => {
   if (!auth) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
         <AuthScreen onAuthenticated={handleAuthenticated} />
       </SafeAreaView>
     );
@@ -53,21 +53,40 @@ export const RootNavigator: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.surface} />
+
+      {/* Top Application Bar */}
       <View style={styles.topBar}>
-        <View style={styles.userBadge}>
-          <Text style={styles.userIcon}>👤</Text>
-          <Text style={styles.userName}>{auth.user.username}</Text>
-        </View>
-        <View style={styles.topRight}>
-          <View style={styles.tokenPill}>
-            <Text style={styles.tokenPillText}>{availableTokens} TOKENS</Text>
+        <View style={styles.brandGroup}>
+          <View style={styles.brandIconCircle}>
+            <Text style={styles.brandIconText}>◈</Text>
           </View>
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <View>
+            <Text style={styles.brandTitle}>HORIZON</Text>
+            <Text style={styles.userName}>{auth.user.username}</Text>
+          </View>
+        </View>
+
+        <View style={styles.topRight}>
+          <TouchableOpacity
+            style={styles.balancePill}
+            onPress={() => {
+              setSelectedTask(null);
+              setCurrentTab('wallet');
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.balanceDot} />
+            <Text style={styles.balancePillText}>{availableTokens} TOKENS</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn} activeOpacity={0.7}>
+            <Text style={styles.signOutText}>Exit</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Screen Content View */}
       <View style={styles.content}>
         {selectedTask ? (
           <TaskDetailScreen
@@ -79,12 +98,11 @@ export const RootNavigator: React.FC = () => {
         ) : currentTab === 'home' ? (
           <HomeScreen
             onNavigate={(tab) => setCurrentTab(tab)}
+            onSelectTask={(task) => setSelectedTask(task)}
             user={auth.user}
           />
         ) : currentTab === 'discover' ? (
-          <DiscoverScreen
-            onSelectTask={(task) => setSelectedTask(task)}
-          />
+          <DiscoverScreen onSelectTask={(task) => setSelectedTask(task)} />
         ) : currentTab === 'tasks' ? (
           <MyTasksScreen
             onSelectClaimedTask={(task) => setSelectedTask(task)}
@@ -95,7 +113,7 @@ export const RootNavigator: React.FC = () => {
         )}
       </View>
 
-      {/* Bottom Navigation Tabs */}
+      {/* Bottom Navigation Bar */}
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={[styles.navItem, currentTab === 'home' && !selectedTask && styles.activeNavItem]}
@@ -103,8 +121,11 @@ export const RootNavigator: React.FC = () => {
             setSelectedTask(null);
             setCurrentTab('home');
           }}
+          activeOpacity={0.8}
         >
-          <Text style={styles.navIcon}>🏠</Text>
+          <Text style={[styles.navSymbol, currentTab === 'home' && !selectedTask && styles.activeNavSymbol]}>
+            ⌂
+          </Text>
           <Text style={[styles.navText, currentTab === 'home' && !selectedTask && styles.activeNavText]}>
             Home
           </Text>
@@ -116,8 +137,11 @@ export const RootNavigator: React.FC = () => {
             setSelectedTask(null);
             setCurrentTab('discover');
           }}
+          activeOpacity={0.8}
         >
-          <Text style={styles.navIcon}>🛰️</Text>
+          <Text style={[styles.navSymbol, currentTab === 'discover' && !selectedTask && styles.activeNavSymbol]}>
+            ◎
+          </Text>
           <Text style={[styles.navText, currentTab === 'discover' && !selectedTask && styles.activeNavText]}>
             Discover
           </Text>
@@ -129,8 +153,11 @@ export const RootNavigator: React.FC = () => {
             setSelectedTask(null);
             setCurrentTab('tasks');
           }}
+          activeOpacity={0.8}
         >
-          <Text style={styles.navIcon}>📋</Text>
+          <Text style={[styles.navSymbol, currentTab === 'tasks' && !selectedTask && styles.activeNavSymbol]}>
+            ▤
+          </Text>
           <Text style={[styles.navText, currentTab === 'tasks' && !selectedTask && styles.activeNavText]}>
             My Tasks
           </Text>
@@ -142,8 +169,11 @@ export const RootNavigator: React.FC = () => {
             setSelectedTask(null);
             setCurrentTab('wallet');
           }}
+          activeOpacity={0.8}
         >
-          <Text style={styles.navIcon}>💎</Text>
+          <Text style={[styles.navSymbol, currentTab === 'wallet' && !selectedTask && styles.activeNavSymbol]}>
+            ◈
+          </Text>
           <Text style={[styles.navText, currentTab === 'wallet' && !selectedTask && styles.activeNavText]}>
             Wallet
           </Text>
@@ -156,7 +186,7 @@ export const RootNavigator: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#090D16',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -164,48 +194,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: colors.border,
   },
-  userBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  userIcon: {
-    fontSize: 16,
-  },
-  userName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  topRight: {
+  brandGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  tokenPill: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+  brandIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(234, 179, 8, 0.3)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    borderColor: colors.borderHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tokenPillText: {
+  brandIconText: {
+    fontSize: 14,
+    color: colors.accentGreen,
+    fontWeight: '900',
+  },
+  brandTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    letterSpacing: 1.5,
+  },
+  userName: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  topRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balancePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accentGreenMuted,
+    borderWidth: 1,
+    borderColor: colors.borderHighlight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    gap: 6,
+  },
+  balanceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accentGreen,
+  },
+  balancePillText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FBBF24',
+    color: colors.accentGreen,
+    letterSpacing: 0.4,
   },
   signOutBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
   },
   signOutText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontWeight: '600',
   },
   content: {
@@ -213,31 +272,36 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
+    borderTopColor: colors.border,
     paddingVertical: 8,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
+    gap: 2,
   },
   activeNavItem: {
     opacity: 1,
   },
-  navIcon: {
+  navSymbol: {
     fontSize: 18,
-    marginBottom: 2,
+    color: colors.textMuted,
+  },
+  activeNavSymbol: {
+    color: colors.accentGreen,
   },
   navText: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 10,
+    color: colors.textMuted,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   activeNavText: {
-    color: '#38BDF8',
-    fontWeight: '700',
+    color: colors.textPrimary,
+    fontWeight: '800',
   },
 });

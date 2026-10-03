@@ -109,3 +109,32 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def admin_token(client):
+    reg = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "fixture_admin@horizon.dev",
+            "username": "fixture_admin",
+            "password": "Password123!",
+            "role": "admin",
+        },
+    )
+    return reg.json()["access_token"]
+
+
+@pytest.fixture
+def contributor_token(client):
+    reg = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "fixture_contributor@horizon.dev",
+            "username": "fixture_contributor",
+            "password": "Password123!",
+            "role": "contributor",
+        },
+    )
+    return reg.json()["access_token"]
+

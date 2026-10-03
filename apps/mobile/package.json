@@ -15,7 +15,16 @@
   "dependencies": {
     "@horizon/types": "*",
     "@horizon/utils": "*",
-    "@horizon/validation": "*"
+    "@horizon/validation": "*",
+    "expo": "~57.0.26",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "~0.21.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@expo/metro-runtime": "~57.0.16",
+    "@expo/ngrok": "^4.1.0",
+    "@types/react": "^19.0.0"
+  }
 }

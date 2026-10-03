@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { TaskResponseDTO } from '@horizon/types';
+import { colors, radius } from '../theme/colors';
+import { TokenBadge } from './ui/TokenBadge';
 
 interface TaskCardProps {
   task: TaskResponseDTO;
@@ -8,54 +10,68 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
+  const formatDistance = (meters?: number) => {
+    if (meters === null || meters === undefined) return 'Nearby';
+    if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+    return `${Math.round(meters)} m`;
+  };
+
+  const getDifficultyLabel = (diff: number) => {
+    if (diff <= 1.5) return 'Easy';
+    if (diff <= 2.5) return 'Moderate';
+    return 'Complex';
+  };
+
+  const formattedType = task.artifact_type.replace(/_/g, ' ');
+  const effortMinutes = task.estimated_effort_minutes || 25;
+  const difficultyText = getDifficultyLabel(task.difficulty);
+
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => onPress(task)}
-      activeOpacity={0.7}
-      accessibilityRole="button"
+      activeOpacity={0.75}
       accessibilityLabel={`Task: ${task.title}`}
     >
-      <View style={styles.header}>
-        <View style={styles.artifactBadge}>
-          <Text style={styles.artifactText}>{task.artifact_type.replace('_', ' ').toUpperCase()}</Text>
+      {/* Top Meta Line: Type & Geospatial Proximity */}
+      <View style={styles.topRow}>
+        <View style={styles.typeBadge}>
+          <Text style={styles.typeText}>{formattedType}</Text>
         </View>
-        {task.distance_meters !== null && task.distance_meters !== undefined ? (
+        <View style={styles.locationContainer}>
+          <View style={styles.locationDot} />
           <Text style={styles.distanceText}>
-            {task.distance_meters >= 1000
-              ? `${(task.distance_meters / 1000).toFixed(1)} km`
-              : `${Math.round(task.distance_meters)} m`}
+            {formatDistance(task.distance_meters)} · ~{effortMinutes} min
           </Text>
-        ) : (
-          <Text style={styles.distanceText}>Proximity ready</Text>
-        )}
+        </View>
       </View>
 
+      {/* Title */}
       <Text style={styles.title} numberOfLines={2}>
         {task.title}
       </Text>
 
+      {/* Description */}
       {task.description ? (
         <Text style={styles.description} numberOfLines={2}>
           {task.description}
         </Text>
       ) : null}
 
+      {/* Economics & Difficulty Footer */}
       <View style={styles.footer}>
-        <View style={styles.tokenPill}>
-          <Text style={styles.rewardText}>+{task.base_reward} TOKENS</Text>
+        <View style={styles.economicsGroup}>
+          <TokenBadge amount={task.base_reward} type="reward" size="sm" />
+          <TokenBadge
+            amount={`${task.commitment_stake}`}
+            label="STAKE"
+            type="stake"
+            size="sm"
+          />
         </View>
 
-        <View style={styles.stakePill}>
-          <Text style={styles.stakeText}>Stake: {task.commitment_stake}</Text>
-        </View>
-
-        <View style={styles.metaPill}>
-          <Text style={styles.metaText}>{task.estimated_effort_minutes || 30}m</Text>
-        </View>
-
-        <View style={styles.metaPill}>
-          <Text style={styles.metaText}>D{task.difficulty.toFixed(1)}</Text>
+        <View style={styles.difficultyBadge}>
+          <Text style={styles.difficultyLabel}>{difficultyText}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -64,90 +80,91 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderLight,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  header: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  artifactBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  typeBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderColor: colors.borderLight,
   },
-  artifactText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#38BDF8',
-    letterSpacing: 0.5,
+  typeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+    textTransform: 'capitalize',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  locationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accentGreen,
   },
   distanceText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#10B981',
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: colors.textPrimary,
+    lineHeight: 20,
     marginBottom: 4,
   },
   description: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 12,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  economicsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    marginTop: 4,
   },
-  tokenPill: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+  difficultyBadge: {
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: 'rgba(234, 179, 8, 0.3)',
+    borderColor: colors.borderLight,
   },
-  rewardText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FBBF24',
-  },
-  stakePill: {
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  stakeText: {
+  difficultyLabel: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#94A3B8',
-  },
-  metaPill: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  metaText: {
-    fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
 });

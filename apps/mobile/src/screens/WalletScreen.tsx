@@ -5,10 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { apiClient } from '../services/api';
 import type { WalletSummaryDTO } from '@horizon/types';
+import { colors, radius } from '../theme/colors';
+import { LoadingState } from '../components/ui/LoadingState';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export const WalletScreen: React.FC = () => {
   const [wallet, setWallet] = useState<WalletSummaryDTO | null>(null);
@@ -38,78 +40,154 @@ export const WalletScreen: React.FC = () => {
     fetchWallet();
   };
 
+  const formatTxType = (type?: string) => {
+    if (!type) return 'TRANSACTION';
+    switch (type.toLowerCase()) {
+      case 'starter_grant':
+        return 'Starter Grant';
+      case 'task_stake_lock':
+      case 'stake_lock':
+        return 'Task Stake';
+      case 'task_stake_unlock':
+      case 'stake_unlock':
+        return 'Stake Return';
+      case 'reward_payout':
+        return 'Task Reward';
+      default:
+        return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  };
+
+  const formatTxDate = (dateStr?: string) => {
+    if (!dateStr) return 'Recent';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38BDF8" />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accentGreen}
+        />
+      }
     >
+      {/* Screen Title */}
       <View style={styles.header}>
         <Text style={styles.title}>CONTRIBUTOR WALLET</Text>
-        <Text style={styles.subtitle}>Server-Authoritative Ledger & Escrow Balances</Text>
+        <Text style={styles.subtitle}>Token Balance & Immutable Audit Ledger</Text>
       </View>
 
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#38BDF8" />
-          <Text style={styles.loadingText}>Fetching token ledger from backend...</Text>
-        </View>
+        <LoadingState message="Retrieving immutable token ledger..." />
       ) : error ? (
-        <View style={styles.centerContainer}>
+        <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : wallet ? (
         <>
-          {/* Main Balance Hero Card */}
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>AVAILABLE TOKENS</Text>
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceBig}>{wallet.available_balance}</Text>
-              <Text style={styles.currencyBadge}>TOKENS</Text>
+          {/* Top Balance Cards: Available, Locked, Total */}
+          <View style={styles.balanceGrid}>
+            {/* Available */}
+            <View style={[styles.balanceCard, styles.availableCard]}>
+              <Text style={styles.balanceCardLabel}>AVAILABLE</Text>
+              <Text style={styles.availableNumber}>{wallet.available_balance}</Text>
+              <Text style={styles.balanceUnitGreen}>TOKENS</Text>
+              <Text style={styles.balanceCardDesc}>Ready to stake on open tasks</Text>
             </View>
-            <Text style={styles.heroHint}>
-              Free balance ready to commit as stake on new geospatial tasks.
-            </Text>
 
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownBox}>
-                <Text style={styles.subLabel}>LOCKED IN ESCROW</Text>
-                <Text style={styles.lockedVal}>{wallet.locked_balance} TOKENS</Text>
-              </View>
-              <View style={styles.breakdownBox}>
-                <Text style={styles.subLabel}>TOTAL REPUTATION WEIGHT</Text>
-                <Text style={styles.totalVal}>{wallet.total_tokens} TOKENS</Text>
-              </View>
+            {/* Locked */}
+            <View style={[styles.balanceCard, styles.lockedCard]}>
+              <Text style={styles.balanceCardLabel}>LOCKED</Text>
+              <Text style={styles.lockedNumber}>{wallet.locked_balance}</Text>
+              <Text style={styles.balanceUnitAmber}>TOKENS</Text>
+              <Text style={styles.balanceCardDesc}>Held in commitment escrow</Text>
+            </View>
+
+            {/* Total */}
+            <View style={[styles.balanceCard, styles.totalCard]}>
+              <Text style={styles.balanceCardLabel}>TOTAL</Text>
+              <Text style={styles.totalNumber}>{wallet.total_tokens}</Text>
+              <Text style={styles.balanceUnitMuted}>TOKENS</Text>
+              <Text style={styles.balanceCardDesc}>Aggregate contributor balance</Text>
             </View>
           </View>
 
-          {/* Ledger History */}
+          {/* Authoritative Explanatory Note */}
+          <View style={styles.explanationNotice}>
+            <View style={styles.shieldIcon}>
+              <Text style={styles.shieldText}>✓</Text>
+            </View>
+            <Text style={styles.explanationText}>
+              Your wallet is controlled by the Horizon server. Transactions are recorded in an immutable ledger.
+            </Text>
+          </View>
+
+          {/* Transaction History Section */}
           <View style={styles.ledgerSection}>
-            <Text style={styles.sectionHeader}>TRANSACTION AUDIT LEDGER</Text>
+            <View style={styles.ledgerHeaderRow}>
+              <Text style={styles.ledgerTitle}>TRANSACTION HISTORY</Text>
+              <Text style={styles.txCount}>
+                {wallet.transactions ? wallet.transactions.length : 0} records
+              </Text>
+            </View>
+
             {wallet.transactions && wallet.transactions.length > 0 ? (
-              wallet.transactions.map((tx) => {
-                const isPositive = tx.amount > 0;
-                return (
-                  <View key={tx.id} style={styles.txRow}>
-                    <View style={styles.txLeft}>
-                      <Text style={styles.txType}>
-                        {(tx.transaction_type || tx.type || '').toUpperCase()}
-                      </Text>
-                      <Text style={styles.txDate}>
-                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Recent'}
-                      </Text>
-                      {tx.description && <Text style={styles.txNote}>{tx.description}</Text>}
+              <View style={styles.txTable}>
+                {wallet.transactions.map((tx, idx) => {
+                  const isPositive = tx.amount > 0;
+                  const isLast = idx === wallet.transactions.length - 1;
+
+                  return (
+                    <View
+                      key={tx.id || idx}
+                      style={[styles.txRow, isLast && styles.txRowLast]}
+                    >
+                      <View style={styles.txTypeArea}>
+                        <Text style={styles.txTypeName}>
+                          {formatTxType(tx.transaction_type || tx.type)}
+                        </Text>
+                        <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
+                        {tx.description && (
+                          <Text style={styles.txDescription} numberOfLines={1}>
+                            {tx.description}
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.txAmountArea}>
+                        <Text
+                          style={[
+                            styles.txAmountText,
+                            isPositive ? styles.amountPositive : styles.amountNegative,
+                          ]}
+                        >
+                          {isPositive ? `+${tx.amount}` : tx.amount}
+                        </Text>
+                        <Text style={styles.txAmountUnit}>TOKENS</Text>
+                      </View>
                     </View>
-                    <View style={styles.txRight}>
-                      <Text style={[styles.txAmount, isPositive ? styles.positive : styles.negative]}>
-                        {isPositive ? `+${tx.amount}` : tx.amount}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
+                  );
+                })}
+              </View>
             ) : (
-              <Text style={styles.emptyLedger}>No ledger transactions recorded yet.</Text>
+              <EmptyState
+                title="No Transactions"
+                description="No ledger entries have been recorded for this wallet yet."
+              />
             )}
           </View>
         </>
@@ -121,11 +199,12 @@ export const WalletScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090D16',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingTop: 50,
+    padding: 18,
+    paddingTop: 44,
+    paddingBottom: 40,
   },
   header: {
     marginBottom: 20,
@@ -133,148 +212,202 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#38BDF8',
-    letterSpacing: 1.5,
+    color: colors.textPrimary,
+    letterSpacing: 2,
   },
   subtitle: {
     fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginTop: 3,
   },
-  heroCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 24,
-  },
-  heroLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  balanceRow: {
+  balanceGrid: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginVertical: 8,
-    gap: 8,
-  },
-  balanceBig: {
-    fontSize: 44,
-    fontWeight: '900',
-    color: '#F8FAFC',
-  },
-  currencyBadge: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  heroHint: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 16,
+    gap: 10,
     marginBottom: 16,
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 14,
-    gap: 12,
-  },
-  breakdownBox: {
+  balanceCard: {
     flex: 1,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.md,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: 'center',
   },
-  subLabel: {
+  availableCard: {
+    borderColor: colors.borderHighlight,
+  },
+  lockedCard: {
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  totalCard: {
+    borderColor: colors.borderLight,
+  },
+  balanceCardLabel: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
+    color: colors.textMuted,
+    letterSpacing: 0.8,
     marginBottom: 4,
   },
-  lockedVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F59E0B',
+  availableNumber: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.textPrimary,
   },
-  totalVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#94A3B8',
+  balanceUnitGreen: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.accentGreen,
+    marginTop: 1,
+  },
+  lockedNumber: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.tokenGold,
+  },
+  balanceUnitAmber: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.tokenGold,
+    marginTop: 1,
+  },
+  totalNumber: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.textSecondary,
+  },
+  balanceUnitMuted: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  balanceCardDesc: {
+    fontSize: 9,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 12,
+  },
+  explanationNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 20,
+    gap: 10,
+  },
+  shieldIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.accentGreenMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.accentGreen,
+  },
+  shieldText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.accentGreen,
+  },
+  explanationText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    flex: 1,
+    lineHeight: 16,
   },
   ledgerSection: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#334155',
+    marginBottom: 16,
   },
-  sectionHeader: {
-    fontSize: 12,
+  ledgerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  ledgerTitle: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 1,
-    marginBottom: 14,
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+  },
+  txCount: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  txTable: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    overflow: 'hidden',
   },
   txRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F172A',
+    borderBottomColor: colors.border,
   },
-  txLeft: {
+  txRowLast: {
+    borderBottomWidth: 0,
+  },
+  txTypeArea: {
     flex: 1,
+    marginRight: 12,
+    gap: 2,
   },
-  txType: {
-    fontSize: 13,
+  txTypeName: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: colors.textPrimary,
   },
   txDate: {
     fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
+    color: colors.textMuted,
   },
-  txNote: {
+  txDescription: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  txRight: {
+  txAmountArea: {
     alignItems: 'flex-end',
+    gap: 2,
   },
-  txAmount: {
+  txAmountText: {
     fontSize: 16,
+    fontWeight: '900',
+  },
+  amountPositive: {
+    color: colors.accentGreen,
+  },
+  amountNegative: {
+    color: colors.tokenGold,
+  },
+  txAmountUnit: {
+    fontSize: 9,
     fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
   },
-  positive: {
-    color: '#10B981',
-  },
-  negative: {
-    color: '#F59E0B',
-  },
-  emptyLedger: {
-    color: '#64748B',
-    fontSize: 13,
-    textAlign: 'center',
-    marginVertical: 20,
-  },
-  centerContainer: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    marginTop: 10,
+  errorBox: {
+    backgroundColor: colors.statusErrorMuted,
+    padding: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    marginBottom: 14,
   },
   errorText: {
-    color: '#F87171',
-    fontSize: 14,
+    fontSize: 13,
+    color: colors.statusError,
   },
 });

@@ -5,11 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { apiClient } from '../services/api';
 import type { AuthTokenResponse } from '@horizon/types';
+import { colors, radius } from '../theme/colors';
+import { HorizonButton } from '../components/ui/HorizonButton';
 
 interface AuthScreenProps {
   onAuthenticated: (auth: AuthTokenResponse) => void;
@@ -22,27 +23,79 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('Contributor123!');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [serverUrl, setServerUrl] = useState(apiClient.getBaseUrl());
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverStatus, setServerStatus] = useState<string | null>(null);
+  const [serverTesting, setServerTesting] = useState(false);
+
+  const testServerConnection = async () => {
+    apiClient.setBaseUrl(serverUrl.trim());
+    setServerTesting(true);
+    setServerStatus(null);
+    try {
+      const res = await apiClient.checkHealth();
+      setServerStatus(`🟢 Connected to Horizon API (${res.status})`);
+    } catch (err: any) {
+      setServerStatus(`🔴 Unreachable (${err.message || 'Network request failed'})`);
+    } finally {
+      setServerTesting(false);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    setValidationError(null);
+    setErrorMessage(null);
+
+    if (isLogin) {
+      if (!emailOrUsername.trim()) {
+        setValidationError('Please enter your username or email address.');
+        return false;
+      }
+      if (!password) {
+        setValidationError('Please enter your password.');
+        return false;
+      }
+    } else {
+      if (!email.trim() || !email.includes('@')) {
+        setValidationError('Please provide a valid email address.');
+        return false;
+      }
+      if (!username.trim() || username.length < 3) {
+        setValidationError('Username must be at least 3 characters long.');
+        return false;
+      }
+      if (!password || password.length < 8) {
+        setValidationError('Password must be at least 8 characters long.');
+        return false;
+      }
+    }
+    return true;
+  };
 
   const handleSubmit = async () => {
+    if (!validateForm()) return;
+
     setLoading(true);
     setErrorMessage(null);
     try {
       let authResponse: AuthTokenResponse;
       if (isLogin) {
-        authResponse = await apiClient.login(emailOrUsername, password);
+        authResponse = await apiClient.login(emailOrUsername.trim(), password);
       } else {
         authResponse = await apiClient.register({
-          email,
-          username,
+          email: email.trim().toLowerCase(),
+          username: username.trim(),
           password,
-          full_name: fullName || undefined,
+          full_name: fullName.trim() || undefined,
         });
       }
       onAuthenticated(authResponse);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed');
+      setErrorMessage(err.message || 'Authentication request failed');
     } finally {
       setLoading(false);
     }
@@ -50,128 +103,231 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.brandContainer}>
-        <Text style={styles.brandTitle}>HORIZON</Text>
-        <Text style={styles.brandTagline}>Geospatial Ground-Truth Contribution Network</Text>
-      </View>
-
-      <View style={styles.starterBanner}>
-        <Text style={styles.starterIcon}>🎁</Text>
-        <View style={styles.starterTextContainer}>
-          <Text style={styles.starterTitle}>100 Starter Tokens Included</Text>
-          <Text style={styles.starterSubtitle}>
-            Every verified contributor starts with 100 tokens to commit to initial collection tasks.
-          </Text>
+      {/* Brand & Logo Header */}
+      <View style={styles.brandArea}>
+        <View style={styles.logoMark}>
+          <Text style={styles.logoSymbol}>◈</Text>
         </View>
+        <Text style={styles.brandTitle}>Horizon</Text>
+        <Text style={styles.brandSubtitle}>Geospatial Field Collection Network</Text>
       </View>
 
+      {/* Starter Balance Info Card */}
+      <View style={styles.starterBalanceCard}>
+        <View style={styles.starterTopRow}>
+          <Text style={styles.starterLabel}>Starter Grant</Text>
+          <View style={styles.starterPill}>
+            <Text style={styles.starterPillText}>100 HZN</Text>
+          </View>
+        </View>
+        <Text style={styles.starterExplanation}>
+          Verified contributors receive 100 starter tokens in an immutable ledger for task commitment stakes.
+        </Text>
+      </View>
+
+      {/* Form Card */}
       <View style={styles.card}>
+        {/* Tab Switcher */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, isLogin && styles.activeTab]}
             onPress={() => {
               setIsLogin(true);
               setErrorMessage(null);
+              setValidationError(null);
             }}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, isLogin && styles.activeTabText]}>Sign In</Text>
+            <Text style={[styles.tabText, isLogin && styles.activeTabText]}>Log In</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, !isLogin && styles.activeTab]}
             onPress={() => {
               setIsLogin(false);
               setErrorMessage(null);
+              setValidationError(null);
             }}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>Join as Contributor</Text>
+            <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>Create Account</Text>
           </TouchableOpacity>
         </View>
 
-        {errorMessage && (
+        {/* Error Feedback */}
+        {(errorMessage || validationError) && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={styles.errorIcon}>⚠</Text>
+            <Text style={styles.errorText}>{errorMessage || validationError}</Text>
           </View>
         )}
 
         {isLogin ? (
           <View style={styles.form}>
-            <Text style={styles.label}>Username or Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. scout_alex or scout@horizon.io"
-              placeholderTextColor="#64748B"
-              autoCapitalize="none"
-              value={emailOrUsername}
-              onChangeText={setEmailOrUsername}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username or Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. scout_alex"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                value={emailOrUsername}
+                onChangeText={(val) => {
+                  setEmailOrUsername(val);
+                  if (validationError) setValidationError(null);
+                }}
+              />
+            </View>
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your secure password"
-              placeholderTextColor="#64748B"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.inputGroup}>
+              <View style={styles.passwordLabelRow}>
+                <Text style={styles.label}>Password</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.visibilityBtn}
+                >
+                  <Text style={styles.visibilityText}>
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter password"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={(val) => {
+                  setPassword(val);
+                  if (validationError) setValidationError(null);
+                }}
+              />
+            </View>
           </View>
         ) : (
           <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="contributor@horizon.io"
-              placeholderTextColor="#64748B"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="contributor@horizon.dev"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={(val) => {
+                  setEmail(val);
+                  if (validationError) setValidationError(null);
+                }}
+              />
+            </View>
 
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. scout_ranger"
-              placeholderTextColor="#64748B"
-              autoCapitalize="none"
-              value={username}
-              onChangeText={setUsername}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. scout_ranger"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                value={username}
+                onChangeText={(val) => {
+                  setUsername(val);
+                  if (validationError) setValidationError(null);
+                }}
+              />
+            </View>
 
-            <Text style={styles.label}>Full Name (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Jane Doe"
-              placeholderTextColor="#64748B"
-              value={fullName}
-              onChangeText={setFullName}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Alex River"
+                placeholderTextColor={colors.textMuted}
+                value={fullName}
+                onChangeText={setFullName}
+              />
+            </View>
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Minimum 8 characters"
-              placeholderTextColor="#64748B"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.inputGroup}>
+              <View style={styles.passwordLabelRow}>
+                <Text style={styles.label}>Password</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.visibilityBtn}
+                >
+                  <Text style={styles.visibilityText}>
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Minimum 8 characters"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={(val) => {
+                  setPassword(val);
+                  if (validationError) setValidationError(null);
+                }}
+              />
+            </View>
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.disabledButton]}
+        <HorizonButton
+          title={isLogin ? 'Sign In' : 'Create Contributor Account'}
           onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#0F172A" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {isLogin ? 'Sign In to Horizon' : 'Activate Contributor Account'}
-            </Text>
+          loading={loading}
+          size="lg"
+          style={styles.submitBtn}
+        />
+
+        {/* Server Connection Indicator / Config for Expo Go & LAN */}
+        <View style={styles.serverCard}>
+          <TouchableOpacity
+            style={styles.serverCardHeader}
+            onPress={() => setShowServerConfig(!showServerConfig)}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.serverLabel}>Backend Endpoint</Text>
+              <Text style={styles.serverUrlText} numberOfLines={1}>{serverUrl}</Text>
+            </View>
+            <Text style={styles.serverToggleText}>{showServerConfig ? 'Close' : 'Configure'}</Text>
+          </TouchableOpacity>
+
+          {showServerConfig && (
+            <View style={styles.serverConfigBody}>
+              <Text style={styles.serverHelpText}>
+                Expo Go connects over Wi-Fi. Modify host IP if running on a physical phone.
+              </Text>
+              <TextInput
+                style={styles.serverInput}
+                value={serverUrl}
+                onChangeText={(val) => {
+                  setServerUrl(val);
+                  apiClient.setBaseUrl(val.trim());
+                  setServerStatus(null);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.pingButton}
+                onPress={testServerConnection}
+                disabled={serverTesting}
+              >
+                <Text style={styles.pingButtonText}>
+                  {serverTesting ? 'Testing connection...' : 'Ping Server'}
+                </Text>
+              </TouchableOpacity>
+              {serverStatus && (
+                <Text style={[styles.serverStatusText, serverStatus.startsWith('🟢') ? styles.serverStatusSuccess : styles.serverStatusError]}>
+                  {serverStatus}
+                </Text>
+              )}
+            </View>
           )}
-        </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -180,139 +336,257 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090D16',
+    backgroundColor: '#F8F9FA',
   },
   content: {
-    padding: 24,
-    paddingTop: 60,
+    padding: 20,
+    paddingTop: 48,
+    paddingBottom: 40,
   },
-  brandContainer: {
-    marginBottom: 20,
+  brandArea: {
     alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoMark: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentGreenMuted,
+    borderWidth: 1,
+    borderColor: 'rgba(5, 150, 105, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  logoSymbol: {
+    fontSize: 20,
+    color: colors.accentGreen,
+    fontWeight: '800',
   },
   brandTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#38BDF8',
-    letterSpacing: 2,
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: -0.3,
   },
-  brandTagline: {
+  brandSubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginTop: 2,
     textAlign: 'center',
   },
-  starterBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    borderRadius: 14,
+  starterBalanceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.md,
     padding: 14,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  starterIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  starterTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  starterTextContainer: {
-    flex: 1,
-  },
-  starterTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  starterSubtitle: {
+  starterLabel: {
     fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 2,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  starterPill: {
+    backgroundColor: colors.tokenGoldMuted,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.25)',
+  },
+  starterPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.tokenGoldDark,
+  },
+  starterExplanation: {
+    fontSize: 12,
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   card: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderLight,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 20,
+    backgroundColor: '#F1F5F9',
+    borderRadius: radius.md,
+    padding: 3,
+    marginBottom: 18,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   activeTab: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   activeTabText: {
-    color: '#0F172A',
-    fontWeight: '700',
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.statusErrorMuted,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    borderRadius: 8,
+    borderColor: '#FECACA',
+    borderRadius: radius.md,
     padding: 10,
-    marginBottom: 16,
+    marginBottom: 14,
+    gap: 8,
+  },
+  errorIcon: {
+    fontSize: 14,
+    color: colors.statusError,
   },
   errorText: {
-    color: '#F87171',
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12,
+    color: colors.statusError,
+    fontWeight: '500',
   },
   form: {
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 18,
+  },
+  inputGroup: {
+    gap: 5,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#CBD5E1',
-    marginBottom: 6,
-    marginTop: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.textPrimary,
+  },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  visibilityBtn: {
+    padding: 2,
+  },
+  visibilityText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   input: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#F8FAFC',
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
+    color: colors.textPrimary,
   },
-  submitButton: {
-    backgroundColor: '#38BDF8',
-    borderRadius: 10,
-    paddingVertical: 14,
+  submitBtn: {
+    marginBottom: 16,
+  },
+  serverCard: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingTop: 12,
+  },
+  serverCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  disabledButton: {
-    opacity: 0.6,
+  serverLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: colors.textMuted,
   },
-  submitButtonText: {
-    color: '#0F172A',
-    fontSize: 15,
-    fontWeight: '700',
+  serverUrlText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+    marginTop: 1,
+  },
+  serverToggleText: {
+    fontSize: 12,
+    color: colors.accentGreen,
+    fontWeight: '600',
+  },
+  serverConfigBody: {
+    marginTop: 10,
+    gap: 8,
+  },
+  serverHelpText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 15,
+  },
+  serverInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: colors.textPrimary,
+    fontFamily: 'monospace',
+  },
+  pingButton: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  pingButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  serverStatusText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  serverStatusSuccess: {
+    color: colors.accentGreen,
+  },
+  serverStatusError: {
+    color: colors.statusError,
   },
 });

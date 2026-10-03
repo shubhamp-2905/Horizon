@@ -55,7 +55,14 @@ export interface TaskFormSchema {
   createdAt: string;
 }
 
-export type ClaimStatus = 'claimed' | 'submitted' | 'expired' | 'abandoned';
+export type ClaimStatus =
+  | 'claimed'
+  | 'in_progress'
+  | 'submitted'
+  | 'released'
+  | 'forfeited'
+  | 'expired'
+  | 'abandoned';
 
 export interface TaskClaim {
   id: string;
@@ -67,7 +74,14 @@ export interface TaskClaim {
   completedAt?: string;
 }
 
-export type SubmissionStatus = 'submitted' | 'validating' | 'verified' | 'rejected';
+export type SubmissionStatus =
+  | 'draft'
+  | 'submitted'
+  | 'validating'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'verified';
 
 export interface Submission {
   id: string;
@@ -76,7 +90,7 @@ export interface Submission {
   location?: GeoPoint;
   gpsAccuracy: number;
   capturedAt: string;
-  submittedAt: string;
+  submittedAt?: string;
   status: SubmissionStatus;
   formData: Record<string, unknown>;
 }
@@ -241,4 +255,58 @@ export interface UserClaimedTaskDTO {
   claimed_at?: string;
   completed_at?: string;
   task: TaskResponseDTO;
+}
+
+export interface SubmissionMediaResponseDTO {
+  id: string;
+  submission_id: string;
+  storage_key: string;
+  media_type: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SubmissionResponseDTO {
+  id: string;
+  task_id: string;
+  task_title?: string;
+  artifact_type?: string;
+  user_id: string;
+  contributor_email?: string;
+  status: SubmissionStatus | string;
+  gps_accuracy: number;
+  latitude?: number;
+  longitude?: number;
+  captured_at: string;
+  submitted_at?: string;
+  form_data: Record<string, unknown>;
+  media: SubmissionMediaResponseDTO[];
+  verification_status?: string;
+  verification_notes?: string;
+  ai_confidence_score?: number;
+  created_at?: string;
+}
+
+export interface SubmissionListResponseDTO {
+  submissions: SubmissionResponseDTO[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TaskFormFieldDefinitionDTO {
+  id: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+}
+
+export interface TaskFormSchemaResponseDTO {
+  task_id: string;
+  version: number;
+  fields: TaskFormFieldDefinitionDTO[];
+  minimum_photos: number;
+  instructions?: string;
 }
