@@ -12,6 +12,9 @@ import { SubmissionsTab } from '../components/SubmissionsTab';
 import { ContributorsTab } from '../components/ContributorsTab';
 import { TokenActivityTab } from '../components/TokenActivityTab';
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
+const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
 const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
   {
     id: '4ffea264-89ec-402f-b470-f4a058729ddd',
@@ -98,7 +101,7 @@ export default function AdminConsolePage() {
     setLoading(true);
     try {
       // Check health
-      const healthRes = await fetch('http://localhost:4000/health').catch(() => null);
+      const healthRes = await fetch(`${API_ROOT_URL}/health`).catch(() => null);
       if (healthRes && healthRes.ok) {
         setApiConnected(true);
       } else {
@@ -106,7 +109,7 @@ export default function AdminConsolePage() {
       }
 
       // If live backend exists, attempt to query public tasks discovery or admin tasks
-      const res = await fetch('http://localhost:4000/api/v1/tasks?page_size=50').catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/tasks?page_size=50`).catch(() => null);
       if (res && res.ok) {
         const data = await res.json();
         if (data.tasks && data.tasks.length > 0) {
@@ -149,7 +152,7 @@ export default function AdminConsolePage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
 
-      const res = await fetch('http://localhost:4000/api/v1/admin/tasks', {
+      const res = await fetch(`${API_BASE_URL}/admin/tasks`, {
         method: 'POST',
         headers,
         body: JSON.stringify(newTask),
@@ -179,7 +182,7 @@ export default function AdminConsolePage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
 
-      await fetch(`http://localhost:4000/api/v1/admin/tasks/${task.id}`, {
+      await fetch(`${API_BASE_URL}/admin/tasks/${task.id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: nextStatus }),
@@ -277,7 +280,7 @@ export default function AdminConsolePage() {
                   <strong>Starter Tokens Provisioning:</strong> 100 TOKENS (Fixed by protocol)
                 </div>
                 <div>
-                  <strong>Backend Service Endpoint:</strong> http://localhost:4000/api/v1
+                  <strong>Backend Service Endpoint:</strong> {API_BASE_URL}
                 </div>
               </div>
             </div>
