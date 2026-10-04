@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Typecheck
+        run: npm run typecheck
+
   ai-service-check:
     name: AI Service Checks
     runs-on: ubuntu-latest
