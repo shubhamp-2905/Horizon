@@ -1,6 +1,15 @@
 'use client';
 
 import React from 'react';
+import {
+  LayersIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+  CoinsIcon,
+  PlusIcon,
+  ArrowRightIcon,
+  EyeIcon,
+} from './Icons';
 
 export interface AdminTaskItem {
   id: string;
@@ -47,10 +56,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   return (
     <div>
-      {/* 4 Prodex-Style KPI Cards */}
+      {/* 4 Precision KPI Metric Cards */}
       <div className="stats-grid">
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-emerald">▤</div>
+          <div className="kpi-icon-wrap kpi-icon-emerald">
+            <LayersIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Total Field Tasks</div>
             <div className="stat-value">{tasks.length}</div>
@@ -59,7 +70,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-blue">✓</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <CheckCircle2Icon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Published in Field</div>
             <div className="stat-value">{publishedTasks.length}</div>
@@ -68,7 +81,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-gray">⏳</div>
+          <div className="kpi-icon-wrap kpi-icon-gray">
+            <ClockIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Draft Backlog</div>
             <div className="stat-value">{draftTasks.length}</div>
@@ -77,7 +92,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-amber">◈</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <CoinsIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Allocated Reward Pool</div>
             <div className="stat-value">{rewardPoolTotal} HZN</div>
@@ -86,30 +103,37 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      {/* Category Breakdown & Quick Actions Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      {/* Category Breakdown & Operations Control */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '28px' }}>
         {/* Category Breakdown */}
         <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Task Categories</h3>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{Object.keys(typeCounts).length} types</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Task Categories</h3>
+            <span style={{ fontSize: '11px', color: 'var(--accent-orange-text)', fontWeight: 600 }}>{Object.keys(typeCounts).length} types</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {Object.entries(typeCounts).map(([type, count]) => {
               const percent = tasks.length > 0 ? Math.round((count / tasks.length) * 100) : 0;
               return (
                 <div key={type}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: 500, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
                       {type.replace(/_/g, ' ')}
                     </span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
                       {count} ({percent}%)
                     </span>
                   </div>
-                  <div style={{ width: '100%', height: '5px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${percent}%`, height: '100%', background: 'var(--accent-emerald)', borderRadius: '3px' }} />
+                  <div style={{ width: '100%', height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${percent}%`,
+                        height: '100%',
+                        background: 'var(--gradient-orange)',
+                        borderRadius: '3px',
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -120,28 +144,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         {/* Operational Quick Actions */}
         <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
               Field Operations Control
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
-              Publish new observation points, review submitted telemetry, or manage token allocations across the geospatial contributor network.
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '24px' }}>
+              Deploy ground-truth observation tasks, monitor geospatial telemetry, and manage token commitments across the decentralized contributor network.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={onOpenCreateTask}
-              className="btn btn-emerald"
+              className="btn btn-primary"
             >
-              + Create New Task
+              <PlusIcon size={16} />
+              <span>Create New Task</span>
             </button>
             <button
               type="button"
               onClick={onNavigateToTasks}
               className="btn btn-secondary"
             >
-              Manage Tasks ({tasks.length})
+              <span>Manage Tasks ({tasks.length})</span>
             </button>
           </div>
         </div>
@@ -159,7 +184,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             onClick={onNavigateToTasks}
             className="btn btn-secondary btn-sm"
           >
-            View All ({tasks.length}) →
+            <span>View All ({tasks.length})</span>
+            <ArrowRightIcon size={14} />
           </button>
         </div>
 
@@ -190,18 +216,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
                 </td>
                 <td>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>+{task.base_reward} HZN</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    +{task.base_reward} HZN
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'JetBrains Mono, monospace' }}>
                     ({task.commitment_stake} stake)
                   </span>
                 </td>
                 <td>
                   <span className={`status-pill ${task.status === 'published' ? 'status-pill-published' : 'status-pill-draft'}`}>
-                    {task.status === 'published' ? '✓ Published' : '• Draft'}
+                    <span className="badge-dot" />
+                    {task.status === 'published' ? 'Published' : 'Draft'}
                   </span>
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'inline-flex', gap: '6px' }}>
+                  <div style={{ display: 'inline-flex', gap: '8px' }}>
                     <button
                       type="button"
                       onClick={() => onToggleStatus(task)}
@@ -214,7 +243,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       onClick={() => onViewTask(task)}
                       className="btn btn-secondary btn-sm"
                     >
-                      Details
+                      <EyeIcon size={13} />
+                      <span>Details</span>
                     </button>
                   </div>
                 </td>

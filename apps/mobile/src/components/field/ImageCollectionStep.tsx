@@ -493,8 +493,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   requiredEmptySlot: {
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    backgroundColor: 'rgba(56, 189, 248, 0.03)',
+    borderColor: 'rgba(255, 107, 0, 0.4)',
+    backgroundColor: 'rgba(255, 107, 0, 0.04)',
   },
   addIconCircle: {
     width: 36,

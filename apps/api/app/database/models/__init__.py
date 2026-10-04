@@ -9,6 +9,14 @@ from app.database.models.verification import Verification
 from app.database.models.reward import Reward
 from app.database.models.token import TokenAccount, TokenTransaction
 from app.database.models.reputation import Reputation
+from app.database.models.consensus import PeerReviewAssignment, PeerReview, ConsensusRecord
+from app.database.models.pipeline import (
+    EtlPipelineRun,
+    EtlBronzeRecord,
+    EtlSilverRecord,
+    DownstreamObservation,
+    EtlDatasetArtifact,
+)
 
 __all__ = [
     "Base",
@@ -26,4 +34,12 @@ __all__ = [
     "TokenAccount",
     "TokenTransaction",
     "Reputation",
+    "PeerReviewAssignment",
+    "PeerReview",
+    "ConsensusRecord",
+    "EtlPipelineRun",
+    "EtlBronzeRecord",
+    "EtlSilverRecord",
+    "DownstreamObservation",
+    "EtlDatasetArtifact",
 ]

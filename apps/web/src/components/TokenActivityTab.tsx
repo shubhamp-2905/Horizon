@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CoinsIcon, ShieldCheckIcon, CheckCircle2Icon } from './Icons';
 
 export const TokenActivityTab: React.FC = () => {
   const ledgerTransactions = [
@@ -34,7 +35,9 @@ export const TokenActivityTab: React.FC = () => {
     <div>
       <div className="stats-grid">
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-amber">◈</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <CoinsIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Total Circulating Tokens</div>
             <div className="stat-value">1,200 HZN</div>
@@ -43,7 +46,9 @@ export const TokenActivityTab: React.FC = () => {
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-blue">🔒</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <ShieldCheckIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Escrowed Stakes</div>
             <div className="stat-value">20 HZN</div>
@@ -52,7 +57,9 @@ export const TokenActivityTab: React.FC = () => {
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-emerald">✓</div>
+          <div className="kpi-icon-wrap kpi-icon-emerald">
+            <CheckCircle2Icon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Ledger Integrity</div>
             <div className="stat-value">Immutable</div>
@@ -99,8 +106,9 @@ export const TokenActivityTab: React.FC = () => {
                   <td>
                     <span
                       style={{
-                        fontWeight: 600,
-                        color: isPositive ? 'var(--accent-emerald)' : 'var(--token-amber)',
+                        fontWeight: 700,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        color: isPositive ? 'var(--status-success)' : 'var(--accent-orange-text)',
                       }}
                     >
                       {isPositive ? `+${tx.amount}` : tx.amount} HZN

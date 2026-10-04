@@ -11,6 +11,10 @@ import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { SubmissionsTab } from '../components/SubmissionsTab';
 import { ContributorsTab } from '../components/ContributorsTab';
 import { TokenActivityTab } from '../components/TokenActivityTab';
+import { PipelineTab } from '../components/PipelineTab';
+import { LandingPage } from '../components/LandingPage';
+import { ContributorPortal } from '../components/ContributorPortal';
+import { CheckCircle2Icon } from '../components/Icons';
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
 const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
@@ -66,7 +70,11 @@ const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
   },
 ];
 
-export default function AdminConsolePage() {
+export default function HorizonApp() {
+  // Top-level experience view: landing | contributor | admin
+  const [currentView, setCurrentView] = useState<'landing' | 'contributor' | 'admin'>('landing');
+
+  // Admin view state
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
   const [tasks, setTasks] = useState<AdminTaskItem[]>(INITIAL_DEMO_TASKS);
   const [loading, setLoading] = useState(false);
@@ -216,6 +224,29 @@ export default function AdminConsolePage() {
     setIsCreateModalOpen(true);
   };
 
+  // 1. PUBLIC LANDING VIEW
+  if (currentView === 'landing') {
+    return (
+      <LandingPage
+        tasks={tasks}
+        onStartContributing={() => setCurrentView('contributor')}
+        onOpenAdminConsole={() => setCurrentView('admin')}
+      />
+    );
+  }
+
+  // 2. CONTRIBUTOR PORTAL VIEW
+  if (currentView === 'contributor') {
+    return (
+      <ContributorPortal
+        tasks={tasks}
+        onReturnToLanding={() => setCurrentView('landing')}
+        onOpenAdminConsole={() => setCurrentView('admin')}
+      />
+    );
+  }
+
+  // 3. ENTERPRISE ADMIN CONSOLE VIEW
   return (
     <div className="app-layout">
       {/* Sidebar Navigation */}
@@ -224,6 +255,8 @@ export default function AdminConsolePage() {
         onSelectTab={setCurrentTab}
         taskCount={tasks.length}
         apiConnected={apiConnected}
+        onSwitchToContributor={() => setCurrentView('contributor')}
+        onReturnToLanding={() => setCurrentView('landing')}
       />
 
       {/* Main Console Viewport */}
@@ -264,23 +297,40 @@ export default function AdminConsolePage() {
 
           {currentTab === 'tokens' && <TokenActivityTab />}
 
+          {currentTab === 'pipeline' && (
+            <PipelineTab
+              apiBaseUrl={API_BASE_URL}
+              adminToken={adminToken}
+              onShowToast={showToast}
+            />
+          )}
+
           {currentTab === 'settings' && (
-            <div className="stat-card" style={{ maxWidth: '600px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '12px' }}>
+            <div className="stat-card" style={{ maxWidth: '640px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '14px', color: '#ffffff' }}>
                 Platform &amp; Geospatial Settings
               </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                 <div>
-                  <strong>PostGIS SRID:</strong> 4326 (WGS84 Lat/Long)
+                  <strong style={{ color: 'var(--text-primary)' }}>PostGIS SRID:</strong> 4326 (WGS84 Lat/Long)
                 </div>
                 <div>
-                  <strong>Default Proximity Radius:</strong> 10,000 meters
+                  <strong style={{ color: 'var(--text-primary)' }}>Default Proximity Radius:</strong> 10,000 meters
                 </div>
                 <div>
-                  <strong>Starter Tokens Provisioning:</strong> 100 TOKENS (Fixed by protocol)
+                  <strong style={{ color: 'var(--text-primary)' }}>Starter Tokens Provisioning:</strong> 100 TOKENS (Fixed by protocol)
                 </div>
                 <div>
-                  <strong>Backend Service Endpoint:</strong> {API_BASE_URL}
+                  <strong style={{ color: 'var(--text-primary)' }}>Backend Service Endpoint:</strong> {API_BASE_URL}
+                </div>
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setCurrentView('landing')}
+                  >
+                    Return to Horizon Landing Page
+                  </button>
                 </div>
               </div>
             </div>
@@ -316,7 +366,7 @@ export default function AdminConsolePage() {
       {/* Action Notification Toast */}
       {toastMessage && (
         <div className="toast-banner">
-          <span>✓</span>
+          <CheckCircle2Icon size={16} color="var(--accent-orange)" />
           <span>{toastMessage}</span>
         </div>
       )}

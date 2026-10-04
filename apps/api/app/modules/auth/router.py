@@ -5,7 +5,14 @@ from app.database.session import get_db
 from app.database.models.user import User
 from app.database.models.reputation import Reputation
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
-from app.schemas.auth import UserRegisterRequest, UserLoginRequest, TokenResponse, UserProfileResponse
+from app.core.rate_limit import rate_limit
+from app.schemas.auth import (
+    UserRegisterRequest,
+    UserLoginRequest,
+    TokenResponse,
+    UserProfileResponse,
+    PushTokenRegisterRequest,
+)
 from app.modules.tokens.service import grant_starter_tokens_idempotent
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -36,7 +43,12 @@ def _build_profile_response(user: User, db: Optional[Session] = None) -> UserPro
     )
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit(max_requests=10, window_seconds=60))],
+)
 def register_user(payload: UserRegisterRequest, db: Session = Depends(get_db)):
     """Register a new platform contributor or admin, granting initial Starter Tokens."""
     # Check uniqueness
@@ -75,7 +87,11 @@ def register_user(payload: UserRegisterRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit(max_requests=15, window_seconds=60))],
+)
 def login_user(payload: UserLoginRequest, db: Session = Depends(get_db)):
     """Authenticate contributor or admin credentials and return signed JWT."""
     ident = payload.email_or_username.strip()
@@ -129,3 +145,29 @@ def get_current_user_profile(
 ):
     """Retrieve current authenticated user profile with real-time token balances."""
     return _build_profile_response(current_user, db)
+
+
+@router.post("/push-token", status_code=status.HTTP_200_OK, summary="Register mobile push notification token")
+def register_push_token(
+    payload: PushTokenRegisterRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Register device push token for critical mobile alerts (e.g. peer review assignments,
+    consensus settlement, task expiration warnings).
+    """
+    profile_data = dict(current_user.profile_data or {})
+    push_tokens = list(profile_data.get("push_tokens", []))
+    new_entry = {
+        "token": payload.push_token,
+        "device_type": payload.device_type,
+    }
+    # Avoid duplicate tokens
+    if not any(entry.get("token") == payload.push_token for entry in push_tokens):
+        push_tokens.append(new_entry)
+        profile_data["push_tokens"] = push_tokens
+        current_user.profile_data = profile_data
+        db.commit()
+
+    return {"status": "ok", "message": "Push token registered successfully"}

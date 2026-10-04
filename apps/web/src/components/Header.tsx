@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { AdminTab } from './Sidebar';
+import { RefreshCwIcon, PlusIcon, CompassIcon } from './Icons';
 
 interface HeaderProps {
   currentTab: AdminTab;
@@ -21,19 +22,21 @@ export const Header: React.FC<HeaderProps> = ({
   const getTabTitle = () => {
     switch (currentTab) {
       case 'overview':
-        return 'Dashboard Overview';
+        return 'Operations Dashboard';
       case 'tasks':
-        return 'Task Management';
+        return 'Task & Geofence Management';
       case 'submissions':
-        return 'Submissions & Evidence';
+        return 'Submissions & Ground Evidence';
       case 'review':
-        return 'Verification & Review Queue';
+        return 'AI & Quorum Verification Queue';
       case 'contributors':
-        return 'Contributor Directory';
+        return 'Field Contributor Network';
       case 'tokens':
-        return 'Token Ledger & Balances';
+        return 'Token Ledger & Escrow Pool';
+      case 'pipeline':
+        return 'Loupe ML Downstream Pipeline';
       case 'settings':
-        return 'System Configuration';
+        return 'System & Geospatial SRID Configuration';
     }
   };
 
@@ -50,17 +53,20 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onRefreshClick}
           className="btn btn-secondary btn-sm"
           disabled={loading}
+          title="Query latest state from PostGIS and Consensus Engine"
         >
-          {loading ? 'Refreshing...' : '↻ Refresh'}
+          <RefreshCwIcon size={14} className={loading ? 'animate-spin' : ''} />
+          <span>{loading ? 'Syncing...' : 'Refresh'}</span>
         </button>
 
         <button
           type="button"
           onClick={onLoadPresetClick}
           className="btn btn-secondary btn-sm"
-          title="Fill form with sample task preset"
+          title="Pre-populate task builder with validated spatial preset"
         >
-          Sample Preset
+          <CompassIcon size={14} color="var(--accent-orange)" />
+          <span>Load Preset</span>
         </button>
 
         <button
@@ -68,7 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onCreateTaskClick}
           className="btn btn-primary btn-sm"
         >
-          + Create Task
+          <PlusIcon size={15} />
+          <span>Create Task</span>
         </button>
       </div>
     </header>

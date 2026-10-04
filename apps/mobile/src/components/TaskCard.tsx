@@ -80,17 +80,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   topRow: {
     flexDirection: 'row',
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
   },
   typeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   locationContainer: {
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
   },
   distanceText: {
     fontSize: 12,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: colors.border,
   },
   economicsGroup: {
     flexDirection: 'row',
@@ -155,16 +155,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   difficultyBadge: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
   },
   difficultyLabel: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontWeight: '600',
   },
 });

@@ -144,7 +144,11 @@ export type TransactionType =
   | 'starter_grant'
   | 'stake_lock'
   | 'stake_unlock'
+  | 'stake_return'
+  | 'stake_slashing'
+  | 'stake_forfeit'
   | 'reward_payout'
+  | 'reviewer_reward'
   | 'penalty';
 
 export interface TokenTransaction {
@@ -155,6 +159,57 @@ export interface TokenTransaction {
   referenceType?: string;
   referenceId?: string;
   createdAt: string;
+}
+
+export type ConsensusStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISPUTED';
+export type PeerReviewDecision = 'APPROVE' | 'REJECT' | 'FLAG';
+
+export interface PeerReviewAssignment {
+  assignmentId: string;
+  submissionId: string;
+  reviewerId: string;
+  reviewerUsername?: string;
+  reviewerEmail?: string;
+  status: string;
+  assignedAt: string;
+  completedAt?: string;
+}
+
+export interface PeerReview {
+  id: string;
+  submissionId: string;
+  reviewerId: string;
+  reviewerUsername?: string;
+  decision: PeerReviewDecision;
+  notes?: string;
+  evidenceReferences?: Record<string, unknown>;
+  confidenceScore?: number;
+  createdAt: string;
+}
+
+export interface ConsensusRecord {
+  submissionId: string;
+  status: ConsensusStatus;
+  poolSize: number;
+  quorum: number;
+  approvalThreshold: number;
+  rejectionThreshold: number;
+  totalVotes: number;
+  approveVotes: number;
+  rejectVotes: number;
+  flagVotes: number;
+  settlementStatus: string;
+  settledAt?: string;
+  disputeReason?: string;
+  disputedBy?: string;
+  disputedAt?: string;
+  resolutionNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  reviews?: PeerReview[];
+  assignments?: PeerReviewAssignment[];
 }
 
 export interface Reputation {
@@ -315,3 +370,87 @@ export interface TaskFormSchemaResponseDTO {
   minimum_photos: number;
   instructions?: string;
 }
+
+// ==========================================
+// Phase 7: Downstream Data Pipeline & Loupe
+// ==========================================
+
+export type EtlPipelineRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'RETRYING';
+
+export interface EtlDatasetArtifactDTO {
+  id: string;
+  pipeline_run_id: string;
+  dataset_version: string;
+  export_format: 'GEOJSON' | 'JSON' | 'CSV';
+  storage_path: string;
+  file_size_bytes: number;
+  record_count: number;
+  checksum_sha256: string;
+  created_at: string;
+  download_url?: string;
+}
+
+export interface EtlPipelineRunDTO {
+  id: string;
+  pipeline_name: string;
+  dataset_version: string;
+  run_type: 'incremental' | 'full_refresh';
+  status: EtlPipelineRunStatus;
+  started_at?: string;
+  completed_at?: string;
+  records_extracted: number;
+  records_transformed: number;
+  records_loaded: number;
+  records_skipped: number;
+  records_failed: number;
+  error_message?: string;
+  retry_count: number;
+  max_retries: number;
+  execution_metadata?: Record<string, unknown>;
+  created_at: string;
+  artifacts?: EtlDatasetArtifactDTO[];
+}
+
+export interface DatasetSummaryDTO {
+  dataset_version: string;
+  total_observations: number;
+  artifact_types: Record<string, number>;
+  avg_quality_score: number;
+  latest_pipeline_run_id?: string;
+  last_updated_at?: string;
+  available_formats: string[];
+}
+
+export interface DownstreamObservationDTO {
+  id: string;
+  submission_id: string;
+  task_id: string;
+  dataset_version: string;
+  artifact_type: string;
+  latitude: number;
+  longitude: number;
+  gps_accuracy: number;
+  captured_at: string;
+  approved_at: string;
+  canonical_data: Record<string, unknown>;
+  media_references: Array<{
+    storage_key: string;
+    media_type: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  quality_score: number;
+  provenance: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface LoupeSyncResponseDTO {
+  dataset_version: string;
+  record_count: number;
+  endpoint: string;
+  status: string;
+  dispatch_mode: string;
+  delivered_at: string;
+  checksum_sha256: string;
+  details?: Record<string, unknown>;
+}
+

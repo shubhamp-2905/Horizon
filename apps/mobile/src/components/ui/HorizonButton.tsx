@@ -102,7 +102,7 @@ export const HorizonButton: React.FC<HorizonButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? '#FFFFFF' : colors.textPrimary}
+          color={variant === 'primary' ? '#FFFFFF' : colors.accentOrange}
         />
       ) : (
         <>
@@ -133,24 +133,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryContainer: {
-    backgroundColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
     borderWidth: 1,
-    borderColor: colors.accentGreenDark,
+    borderColor: colors.accentOrangeDark,
+    shadowColor: colors.accentOrange,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   secondaryContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
   },
   outlineContainer: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
   },
   dangerContainer: {
     backgroundColor: colors.statusErrorMuted,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.statusError,
   },
   disabledContainer: {
     opacity: 0.5,
@@ -160,15 +165,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   mdSize: {
-    paddingVertical: 11,
+    paddingVertical: 12,
     paddingHorizontal: 16,
   },
   lgSize: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 22,
   },
   baseText: {
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: -0.1,
   },
   primaryText: {

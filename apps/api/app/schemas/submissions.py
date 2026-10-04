@@ -104,3 +104,20 @@ class VerificationResponse(BaseModel):
     ai_status: Optional[str] = None
     ai_results: Optional[Dict[str, Any]] = None
     created_at: str
+
+
+class UploadUrlRequest(BaseModel):
+    filename: str = Field(..., examples=["tree_canopy_01.jpg"])
+    content_type: str = Field("image/jpeg", examples=["image/jpeg", "image/png"])
+    expires_in: int = Field(3600, ge=60, le=86400, description="Expiration in seconds")
+
+
+class UploadUrlResponse(BaseModel):
+    storage_key: str
+    upload_url: str
+    method: str = "PUT"
+    backend: str
+    content_type: str
+    expires_in_seconds: int
+    expires_at: str
+    required_headers: Dict[str, str]

@@ -299,10 +299,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: 3,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -311,12 +313,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   activeTab: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: colors.borderHighlight,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabText: {
     fontSize: 12,
@@ -328,17 +332,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   taskCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
@@ -357,7 +361,7 @@ const styles = StyleSheet.create({
   typeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   taskTitle: {
@@ -376,7 +380,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
   },
   locationText: {
     fontSize: 12,
@@ -385,11 +389,11 @@ const styles = StyleSheet.create({
   },
   economicsRow: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     marginBottom: 12,
   },
   stakeBox: {
@@ -414,7 +418,7 @@ const styles = StyleSheet.create({
   rewardVal: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.accentGreen,
+    color: colors.accentOrange,
   },
   progressFooter: {
     flexDirection: 'row',
@@ -422,7 +426,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: colors.border,
   },
   progressStateBox: {
     flexDirection: 'row',
@@ -433,12 +437,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
   },
   progressStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.accentGreen,
+    color: colors.accentOrange,
   },
   detailsChevron: {
     fontSize: 12,
@@ -455,7 +459,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.statusError,
     marginBottom: 12,
   },
   errorText: {

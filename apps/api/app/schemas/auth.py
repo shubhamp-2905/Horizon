@@ -32,3 +32,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserProfileResponse
+
+
+class PushTokenRegisterRequest(BaseModel):
+    push_token: str = Field(..., examples=["ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"])
+    device_type: Optional[str] = Field("android", examples=["android", "ios", "web"])

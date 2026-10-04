@@ -158,9 +158,9 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.borderSubtle,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
@@ -171,23 +171,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   counterBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.borderSubtle,
   },
   counterText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   currentStepLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.accentOrange,
   },
   stepsRow: {
     flexDirection: 'row',
@@ -200,36 +200,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: radius.sm,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.borderSubtle,
     gap: 6,
   },
   stepNodeActive: {
-    backgroundColor: colors.accentGreenMuted,
-    borderColor: colors.accentGreen,
+    backgroundColor: colors.accentOrangeMuted,
+    borderColor: colors.accentOrange,
   },
   stepNodeComplete: {
-    borderColor: 'rgba(5, 150, 105, 0.3)',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 107, 0, 0.4)',
+    backgroundColor: colors.surfaceCard,
   },
   iconCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconCircleActive: {
-    backgroundColor: colors.accentGreen,
-    borderColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
+    borderColor: colors.accentOrange,
   },
   iconCircleComplete: {
-    backgroundColor: colors.accentGreenMuted,
-    borderColor: colors.accentGreen,
+    backgroundColor: colors.accentOrangeMuted,
+    borderColor: colors.accentOrange,
   },
   iconText: {
     fontSize: 10,
@@ -237,11 +237,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   iconTextActive: {
-    color: '#FFFFFF',
+    color: '#07080A',
     fontWeight: '800',
   },
   iconTextComplete: {
-    color: colors.accentGreen,
+    color: colors.accentOrange,
     fontWeight: '800',
   },
   stepTextGroup: {
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   stepLabelActive: {
-    color: colors.accentGreenDark,
+    color: colors.accentOrange,
     fontWeight: '700',
   },
   stepLabelComplete: {
@@ -268,10 +268,10 @@ const styles = StyleSheet.create({
   connectorLine: {
     width: 14,
     height: 2,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.borderSubtle,
     marginHorizontal: 4,
   },
   connectorLineActive: {
-    backgroundColor: colors.accentGreen,
+    backgroundColor: colors.accentOrange,
   },
 });

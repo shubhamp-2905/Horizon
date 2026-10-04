@@ -1,10 +1,16 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, Path, status
+from fastapi import APIRouter, Depends, Query, Path, Request, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.database.models.user import User
+from app.database.models.submission import Submission
 from app.core.security import get_current_user, require_role
+from app.core.storage import (
+    generate_presigned_upload,
+    verify_local_hmac_token,
+    save_media_file,
+)
 from app.schemas.submissions import (
     SubmissionDraftCreateRequest,
     SubmissionDraftUpdateRequest,
@@ -15,6 +21,8 @@ from app.schemas.submissions import (
     TaskFormSchemaResponse,
     VerificationReviewRequest,
     VerificationResponse,
+    UploadUrlRequest,
+    UploadUrlResponse,
 )
 from app.modules.submissions.service import (
     create_submission_record,
@@ -51,6 +59,12 @@ def get_task_schema(
     status_code=status.HTTP_201_CREATED,
     summary="Create or initialize field observation submission draft",
 )
+@router.post(
+    "/tasks/{task_id}/submissions",
+    response_model=SubmissionResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 def create_field_submission(
     payload: SubmissionDraftCreateRequest,
     task_id: uuid.UUID = Path(..., description="Task UUID"),
@@ -76,6 +90,85 @@ def update_field_draft(
     """Update ongoing observations, GPS telemetry, or notes on an unsubmitted draft."""
     sub = update_submission_draft(db, submission_id=submission_id, user_id=current_user.id, payload=payload)
     return _submission_to_response(sub)
+
+
+@router.post(
+    "/submissions/{submission_id}/upload-url",
+    response_model=UploadUrlResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate presigned object storage or signed local upload target",
+)
+def get_upload_url(
+    payload: UploadUrlRequest,
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate an upload target for direct-to-cloud media persistence.
+    Prevents ephemeral filesystem loss in serverless/containerized deployments.
+    """
+    sub = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "Submission not found"},
+        )
+    if sub.user_id != current_user.id and current_user.role not in ("admin", "reviewer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "Not authorized to upload to this submission"},
+        )
+    if sub.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "ALREADY_SUBMITTED", "message": f"Cannot upload media to submission in '{sub.status}' state"},
+        )
+
+    return generate_presigned_upload(
+        submission_id=str(submission_id),
+        filename=payload.filename,
+        content_type=payload.content_type,
+        expires_in=payload.expires_in,
+    )
+
+
+@router.put(
+    "/submissions/{submission_id}/media-upload-direct",
+    status_code=status.HTTP_200_OK,
+    summary="Tamper-proof signed local persistent media upload endpoint",
+)
+async def direct_local_media_upload(
+    request: Request,
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    storage_key: str = Query(..., description="Target storage key"),
+    expires_at: int = Query(..., description="HMAC expiration epoch timestamp"),
+    token: str = Query(..., description="HMAC-SHA256 signature"),
+):
+    """
+    Direct upload endpoint for signed local persistent storage.
+    Verifies cryptographic signature before persisting media to prevent path traversal or forgery.
+    """
+    if not verify_local_hmac_token(storage_key, expires_at, token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "INVALID_SIGNATURE", "message": "Upload signature is invalid or expired"},
+        )
+
+    try:
+        body = await request.body()
+        if not body:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "EMPTY_PAYLOAD", "message": "Uploaded media content is empty"},
+            )
+        save_media_file(storage_key, body)
+        return {"status": "uploaded", "storage_key": storage_key, "bytes_written": len(body)}
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "PATH_TRAVERSAL_DETECTED", "message": str(val_err)},
+        )
 
 
 @router.post(

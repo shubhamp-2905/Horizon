@@ -61,29 +61,37 @@ class AIValidationService:
             "images": images_payload,
         }
 
-        # Attempt 1: Call standalone AI microservice over HTTP
-        try:
-            url = f"{settings.AI_SERVICE_URL.rstrip('/')}/quality/evaluate"
-            with httpx.Client(timeout=0.5) as client:
-                headers = {"Content-Type": "application/json"}
-                if getattr(settings, "AI_SERVICE_API_KEY", None):
-                    headers["X-API-Key"] = settings.AI_SERVICE_API_KEY
-                
-                resp = client.post(url, json=request_body, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    # Standardize fields
-                    if "status" not in data and "overall_status" in data:
-                        data["status"] = data["overall_status"]
-                    return data
-                else:
-                    logger.warning(
-                        f"AI service returned non-200 code: {resp.status_code} - {resp.text}"
-                    )
-        except Exception as net_err:
-            logger.info(
-                f"AI microservice HTTP call failed ({net_err}). Attempting in-process evaluation fallback..."
-            )
+        # Attempt 1: Call standalone AI microservice over HTTP with retries & configurable timeout
+        timeout_sec = getattr(settings, "AI_SERVICE_TIMEOUT_SECONDS", 3.0)
+        max_retries = getattr(settings, "AI_SERVICE_MAX_RETRIES", 1)
+        url = f"{settings.AI_SERVICE_URL.rstrip('/')}/quality/evaluate"
+        headers = {"Content-Type": "application/json"}
+        if getattr(settings, "AI_SERVICE_API_KEY", None):
+            headers["X-API-Key"] = settings.AI_SERVICE_API_KEY
+
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=timeout_sec) as client:
+                    resp = client.post(url, json=request_body, headers=headers)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        # Standardize fields
+                        if "status" not in data and "overall_status" in data:
+                            data["status"] = data["overall_status"]
+                        return data
+                    else:
+                        logger.warning(
+                            f"AI service returned non-200 code: {resp.status_code} - {resp.text} (attempt {attempt+1}/{max_retries+1})"
+                        )
+            except (httpx.ConnectError, httpx.ConnectTimeout) as conn_err:
+                logger.info(f"AI microservice endpoint unreachable ({conn_err}). Engaging immediate fallback.")
+                break
+            except Exception as net_err:
+                logger.info(
+                    f"AI microservice HTTP call attempt {attempt+1}/{max_retries+1} failed ({net_err})."
+                )
+
+        logger.info("AI microservice HTTP attempts completed or bypassed. Attempting in-process evaluation fallback...")
 
         # Attempt 2: High-reliability in-process evaluation fallback
         try:

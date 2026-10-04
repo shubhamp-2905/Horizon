@@ -327,6 +327,10 @@ def transition_submission_to_submitted(
     ai_result = AIValidationService.evaluate_submission_media(db, submission)
     AIValidationService.record_ai_result(db, submission, ai_result)
 
+    # 3. Initialize Phase 6 Consensus record & Reviewer pool
+    from app.modules.consensus.service import initialize_submission_consensus
+    initialize_submission_consensus(db, submission)
+
     db.refresh(submission)
     return submission
 
@@ -533,6 +537,27 @@ def review_submission_record(
         elif payload.status == "rejected":
             claim.status = "forfeited"
             claim.completed_at = datetime.now(timezone.utc)
+
+    # Sync consensus and settle tokens if consensus record exists
+    try:
+        from app.database.models.consensus import ConsensusRecord
+        from app.modules.consensus.service import settle_consensus
+        consensus = db.query(ConsensusRecord).filter(ConsensusRecord.submission_id == submission_id).first()
+        if consensus:
+            if payload.status in ["approved", "verified"]:
+                consensus.status = "APPROVED"
+                consensus.resolution_notes = payload.notes
+                consensus.resolved_by = reviewer_id
+                consensus.resolved_at = datetime.now(timezone.utc)
+                settle_consensus(db, consensus, stake_action="refund")
+            elif payload.status == "rejected":
+                consensus.status = "REJECTED"
+                consensus.resolution_notes = payload.notes
+                consensus.resolved_by = reviewer_id
+                consensus.resolved_at = datetime.now(timezone.utc)
+                settle_consensus(db, consensus, stake_action="forfeit")
+    except Exception:
+        pass
 
     db.commit()
     db.refresh(verification)

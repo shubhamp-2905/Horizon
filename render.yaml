@@ -1,0 +1,95 @@
+# Render Blueprint Specification for Project Horizon
+# Defines services, environment variables, health checks, and build rules.
+
+services:
+  # 1. Horizon Backend Core API
+  - type: web
+    name: horizon-api
+    env: python
+    region: oregon
+    plan: starter # Starter plan recommended to avoid free-tier cold-start timeouts
+    branch: main
+    rootDir: apps/api
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: horizon-postgres
+          property: connectionString
+      - key: DATABASE_POOL_SIZE
+        value: "10"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "20"
+      - key: DATABASE_POOL_RECYCLE
+        value: "1800"
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: horizon-ai
+          property: host
+      - key: AI_SERVICE_TIMEOUT_SECONDS
+        value: "5.0"
+      - key: AI_SERVICE_MAX_RETRIES
+        value: "2"
+      - key: S3_BUCKET
+        value: horizon-media-prod
+      - key: S3_REGION
+        value: us-east-1
+
+  # 2. Horizon AI Quality Microservice
+  - type: web
+    name: horizon-ai
+    env: python
+    region: oregon
+    plan: starter
+    branch: main
+    rootDir: services/ai
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: AI_SERVICE_API_KEY
+        generateValue: true
+
+  # 3. Horizon Web Management Console (Next.js)
+  - type: web
+    name: horizon-web
+    env: node
+    region: oregon
+    plan: starter
+    branch: main
+    rootDir: .
+    buildCommand: npm ci && npm run build:web
+    startCommand: npx next start apps/web -p $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: horizon-api
+          property: host
+
+databases:
+  - name: horizon-postgres
+    region: oregon
+    plan: starter
+    databaseName: horizon_db
+    user: horizon_user

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { UsersIcon, CoinsIcon, ShieldCheckIcon, CheckCircle2Icon } from './Icons';
 
 export const ContributorsTab: React.FC = () => {
   const demoContributors = [
@@ -43,7 +44,9 @@ export const ContributorsTab: React.FC = () => {
     <div>
       <div className="stats-grid">
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-blue">👥</div>
+          <div className="kpi-icon-wrap kpi-icon-blue">
+            <UsersIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Active Contributors</div>
             <div className="stat-value">{demoContributors.length}</div>
@@ -52,7 +55,9 @@ export const ContributorsTab: React.FC = () => {
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-emerald">◈</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <CoinsIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Starter Grant Standard</div>
             <div className="stat-value">100 HZN</div>
@@ -61,7 +66,9 @@ export const ContributorsTab: React.FC = () => {
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-amber">🔒</div>
+          <div className="kpi-icon-wrap kpi-icon-amber">
+            <ShieldCheckIcon size={20} />
+          </div>
           <div className="kpi-content">
             <div className="stat-label">Locked Escrow Stakes</div>
             <div className="stat-value">20 HZN</div>
@@ -104,17 +111,22 @@ export const ContributorsTab: React.FC = () => {
                 </td>
                 <td>
                   <span className="status-pill status-pill-published">
-                    ✓ Active
+                    <CheckCircle2Icon size={12} />
+                    <span>Active</span>
                   </span>
                 </td>
                 <td>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{c.available_tokens} HZN</span>
+                  <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {c.available_tokens} HZN
+                  </span>
                 </td>
                 <td>
-                  <span style={{ color: 'var(--text-secondary)' }}>{c.locked_tokens} HZN</span>
+                  <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {c.locked_tokens} HZN
+                  </span>
                 </td>
                 <td>
-                  <span style={{ fontWeight: 600, color: c.active_claims > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                  <span style={{ fontWeight: 700, color: c.active_claims > 0 ? 'var(--accent-orange-text)' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
                     {c.active_claims}
                   </span>
                 </td>

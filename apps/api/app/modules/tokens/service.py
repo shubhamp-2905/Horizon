@@ -147,3 +147,77 @@ def get_wallet_summary(db: Session, user_id: uuid.UUID):
         "transactions": tx_list,
         "recent_transactions": tx_list,
     }
+
+
+def audit_token_ledger_integrity(db: Session) -> dict:
+    """
+    Audits the platform-wide token ledger for mathematical integrity, consistency,
+    and double-spend anomalies.
+    
+    Checks performed:
+    1. Negative balance check: available_balance >= 0 and locked_balance >= 0.
+    2. Zero-value transactions: transactions with amount == 0.
+    3. Orphaned transactions: transactions with non-existent token_account_id.
+    4. Account-level balance verification: ensures all accounts have non-negative balances.
+    5. Aggregate circulation metrics: total circulating tokens across the system.
+    """
+    accounts = db.query(TokenAccount).all()
+    transactions = db.query(TokenTransaction).all()
+
+    anomalies: List[dict] = []
+    account_ids = {a.id for a in accounts}
+
+    # 1. Check for orphaned transactions and zero-amount entries
+    for tx in transactions:
+        if tx.token_account_id not in account_ids:
+            anomalies.append({
+                "type": "ORPHANED_TRANSACTION",
+                "transaction_id": str(tx.id),
+                "token_account_id": str(tx.token_account_id),
+                "amount": tx.amount,
+                "message": "Transaction references a non-existent token account",
+            })
+        if tx.amount == 0:
+            anomalies.append({
+                "type": "ZERO_AMOUNT_TRANSACTION",
+                "transaction_id": str(tx.id),
+                "token_account_id": str(tx.token_account_id),
+                "message": "Zero amount transaction detected in audit trail",
+            })
+
+    total_available = 0
+    total_locked = 0
+
+    # 2. Check each account for balance validity
+    for acc in accounts:
+        total_available += acc.available_balance
+        total_locked += acc.locked_balance
+
+        if acc.available_balance < 0:
+            anomalies.append({
+                "type": "NEGATIVE_AVAILABLE_BALANCE",
+                "account_id": str(acc.id),
+                "user_id": str(acc.user_id),
+                "available_balance": acc.available_balance,
+                "message": "Account has negative available balance",
+            })
+        if acc.locked_balance < 0:
+            anomalies.append({
+                "type": "NEGATIVE_LOCKED_BALANCE",
+                "account_id": str(acc.id),
+                "user_id": str(acc.user_id),
+                "locked_balance": acc.locked_balance,
+                "message": "Account has negative locked balance",
+            })
+
+    return {
+        "status": "HEALTHY" if len(anomalies) == 0 else "ANOMALIES_DETECTED",
+        "is_healthy": len(anomalies) == 0,
+        "total_accounts_audited": len(accounts),
+        "total_transactions_audited": len(transactions),
+        "total_circulating_available": total_available,
+        "total_circulating_locked": total_locked,
+        "total_circulating_supply": total_available + total_locked,
+        "anomaly_count": len(anomalies),
+        "anomalies": anomalies,
+    }

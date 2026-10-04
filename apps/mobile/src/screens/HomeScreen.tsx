@@ -393,7 +393,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -419,17 +419,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   walletCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     marginBottom: 18,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   walletHeader: {
     flexDirection: 'row',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   viewLedgerLink: {
     fontSize: 12,
-    color: colors.accentGreen,
+    color: colors.accentOrange,
     fontWeight: '600',
   },
   balanceSplit: {
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   tokenUnitGreen: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.accentGreen,
+    color: colors.accentOrange,
   },
   lockedNumber: {
     fontSize: 26,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   balanceDivider: {
     width: 1,
     height: 36,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.border,
     marginHorizontal: 14,
   },
   walletExplanation: {
@@ -502,17 +502,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   commitmentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     marginBottom: 10,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   commitmentTop: {
     flexDirection: 'row',
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.2)',
+    borderColor: colors.tokenGoldDark,
   },
   commitmentPillText: {
     fontSize: 10,
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   },
   phase3HintText: {
     fontSize: 11,
-    color: colors.accentGreen,
+    color: colors.accentOrange,
     fontWeight: '600',
   },
   rewardPotentialText: {
@@ -560,10 +560,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   txListCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   txRow: {
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.border,
   },
   txLeft: {
     gap: 2,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   txPos: {
-    color: colors.accentGreen,
+    color: colors.statusCompleted,
   },
   txNeg: {
     color: colors.tokenGold,

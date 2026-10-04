@@ -46,6 +46,9 @@ class Submission(Base, UUIDPrimaryKeyMixin):
     media = relationship("SubmissionMedia", back_populates="submission", cascade="all, delete-orphan")
     verification = relationship("Verification", back_populates="submission", uselist=False, cascade="all, delete-orphan")
     reward = relationship("Reward", back_populates="submission", uselist=False, cascade="all, delete-orphan")
+    peer_assignments = relationship("PeerReviewAssignment", back_populates="submission", cascade="all, delete-orphan")
+    peer_reviews = relationship("PeerReview", back_populates="submission", cascade="all, delete-orphan")
+    consensus_record = relationship("ConsensusRecord", back_populates="submission", uselist=False, cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_submissions_task_status", "task_id", "status"),

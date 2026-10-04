@@ -138,3 +138,12 @@ def contributor_token(client):
     )
     return reg.json()["access_token"]
 
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Reset the in-memory rate limiter before and after every test to ensure test isolation."""
+    from app.core.rate_limit import limiter
+    limiter.reset()
+    yield
+    limiter.reset()
+

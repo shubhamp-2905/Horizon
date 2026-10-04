@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { AdminTaskItem } from './OverviewTab';
+import { SearchIcon, PlusIcon, EyeIcon } from './Icons';
 
 interface TasksTabProps {
   tasks: AdminTaskItem[];
@@ -45,15 +46,21 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   return (
     <div>
       {/* Search and Filters Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px' }}>
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search tasks by title or category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '22px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+              <SearchIcon size={14} />
+            </span>
+            <input
+              type="text"
+              className="search-input"
+              style={{ paddingLeft: '34px', width: '100%' }}
+              placeholder="Search tasks by title, category, or artifact..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
           <select
             className="filter-select"
@@ -82,9 +89,10 @@ export const TasksTab: React.FC<TasksTabProps> = ({
         <button
           type="button"
           onClick={onOpenCreateTask}
-          className="btn btn-emerald"
+          className="btn btn-primary"
         >
-          + New Field Task
+          <PlusIcon size={16} />
+          <span>New Field Task</span>
         </button>
       </div>
 
@@ -106,7 +114,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-muted)' }}>
                   No tasks match the active filters.
                 </td>
               </tr>
@@ -126,21 +134,26 @@ export const TasksTab: React.FC<TasksTabProps> = ({
                     {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
                   </td>
                   <td>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>+{task.base_reward} HZN</span>
+                    <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      +{task.base_reward} HZN
+                    </span>
                   </td>
                   <td>
-                    <span style={{ color: 'var(--text-secondary)' }}>{task.commitment_stake} HZN</span>
+                    <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {task.commitment_stake} HZN
+                    </span>
                   </td>
                   <td>
                     <span className={`status-pill ${task.status === 'published' ? 'status-pill-published' : 'status-pill-draft'}`}>
-                      {task.status === 'published' ? '✓ Published' : '• Draft'}
+                      <span className="badge-dot" />
+                      {task.status === 'published' ? 'Published' : 'Draft'}
                     </span>
                   </td>
                   <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     {new Date(task.created_at).toLocaleDateString()}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '6px' }}>
+                    <div style={{ display: 'inline-flex', gap: '8px' }}>
                       <button
                         type="button"
                         onClick={() => onToggleStatusWithConfirm(task)}
@@ -153,7 +166,8 @@ export const TasksTab: React.FC<TasksTabProps> = ({
                         onClick={() => onViewTask(task)}
                         className="btn btn-secondary btn-sm"
                       >
-                        Details
+                        <EyeIcon size={13} />
+                        <span>Details</span>
                       </button>
                     </div>
                   </td>

@@ -1,5 +1,6 @@
 import logging
 from typing import Generator
+from contextlib import contextmanager
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
@@ -62,6 +63,12 @@ def create_db_engine():
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     is_sqlite = db_url.startswith("sqlite")
 
+    if is_sqlite and settings.is_production:
+        raise RuntimeError(
+            "SQLite database is strictly forbidden in production/staging mode. "
+            "A persistent PostgreSQL database must be configured via DATABASE_URL."
+        )
+
     # If Postgres is configured, test if it's reachable. If not, fallback to SQLite for local dev.
     if not is_sqlite:
         candidates = [db_url]
@@ -75,6 +82,9 @@ def create_db_engine():
                 test_engine = create_engine(
                     candidate_url,
                     pool_pre_ping=True,
+                    pool_size=settings.DATABASE_POOL_SIZE,
+                    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+                    pool_recycle=settings.DATABASE_POOL_RECYCLE,
                     connect_args={"connect_timeout": 4},
                 )
                 with test_engine.connect() as conn:
@@ -84,8 +94,14 @@ def create_db_engine():
             except Exception as exc:
                 logger.warning(f"Connection attempt to {candidate_url.split('@')[-1]} failed: {exc}")
 
+        if settings.is_production:
+            raise RuntimeError(
+                "Production database connection failure: could not connect to PostgreSQL. "
+                "Silent fallback to SQLite is strictly disabled in production mode."
+            )
+
         logger.warning(
-            f"All PostgreSQL connection attempts failed. Falling back to local SQLite database for development."
+            "All PostgreSQL connection attempts failed. Falling back to local SQLite database for development."
         )
         db_url = "sqlite:///./horizon_dev.db"
         is_sqlite = True
@@ -98,6 +114,17 @@ def create_db_engine():
 
 engine = create_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@contextmanager
+def transactional_session(db: Session) -> Generator[Session, None, None]:
+    """Execute a block within an atomic transaction with automatic rollback on error."""
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_db() -> Generator[Session, None, None]:

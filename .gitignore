@@ -77,6 +77,8 @@ pnpm-debug.log*
 *.sqlite3
 *.db
 .prisma/client
+storage/
+apps/api/storage/
 
 # IDE & OS
 .vscode/*

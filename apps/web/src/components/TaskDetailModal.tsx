@@ -61,7 +61,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </span>
               </div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--accent-emerald)', marginTop: '6px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--accent-orange-text)', marginTop: '6px' }}>
               EPSG: 4326 (WGS84 Geodetic Reference System)
             </div>
           </div>
@@ -84,7 +84,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {(task.requirements || ['Geotagged ground photo', 'Survey checklist']).map((req, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  <span style={{ color: 'var(--accent-emerald)', fontWeight: 800 }}>✓</span>
+                  <span style={{ color: 'var(--accent-orange)', fontWeight: 800 }}>✓</span>
                   <span>{req}</span>
                 </div>
               ))}
@@ -92,10 +92,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
 
           {/* Economics Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '14px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', marginBottom: '16px' }}>
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>REWARD</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--token-amber)' }}>+{task.base_reward}</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--accent-orange-text)' }}>+{task.base_reward}</div>
             </div>
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>STAKE</div>

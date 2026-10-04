@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "scheme": "horizon",
     "splash": {
       "backgroundColor": "#0F172A"
     },
@@ -12,12 +13,25 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "org.earthlens.horizon.contributor",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Horizon requires camera access to capture ground-truth field evidence photos for environmental verification.",
+        "NSLocationWhenInUseUsageDescription": "Horizon requires your GPS location to verify geospatial accuracy of field observations."
+      }
     },
     "android": {
+      "package": "org.earthlens.horizon.contributor",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A"
-      }
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     }
   }
 }

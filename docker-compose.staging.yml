@@ -1,0 +1,127 @@
+version: '3.8'
+
+# Project Horizon — Isolated Staging Environment Stack
+# Includes PostGIS 16, MinIO Object Storage, FastAPI Core API, AI Microservice, and Next.js Web Console
+
+services:
+  staging-postgres:
+    image: postgis/postgis:16-3.4
+    container_name: horizon-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:-horizon_staging_user}
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-horizon_staging_pass}
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-horizon_staging_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_POSTGRES_USER:-horizon_staging_user} -d ${STAGING_POSTGRES_DB:-horizon_staging_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  staging-minio:
+    image: minio/minio:RELEASE.2024-03-03T17-50-24Z
+    container_name: horizon-staging-minio
+    restart: unless-stopped
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      MINIO_ROOT_USER: ${STAGING_S3_ACCESS_KEY:-horizon_staging_key}
+      MINIO_ROOT_PASSWORD: ${STAGING_S3_SECRET_KEY:-horizon_staging_secret_987}
+    volumes:
+      - staging_minio_data:/data
+    command: server /data --console-address ":9001"
+
+  staging-ai:
+    build:
+      context: ./services/ai
+      dockerfile: Dockerfile
+    container_name: horizon-staging-ai
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=staging
+      - AI_SERVICE_HOST=0.0.0.0
+      - AI_SERVICE_PORT=8000
+      - AI_SERVICE_API_KEY=${STAGING_AI_API_KEY:-horizon_ai_staging_secret_key}
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  staging-api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: horizon-staging-api
+    restart: unless-stopped
+    ports:
+      - "4001:4000"
+    environment:
+      - ENVIRONMENT=staging
+      - SECRET_KEY=${STAGING_SECRET_KEY:-horizon_staging_super_secret_jwt_hmac_signing_key_32chars}
+      - DATABASE_URL=postgresql://${STAGING_POSTGRES_USER:-horizon_staging_user}:${STAGING_POSTGRES_PASSWORD:-horizon_staging_pass}@staging-postgres:5432/${STAGING_POSTGRES_DB:-horizon_staging_db}
+      - DATABASE_POOL_SIZE=10
+      - DATABASE_MAX_OVERFLOW=20
+      - DATABASE_POOL_RECYCLE=1800
+      - API_HOST=0.0.0.0
+      - API_PORT=4000
+      - API_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","https://staging.earthlens.org"]
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - RATE_LIMIT_ENABLED=true
+      - AI_SERVICE_URL=http://staging-ai:8000
+      - AI_SERVICE_API_KEY=${STAGING_AI_API_KEY:-horizon_ai_staging_secret_key}
+      - AI_SERVICE_TIMEOUT_SECONDS=5.0
+      - AI_SERVICE_MAX_RETRIES=2
+      - S3_ENDPOINT=http://staging-minio:9000
+      - S3_BUCKET=horizon-media-staging
+      - S3_ACCESS_KEY=${STAGING_S3_ACCESS_KEY:-horizon_staging_key}
+      - S3_SECRET_KEY=${STAGING_S3_SECRET_KEY:-horizon_staging_secret_987}
+      - S3_REGION=us-east-1
+      - S3_FORCE_PATH_STYLE=true
+      - STORAGE_PERSISTENT_DIR=/storage/staging_media
+      - EXPORT_STORAGE_DIR=/storage/staging_exports
+    depends_on:
+      staging-postgres:
+        condition: service_healthy
+      staging-minio:
+        condition: service_started
+      staging-ai:
+        condition: service_healthy
+    volumes:
+      - staging_storage_data:/storage
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  staging-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: horizon-staging-web
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://staging-api:4000/api/v1
+    depends_on:
+      - staging-api
+
+volumes:
+  staging_postgres_data:
+    driver: local
+  staging_minio_data:
+    driver: local
+  staging_storage_data:
+    driver: local
