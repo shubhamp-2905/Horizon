@@ -1,23 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sidebar, type AdminTab } from '../components/Sidebar';
-import { Header } from '../components/Header';
-import { OverviewTab, type AdminTaskItem } from '../components/OverviewTab';
-import { TasksTab } from '../components/TasksTab';
-import { CreateTaskModal } from '../components/CreateTaskModal';
-import { TaskDetailModal } from '../components/TaskDetailModal';
-import { ConfirmationDialog } from '../components/ConfirmationDialog';
-import { SubmissionsTab } from '../components/SubmissionsTab';
-import { ContributorsTab } from '../components/ContributorsTab';
-import { TokenActivityTab } from '../components/TokenActivityTab';
-import { PipelineTab } from '../components/PipelineTab';
 import { LandingPage } from '../components/LandingPage';
 import { ContributorPortal } from '../components/ContributorPortal';
-import { CheckCircle2Icon } from '../components/Icons';
+import type { AdminTaskItem } from '../components/OverviewTab';
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
-const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
   {
@@ -71,52 +59,12 @@ const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
 ];
 
 export default function HorizonApp() {
-  // Top-level experience view: landing | contributor | admin
-  const [currentView, setCurrentView] = useState<'landing' | 'contributor' | 'admin'>('landing');
-
-  // Admin view state
-  const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  // Public & Contributor user journey: landing <-> contributor
+  const [currentView, setCurrentView] = useState<'landing' | 'contributor'>('landing');
   const [tasks, setTasks] = useState<AdminTaskItem[]>(INITIAL_DEMO_TASKS);
-  const [loading, setLoading] = useState(false);
-  const [apiConnected, setApiConnected] = useState(false);
-  const [adminToken, setAdminToken] = useState<string | null>(null);
 
-  // Modals & Dialogs
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<AdminTaskItem | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-  });
-
-  // Notification Toast
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  // Attempt to fetch tasks from live backend or check connectivity
   const fetchTasksFromApi = useCallback(async () => {
-    setLoading(true);
     try {
-      // Check health
-      const healthRes = await fetch(`${API_ROOT_URL}/health`).catch(() => null);
-      if (healthRes && healthRes.ok) {
-        setApiConnected(true);
-      } else {
-        setApiConnected(false);
-      }
-
-      // If live backend exists, attempt to query public tasks discovery or admin tasks
       const res = await fetch(`${API_BASE_URL}/tasks?page_size=50`).catch(() => null);
       if (res && res.ok) {
         const data = await res.json();
@@ -141,10 +89,7 @@ export default function HorizonApp() {
         }
       }
     } catch {
-      // Fallback
-      setApiConnected(false);
-    } finally {
-      setLoading(false);
+      // offline fallback
     }
   }, []);
 
@@ -152,224 +97,21 @@ export default function HorizonApp() {
     fetchTasksFromApi();
   }, [fetchTasksFromApi]);
 
-  const handleCreateTask = async (
-    newTask: Omit<AdminTaskItem, 'id' | 'created_at'>
-  ) => {
-    setLoading(true);
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-
-      const res = await fetch(`${API_BASE_URL}/admin/tasks`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(newTask),
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        const created = await res.json();
-        setTasks((prev) => [created, ...prev]);
-        showToast(`Task "${created.title}" successfully created and saved to PostGIS!`);
-      } else {
-        const simulated: AdminTaskItem = {
-          ...newTask,
-          id: `task-${Date.now()}`,
-          created_at: new Date().toISOString(),
-        };
-        setTasks((prev) => [simulated, ...prev]);
-        showToast(`Task "${simulated.title}" created successfully.`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggleStatus = async (task: AdminTaskItem) => {
-    const nextStatus = task.status === 'published' ? 'draft' : 'published';
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-
-      await fetch(`${API_BASE_URL}/admin/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ status: nextStatus }),
-      }).catch(() => null);
-    } catch {
-      // Ignore network errors in offline/dev
-    }
-
-    setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
-    );
-    showToast(`Task "${task.title}" status updated to ${nextStatus.toUpperCase()}`);
-  };
-
-  const handleToggleStatusWithConfirm = (task: AdminTaskItem) => {
-    const willUnpublish = task.status === 'published';
-    setConfirmDialog({
-      isOpen: true,
-      title: willUnpublish ? 'Unpublish Task?' : 'Publish Task?',
-      message: willUnpublish
-        ? `Are you sure you want to unpublish "${task.title}"? Field contributors will no longer be able to discover or commit tokens to this task.`
-        : `Publish "${task.title}" to field contributors? It will immediately appear in geospatial proximity discovery.`,
-      onConfirm: () => {
-        handleToggleStatus(task);
-        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-      },
-    });
-  };
-
-  const handleOpenPreset = () => {
-    setIsCreateModalOpen(true);
-  };
-
   // 1. PUBLIC LANDING VIEW
   if (currentView === 'landing') {
     return (
       <LandingPage
         tasks={tasks}
         onStartContributing={() => setCurrentView('contributor')}
-        onOpenAdminConsole={() => setCurrentView('admin')}
       />
     );
   }
 
   // 2. CONTRIBUTOR PORTAL VIEW
-  if (currentView === 'contributor') {
-    return (
-      <ContributorPortal
-        tasks={tasks}
-        onReturnToLanding={() => setCurrentView('landing')}
-        onOpenAdminConsole={() => setCurrentView('admin')}
-      />
-    );
-  }
-
-  // 3. ENTERPRISE ADMIN CONSOLE VIEW
   return (
-    <div className="app-layout">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentTab={currentTab}
-        onSelectTab={setCurrentTab}
-        taskCount={tasks.length}
-        apiConnected={apiConnected}
-        onSwitchToContributor={() => setCurrentView('contributor')}
-        onReturnToLanding={() => setCurrentView('landing')}
-      />
-
-      {/* Main Console Viewport */}
-      <main className="app-main">
-        <Header
-          currentTab={currentTab}
-          onCreateTaskClick={() => setIsCreateModalOpen(true)}
-          onRefreshClick={fetchTasksFromApi}
-          onLoadPresetClick={handleOpenPreset}
-          loading={loading}
-        />
-
-        <div className="page-container">
-          {currentTab === 'overview' && (
-            <OverviewTab
-              tasks={tasks}
-              onNavigateToTasks={() => setCurrentTab('tasks')}
-              onOpenCreateTask={() => setIsCreateModalOpen(true)}
-              onToggleStatus={handleToggleStatus}
-              onViewTask={(task) => setSelectedTaskForDetail(task)}
-            />
-          )}
-
-          {currentTab === 'tasks' && (
-            <TasksTab
-              tasks={tasks}
-              onOpenCreateTask={() => setIsCreateModalOpen(true)}
-              onToggleStatusWithConfirm={handleToggleStatusWithConfirm}
-              onViewTask={(task) => setSelectedTaskForDetail(task)}
-            />
-          )}
-
-          {(currentTab === 'submissions' || currentTab === 'review') && (
-            <SubmissionsTab />
-          )}
-
-          {currentTab === 'contributors' && <ContributorsTab />}
-
-          {currentTab === 'tokens' && <TokenActivityTab />}
-
-          {currentTab === 'pipeline' && (
-            <PipelineTab
-              apiBaseUrl={API_BASE_URL}
-              adminToken={adminToken}
-              onShowToast={showToast}
-            />
-          )}
-
-          {currentTab === 'settings' && (
-            <div className="stat-card" style={{ maxWidth: '640px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '14px', color: '#ffffff' }}>
-                Platform &amp; Geospatial Settings
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>PostGIS SRID:</strong> 4326 (WGS84 Lat/Long)
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Default Proximity Radius:</strong> 10,000 meters
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Starter Tokens Provisioning:</strong> 100 TOKENS (Fixed by protocol)
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Backend Service Endpoint:</strong> {API_BASE_URL}
-                </div>
-                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setCurrentView('landing')}
-                  >
-                    Return to Horizon Landing Page
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Create Task Modal */}
-      <CreateTaskModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateTask}
-        loading={loading}
-      />
-
-      {/* Task Details Modal */}
-      <TaskDetailModal
-        task={selectedTaskForDetail}
-        isOpen={selectedTaskForDetail !== null}
-        onClose={() => setSelectedTaskForDetail(null)}
-        onToggleStatus={handleToggleStatus}
-      />
-
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
-      />
-
-      {/* Action Notification Toast */}
-      {toastMessage && (
-        <div className="toast-banner">
-          <CheckCircle2Icon size={16} color="var(--accent-orange)" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-    </div>
+    <ContributorPortal
+      tasks={tasks}
+      onReturnToLanding={() => setCurrentView('landing')}
+    />
   );
 }

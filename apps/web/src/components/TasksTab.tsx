@@ -134,7 +134,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
                     {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
                   </td>
                   <td>
-                    <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
                       +{task.base_reward} HZN
                     </span>
                   </td>

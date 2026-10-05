@@ -572,11 +572,11 @@ export const SubmissionsTab: React.FC = () => {
                   key={sub.id}
                   onClick={() => setSelectedSub(sub)}
                   style={{
-                    border: isSelected ? '1px solid var(--accent-orange-border)' : '1px solid var(--border-default)',
+                    border: isSelected ? '1px solid var(--accent-brand-border)' : '1px solid var(--border-default)',
                     borderRadius: 'var(--radius-md)',
                     padding: '14px',
-                    background: isSelected ? 'rgba(255, 107, 0, 0.08)' : 'var(--bg-card)',
-                    boxShadow: isSelected ? '0 0 16px rgba(255, 107, 0, 0.2)' : 'none',
+                    background: isSelected ? 'rgba(45, 140, 255, 0.12)' : 'var(--bg-card)',
+                    boxShadow: isSelected ? '0 0 16px rgba(99, 216, 255, 0.22)' : 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                   }}
@@ -857,19 +857,19 @@ export const SubmissionsTab: React.FC = () => {
               )}
             </div>
 
-            {/* Stage 5: Direct Admin Action Controls */}
+            {/* Stage 5: Final Admin Decision */}
             <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  5. Quick Admin Verification
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  5. Final Administrator Decision
                 </span>
                 {selectedSub.consensus.status !== 'DISPUTED' && (
                   <button
                     type="button"
                     onClick={() => setShowDisputeModal(true)}
-                    style={{ fontSize: '11px', color: 'var(--token-amber-text)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ fontSize: '11px', color: 'var(--cyan-glow)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                   >
-                    Raise Dispute / Appeal
+                    Flag / Escalated Audit
                   </button>
                 )}
               </div>
@@ -880,18 +880,18 @@ export const SubmissionsTab: React.FC = () => {
                   onClick={() => handleDecision(selectedSub.id, 'approved')}
                   disabled={selectedSub.verification_status === 'approved'}
                   className="btn btn-emerald"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, padding: '10px 16px', fontWeight: 700 }}
                 >
-                  ✓ Direct Approve & Release
+                  ✓ ACCEPT (Commit to Verified Data)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDecision(selectedSub.id, 'rejected')}
                   disabled={selectedSub.verification_status === 'rejected'}
                   className="btn btn-danger"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, padding: '10px 16px', fontWeight: 700 }}
                 >
-                  ✕ Direct Reject
+                  ✕ REJECT
                 </button>
               </div>
             </div>

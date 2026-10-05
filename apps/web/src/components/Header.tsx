@@ -24,19 +24,15 @@ export const Header: React.FC<HeaderProps> = ({
       case 'overview':
         return 'Operations Dashboard';
       case 'tasks':
-        return 'Task & Geofence Management';
+        return 'Task Management';
       case 'submissions':
-        return 'Submissions & Ground Evidence';
+        return 'Field Submissions';
       case 'review':
-        return 'AI & Quorum Verification Queue';
-      case 'contributors':
-        return 'Field Contributor Network';
-      case 'tokens':
-        return 'Token Ledger & Escrow Pool';
+        return 'Consensus & Verification Queue';
       case 'pipeline':
-        return 'Loupe ML Downstream Pipeline';
+        return 'Verified Geospatial Data';
       case 'settings':
-        return 'System & Geospatial SRID Configuration';
+        return 'Operations & Security Settings';
     }
   };
 
@@ -65,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="btn btn-secondary btn-sm"
           title="Pre-populate task builder with validated spatial preset"
         >
-          <CompassIcon size={14} color="var(--accent-orange)" />
+          <CompassIcon size={14} color="var(--cyan-glow)" />
           <span>Load Preset</span>
         </button>
 

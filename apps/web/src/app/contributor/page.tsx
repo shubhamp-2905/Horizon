@@ -100,7 +100,6 @@ export default function ContributorPage() {
     <ContributorPortal
       tasks={tasks}
       onReturnToLanding={() => router.push('/')}
-      onOpenAdminConsole={() => router.push('/admin')}
     />
   );
 }

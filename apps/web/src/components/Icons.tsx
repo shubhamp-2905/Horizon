@@ -22,16 +22,17 @@ export const LogoMark: React.FC<IconProps> = ({ size = 24, color = 'currentColor
     className={className}
     {...props}
   >
-    <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" stroke="url(#logo-gradient)" fill="rgba(255, 107, 0, 0.12)" />
-    <circle cx="12" cy="12" r="3" fill="#FF6B00" />
+    <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" stroke="url(#logo-gradient)" fill="rgba(45, 140, 255, 0.16)" />
+    <circle cx="12" cy="12" r="3" fill="#63D8FF" />
     <line x1="12" y1="2" x2="12" y2="9" stroke="url(#logo-gradient)" />
     <line x1="12" y1="15" x2="12" y2="22" stroke="url(#logo-gradient)" />
     <line x1="2" y1="8.5" x2="9" y2="12" stroke="url(#logo-gradient)" />
     <line x1="15" y1="12" x2="22" y2="15.5" stroke="url(#logo-gradient)" />
     <defs>
       <linearGradient id="logo-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#FF6B00" />
-        <stop offset="1" stopColor="#D95300" />
+        <stop stopColor="#1677FF" />
+        <stop offset="0.5" stopColor="#2D8CFF" />
+        <stop offset="1" stopColor="#63D8FF" />
       </linearGradient>
     </defs>
   </svg>
@@ -249,3 +250,12 @@ export const CheckIcon: React.FC<IconProps> = ({ size = 18, color = 'currentColo
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
+
+export const LogOutIcon: React.FC<IconProps> = ({ size = 18, color = 'currentColor', strokeWidth = 2, className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+

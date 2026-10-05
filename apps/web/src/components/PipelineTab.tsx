@@ -212,34 +212,32 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       {/* Header Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Loupe Downstream Data Pipeline
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Verified Geospatial Data
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Extract, validate, and publish canonical ground-truth observations for Loupe geospatial intelligence.
+            Canonical ground-truth records successfully verified through multi-layer consensus and PostGIS ingestion.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             type="button"
-            className="action-btn"
+            className="btn btn-secondary btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={fetchData}
             disabled={loading}
           >
-            <span>↻</span>
             <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
           </button>
 
           <button
             type="button"
-            className="action-btn action-btn-primary"
+            className="btn btn-primary btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setIsTriggerModalOpen(true)}
           >
-            <span>▶</span>
-            <span>Trigger Pipeline Run</span>
+            <span>Compile Verified Dataset</span>
           </button>
         </div>
       </div>
@@ -257,21 +255,21 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
         gap: '12px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>ETL Architecture:</span>
-          <span className="consensus-badge" style={{ background: 'rgba(245, 158, 11, 0.12)', color: 'var(--token-amber-text)', borderColor: 'var(--token-amber-border)' }}>
-            Bronze: Raw Submissions
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Verification Pipeline:</span>
+          <span className="consensus-badge" style={{ background: 'rgba(99, 216, 255, 0.10)', color: 'var(--cyan-glow)', borderColor: 'var(--accent-brand-border)' }}>
+            Bronze: Raw Field Submissions
           </span>
           <span style={{ color: 'var(--text-muted)' }}>→</span>
-          <span className="consensus-badge" style={{ background: 'rgba(14, 165, 233, 0.12)', color: 'var(--accent-sky-text)', borderColor: 'var(--accent-sky-border)' }}>
-            Silver: Clean & Scored
+          <span className="consensus-badge" style={{ background: 'rgba(45, 140, 255, 0.14)', color: 'var(--blue-soft)', borderColor: 'var(--border-default)' }}>
+            Silver: AI &amp; Quorum Scored
           </span>
           <span style={{ color: 'var(--text-muted)' }}>→</span>
-          <span className="consensus-badge" style={{ background: 'rgba(255, 107, 0, 0.12)', color: 'var(--accent-orange-text)', borderColor: 'var(--accent-orange-border)' }}>
-            Gold: PostGIS Loupe Feeds
+          <span className="consensus-badge" style={{ background: 'rgba(16, 185, 129, 0.14)', color: 'var(--accent-emerald-text)', borderColor: 'var(--accent-emerald-border)' }}>
+            Gold: PostGIS Verified Feeds
           </span>
         </div>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Secure Auth: Bearer JWT & X-Loupe-API-Key Supported
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+          Authenticated SRID 4326 Export
         </span>
       </div>
 

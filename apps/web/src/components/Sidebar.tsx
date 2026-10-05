@@ -6,12 +6,10 @@ import {
   CompassIcon,
   LayersIcon,
   CheckCircle2Icon,
-  UsersIcon,
-  CoinsIcon,
   SatelliteIcon,
   SlidersIcon,
-  ArrowRightIcon,
   EyeIcon,
+  LogOutIcon,
 } from './Icons';
 
 export type AdminTab =
@@ -19,8 +17,6 @@ export type AdminTab =
   | 'tasks'
   | 'submissions'
   | 'review'
-  | 'contributors'
-  | 'tokens'
   | 'pipeline'
   | 'settings';
 
@@ -29,8 +25,7 @@ interface SidebarProps {
   onSelectTab: (tab: AdminTab) => void;
   taskCount: number;
   apiConnected: boolean;
-  onSwitchToContributor?: () => void;
-  onReturnToLanding?: () => void;
+  onSignOut?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,31 +33,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   taskCount,
   apiConnected,
-  onSwitchToContributor,
-  onReturnToLanding,
+  onSignOut,
 }) => {
   return (
     <aside className="app-sidebar">
+      {/* Brand Header */}
       <div className="sidebar-header">
-        <div
-          className="brand-badge"
-          style={{ cursor: onReturnToLanding ? 'pointer' : 'default' }}
-          onClick={onReturnToLanding}
-          title={onReturnToLanding ? 'Return to Horizon Landing' : undefined}
-        >
+        <div className="brand-badge">
           <div className="brand-logo-mark">
             <LogoMark size={20} />
           </div>
           <div>
             <div className="brand-name">HORIZON</div>
-            <div className="brand-version">Enterprise Console</div>
+            <div className="brand-version">Operations Console</div>
           </div>
         </div>
       </div>
 
+      {/* Streamlined Operational Navigation */}
       <nav className="sidebar-nav">
-        <div className="nav-section-title">Operations</div>
-
+        {/* OVERVIEW */}
+        <div className="nav-section-title">Overview</div>
         <button
           type="button"
           className={`nav-link ${currentTab === 'overview' ? 'active' : ''}`}
@@ -76,6 +67,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </button>
 
+        {/* OPERATIONS */}
+        <div className="nav-section-title" style={{ marginTop: '14px' }}>
+          Operations
+        </div>
         <button
           type="button"
           className={`nav-link ${currentTab === 'tasks' ? 'active' : ''}`}
@@ -112,44 +107,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="nav-icon">
               <CheckCircle2Icon size={16} />
             </span>
-            <span>Review Queue</span>
+            <span>Reviews</span>
           </span>
         </button>
 
-        <div className="nav-section-title" style={{ marginTop: '12px' }}>
-          Network & Ledger
+        {/* VERIFIED */}
+        <div className="nav-section-title" style={{ marginTop: '14px' }}>
+          Verified
         </div>
-
-        <button
-          type="button"
-          className={`nav-link ${currentTab === 'contributors' ? 'active' : ''}`}
-          onClick={() => onSelectTab('contributors')}
-        >
-          <span className="nav-link-left">
-            <span className="nav-icon">
-              <UsersIcon size={16} />
-            </span>
-            <span>Contributors</span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={`nav-link ${currentTab === 'tokens' ? 'active' : ''}`}
-          onClick={() => onSelectTab('tokens')}
-        >
-          <span className="nav-link-left">
-            <span className="nav-icon">
-              <CoinsIcon size={16} />
-            </span>
-            <span>Token Ledger</span>
-          </span>
-        </button>
-
-        <div className="nav-section-title" style={{ marginTop: '12px' }}>
-          Downstream
-        </div>
-
         <button
           type="button"
           className={`nav-link ${currentTab === 'pipeline' ? 'active' : ''}`}
@@ -159,14 +124,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="nav-icon">
               <SatelliteIcon size={16} />
             </span>
-            <span>Loupe Pipeline</span>
+            <span>Verified Data</span>
           </span>
         </button>
 
-        <div className="nav-section-title" style={{ marginTop: '12px' }}>
+        {/* SYSTEM */}
+        <div className="nav-section-title" style={{ marginTop: '14px' }}>
           System
         </div>
-
         <button
           type="button"
           className={`nav-link ${currentTab === 'settings' ? 'active' : ''}`}
@@ -179,33 +144,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Settings</span>
           </span>
         </button>
-
-        {onSwitchToContributor && (
-          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ width: '100%', justifyContent: 'space-between', fontSize: '11px', padding: '8px 12px' }}
-              onClick={onSwitchToContributor}
-            >
-              <span>Field Contributor View</span>
-              <ArrowRightIcon size={14} color="var(--accent-orange)" />
-            </button>
-          </div>
-        )}
       </nav>
 
+      {/* Footer with Operational Status and Sign Out */}
       <div className="sidebar-footer">
         <div className="conn-status">
           <div className={`conn-dot ${apiConnected ? '' : 'conn-dot-offline'}`} />
           <span>{apiConnected ? 'PostGIS Active (:4000)' : 'Connecting to API...'}</span>
         </div>
-        <div className="admin-profile-pill">
-          <div className="admin-avatar">AD</div>
-          <div className="admin-info">
-            <span className="admin-name">Admin Control</span>
-            <span className="admin-role">Enterprise Operator</span>
+        <div className="admin-profile-pill" style={{ justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="admin-avatar">OP</div>
+            <div className="admin-info">
+              <span className="admin-name">Admin</span>
+              <span className="admin-role">Operations</span>
+            </div>
           </div>
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'color 0.2s ease',
+              }}
+              title="Sign Out of Operations Console"
+            >
+              <LogOutIcon size={15} />
+            </button>
+          )}
         </div>
       </div>
     </aside>

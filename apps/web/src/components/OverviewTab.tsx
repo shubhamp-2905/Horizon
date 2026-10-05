@@ -5,10 +5,11 @@ import {
   LayersIcon,
   CheckCircle2Icon,
   ClockIcon,
-  CoinsIcon,
-  PlusIcon,
+  AlertTriangleIcon,
+  XCircleIcon,
   ArrowRightIcon,
   EyeIcon,
+  PlusIcon,
 } from './Icons';
 
 export interface AdminTaskItem {
@@ -28,172 +29,278 @@ export interface AdminTaskItem {
   created_at: string;
 }
 
+export interface ReviewQueueItem {
+  id: string;
+  task_title: string;
+  contributor: string;
+  location: string;
+  gps_accuracy: string;
+  submitted: string;
+  community_result: string;
+  community_votes: { approve: number; reject: number; flag: number; quorum: number };
+  status: 'awaiting_review' | 'flagged' | 'pending';
+}
+
 interface OverviewTabProps {
   tasks: AdminTaskItem[];
   onNavigateToTasks: () => void;
+  onNavigateToSubmissions: () => void;
   onOpenCreateTask: () => void;
   onToggleStatus: (task: AdminTaskItem) => void;
   onViewTask: (task: AdminTaskItem) => void;
+  onInspectSubmission?: (submissionId: string) => void;
 }
+
+const DEFAULT_REVIEW_QUEUE: ReviewQueueItem[] = [
+  {
+    id: 'sub_8f4a23c5_bc5e',
+    task_title: 'Community Water Source Survey',
+    contributor: 'scout_alex',
+    location: '18.5204, 73.8567',
+    gps_accuracy: '±6.8m',
+    submitted: '14 min ago',
+    community_result: 'Quorum Met (3/3 Accept)',
+    community_votes: { approve: 3, reject: 0, flag: 0, quorum: 3 },
+    status: 'awaiting_review',
+  },
+  {
+    id: 'sub_3d79e1b2_49fa',
+    task_title: 'Rooftop Solar Array Inspection',
+    contributor: 'scout_elena',
+    location: '18.5312, 73.8445',
+    gps_accuracy: '±4.2m',
+    submitted: '42 min ago',
+    community_result: 'Quorum Met (2/2 Accept, 1 Warn)',
+    community_votes: { approve: 2, reject: 0, flag: 1, quorum: 2 },
+    status: 'awaiting_review',
+  },
+  {
+    id: 'sub_e41b892a_90f1',
+    task_title: 'Urban Flood Drainage Channel',
+    contributor: 'scout_field_test',
+    location: '18.5280, 73.8610',
+    gps_accuracy: '±142.0m',
+    submitted: '2 hours ago',
+    community_result: 'Flagged (Excessive GPS Drift)',
+    community_votes: { approve: 0, reject: 1, flag: 2, quorum: 2 },
+    status: 'flagged',
+  },
+];
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   tasks,
   onNavigateToTasks,
+  onNavigateToSubmissions,
   onOpenCreateTask,
   onToggleStatus,
   onViewTask,
+  onInspectSubmission,
 }) => {
-  const publishedTasks = tasks.filter((t) => t.status === 'published');
-  const draftTasks = tasks.filter((t) => t.status === 'draft');
-  const rewardPoolTotal = tasks.reduce((sum, t) => sum + (t.base_reward || 0), 0);
+  const activeTasks = tasks.filter((t) => t.status === 'published');
 
-  // Group by artifact type
-  const typeCounts: Record<string, number> = {};
-  tasks.forEach((t) => {
-    const key = t.artifact_type || 'other';
-    typeCounts[key] = (typeCounts[key] || 0) + 1;
-  });
+  // Operational metrics answering "What requires my attention right now?"
+  const pendingSubmissions = 7;
+  const awaitingFinalReview = 3;
+  const approvedCount = 142;
+  const rejectedCount = 8;
+  const flaggedCount = 2;
 
   return (
     <div>
-      {/* 4 Precision KPI Metric Cards */}
-      <div className="stats-grid">
+      {/* 6 Essential Operational Metric Cards */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
         <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-emerald">
-            <LayersIcon size={20} />
+          <div className="kpi-icon-wrap kpi-icon-blue">
+            <ClockIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Total Field Tasks</div>
-            <div className="stat-value">{tasks.length}</div>
-            <div className="stat-sub">PostGIS registered points</div>
+            <div className="stat-label">Pending Submissions</div>
+            <div className="stat-value">{pendingSubmissions}</div>
+            <div className="stat-sub">In intake &amp; review</div>
+          </div>
+        </div>
+
+        <div className="kpi-card" style={{ borderColor: 'var(--border-highlight)' }}>
+          <div className="kpi-icon-wrap kpi-icon-blue">
+            <EyeIcon size={18} />
+          </div>
+          <div className="kpi-content">
+            <div className="stat-label" style={{ color: 'var(--cyan-glow)' }}>Awaiting Review</div>
+            <div className="stat-value" style={{ color: '#ffffff' }}>{awaitingFinalReview}</div>
+            <div className="stat-sub">Community quorum met</div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap kpi-icon-emerald">
+            <CheckCircle2Icon size={18} />
+          </div>
+          <div className="kpi-content">
+            <div className="stat-label">Approved</div>
+            <div className="stat-value">{approvedCount}</div>
+            <div className="stat-sub">Verified ground truth</div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap kpi-icon-red">
+            <XCircleIcon size={18} />
+          </div>
+          <div className="kpi-content">
+            <div className="stat-label">Rejected</div>
+            <div className="stat-value">{rejectedCount}</div>
+            <div className="stat-sub">Failed verification</div>
           </div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-icon-wrap kpi-icon-amber">
-            <CheckCircle2Icon size={20} />
+            <AlertTriangleIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Published in Field</div>
-            <div className="stat-value">{publishedTasks.length}</div>
-            <div className="stat-sub">Active on contributor mobile</div>
+            <div className="stat-label">Flagged</div>
+            <div className="stat-value">{flaggedCount}</div>
+            <div className="stat-sub">Telemetry anomaly</div>
           </div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-icon-wrap kpi-icon-gray">
-            <ClockIcon size={20} />
+            <LayersIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Draft Backlog</div>
-            <div className="stat-value">{draftTasks.length}</div>
-            <div className="stat-sub">Pending requirements audit</div>
-          </div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-amber">
-            <CoinsIcon size={20} />
-          </div>
-          <div className="kpi-content">
-            <div className="stat-label">Allocated Reward Pool</div>
-            <div className="stat-value">{rewardPoolTotal} HZN</div>
-            <div className="stat-sub">Secured in escrow ledger</div>
+            <div className="stat-label">Active Tasks</div>
+            <div className="stat-value">{activeTasks.length}</div>
+            <div className="stat-sub">Live in field discovery</div>
           </div>
         </div>
       </div>
 
-      {/* Category Breakdown & Operations Control */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '28px' }}>
-        {/* Category Breakdown */}
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Task Categories</h3>
-            <span style={{ fontSize: '11px', color: 'var(--accent-orange-text)', fontWeight: 600 }}>{Object.keys(typeCounts).length} types</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {Object.entries(typeCounts).map(([type, count]) => {
-              const percent = tasks.length > 0 ? Math.round((count / tasks.length) * 100) : 0;
-              return (
-                <div key={type}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
-                      {type.replace(/_/g, ' ')}
-                    </span>
-                    <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {count} ({percent}%)
-                    </span>
-                  </div>
-                  <div style={{ width: '100%', height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${percent}%`,
-                        height: '100%',
-                        background: 'var(--gradient-orange)',
-                        borderRadius: '3px',
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Operational Quick Actions */}
-        <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      {/* Primary Work Queue: Requires Review */}
+      <div className="work-queue-card">
+        <div className="work-queue-header">
           <div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
-              Field Operations Control
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '24px' }}>
-              Deploy ground-truth observation tasks, monitor geospatial telemetry, and manage token commitments across the decentralized contributor network.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>Requires Review</h2>
+              <span className="work-queue-badge">{awaitingFinalReview} Actionable</span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Field submissions with community consensus awaiting final administrator acceptance or rejection
             </p>
           </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onNavigateToSubmissions}
+          >
+            <span>All Submissions</span>
+            <ArrowRightIcon size={14} />
+          </button>
+        </div>
 
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Submission</th>
+                <th>Contributor</th>
+                <th>Location</th>
+                <th>Submitted</th>
+                <th>Community Result</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DEFAULT_REVIEW_QUEUE.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <div className="table-cell-title">{item.task_title}</div>
+                    <div className="table-cell-desc font-mono">{item.id}</div>
+                  </td>
+                  <td>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--text-primary)' }}>
+                      @{item.contributor}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{item.location}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>GPS: {item.gps_accuracy}</div>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.submitted}</span>
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: item.status === 'flagged' ? 'var(--status-warning-text)' : 'var(--accent-emerald-text)',
+                      }}
+                    >
+                      {item.community_result}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-pill ${item.status === 'flagged' ? 'status-pill-warning' : 'status-pill-pending'}`}>
+                      <span className="badge-dot" />
+                      {item.status === 'flagged' ? 'Flagged' : 'Awaiting Review'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        if (onInspectSubmission) {
+                          onInspectSubmission(item.id);
+                        } else {
+                          onNavigateToSubmissions();
+                        }
+                      }}
+                    >
+                      <span>Inspect &amp; Decide</span>
+                      <ArrowRightIcon size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Active Tasks Management Strip */}
+      <div className="table-container" style={{ marginTop: '24px' }}>
+        <div className="table-header-bar">
+          <div>
+            <div className="table-title">Active Field Tasks</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PostGIS registered collection waypoints</div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
               onClick={onOpenCreateTask}
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
             >
-              <PlusIcon size={16} />
-              <span>Create New Task</span>
+              <PlusIcon size={14} />
+              <span>Create Task</span>
             </button>
             <button
               type="button"
               onClick={onNavigateToTasks}
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
             >
-              <span>Manage Tasks ({tasks.length})</span>
+              <span>Manage All ({tasks.length})</span>
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Recent Tasks Table */}
-      <div className="table-container">
-        <div className="table-header-bar">
-          <div>
-            <div className="table-title">Recent Geospatial Tasks</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Latest active collection points</div>
-          </div>
-          <button
-            type="button"
-            onClick={onNavigateToTasks}
-            className="btn btn-secondary btn-sm"
-          >
-            <span>View All ({tasks.length})</span>
-            <ArrowRightIcon size={14} />
-          </button>
         </div>
 
         <table className="data-table">
           <thead>
             <tr>
               <th>Task</th>
-              <th>Category</th>
+              <th>Artifact</th>
               <th>Coordinates</th>
               <th>Reward / Stake</th>
               <th>Status</th>
@@ -201,7 +308,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </tr>
           </thead>
           <tbody>
-            {tasks.slice(0, 5).map((task) => (
+            {tasks.slice(0, 4).map((task) => (
               <tr key={task.id}>
                 <td>
                   <div className="table-cell-title">{task.title}</div>
@@ -216,7 +323,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
                 </td>
                 <td>
-                  <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
                     +{task.base_reward} HZN
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'JetBrains Mono, monospace' }}>
