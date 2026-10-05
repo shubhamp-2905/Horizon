@@ -78,6 +78,7 @@ export default function AdminPage() {
   // Modals & State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<AdminTaskItem | null>(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -110,7 +111,7 @@ export default function AdminPage() {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('horizon_admin_token');
       if (!token) {
-        router.push('/admin/login');
+        router.push('/');
       } else {
         setAdminToken(token);
       }
@@ -122,7 +123,7 @@ export default function AdminPage() {
       localStorage.removeItem('horizon_admin_token');
       localStorage.removeItem('horizon_admin_user');
     }
-    router.push('/admin/login');
+    router.push('/');
   };
 
   const fetchTasksFromApi = useCallback(async () => {
@@ -311,7 +312,10 @@ export default function AdminPage() {
               onOpenCreateTask={() => setIsCreateModalOpen(true)}
               onToggleStatus={handleToggleStatus}
               onViewTask={(task) => setSelectedTaskForDetail(task)}
-              onInspectSubmission={() => setCurrentTab('submissions')}
+              onInspectSubmission={(subId) => {
+                setSelectedSubmissionId(subId);
+                setCurrentTab('submissions');
+              }}
             />
           )}
 
@@ -327,7 +331,7 @@ export default function AdminPage() {
 
           {/* OPERATIONS: Submissions & Reviews */}
           {(currentTab === 'submissions' || currentTab === 'review') && (
-            <SubmissionsTab />
+            <SubmissionsTab initialSelectedId={selectedSubmissionId} />
           )}
 
           {/* VERIFIED: Verified Data */}

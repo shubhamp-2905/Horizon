@@ -319,9 +319,27 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
   },
 ];
 
-export const SubmissionsTab: React.FC = () => {
+interface SubmissionsTabProps {
+  initialSelectedId?: string | null;
+}
+
+export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedId }) => {
   const [submissions, setSubmissions] = useState<AdminSubmissionItem[]>(DEMO_SUBMISSIONS);
-  const [selectedSub, setSelectedSub] = useState<AdminSubmissionItem>(DEMO_SUBMISSIONS[0]);
+  const [selectedSub, setSelectedSub] = useState<AdminSubmissionItem>(() => {
+    if (initialSelectedId) {
+      const found = DEMO_SUBMISSIONS.find((s) => s.id === initialSelectedId);
+      if (found) return found;
+    }
+    return DEMO_SUBMISSIONS[0];
+  });
+
+  React.useEffect(() => {
+    if (initialSelectedId) {
+      const found = submissions.find((s) => s.id === initialSelectedId);
+      if (found) setSelectedSub(found);
+    }
+  }, [initialSelectedId, submissions]);
+
   const [filter, setFilter] = useState<'all' | 'PASSED' | 'WARNING' | 'FAILED'>('all');
   const [customVoteNote, setCustomVoteNote] = useState<string>('');
   const [disputeReasonInput, setDisputeReasonInput] = useState<string>('');
