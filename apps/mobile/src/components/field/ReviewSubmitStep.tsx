@@ -273,11 +273,11 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
         <View style={styles.ecoRow}>
           <View>
             <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>POTENTIAL REWARD</Text>
-            <Text style={[styles.ecoReward, { color: theme.primaryLight }]}>+{task.base_reward} HZN</Text>
+            <Text style={[styles.ecoReward, { color: theme.primaryLight }]}>+{task.base_reward} TKN</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>STAKE RETURN</Text>
-            <Text style={[styles.ecoStake, { color: theme.tokenGold }]}>+{task.commitment_stake} HZN</Text>
+            <Text style={[styles.ecoStake, { color: theme.tokenGold }]}>+{task.commitment_stake} TKN</Text>
           </View>
         </View>
       </View>
@@ -375,7 +375,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
               </View>
               <View style={styles.modalSumRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Reward Value</Text>
-                <Text style={[styles.modalSumReward, { color: theme.primaryLight }]}>+{task.base_reward} HZN</Text>
+                <Text style={[styles.modalSumReward, { color: theme.primaryLight }]}>+{task.base_reward} TKN</Text>
               </View>
               <View style={styles.modalSumRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Pipeline Phase</Text>

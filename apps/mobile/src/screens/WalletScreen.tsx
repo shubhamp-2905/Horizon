@@ -159,7 +159,7 @@ export const WalletScreen: React.FC = () => {
               <Text style={[styles.availableNumber, { color: theme.electricPurple }]}>
                 {wallet.available_balance}
               </Text>
-              <Text style={[styles.balanceUnit, { color: theme.electricPurple }]}>HZN</Text>
+              <Text style={[styles.balanceUnit, { color: theme.electricPurple }]}>TKN</Text>
               <Text style={[styles.balanceCardDesc, { color: theme.textMuted }]}>
                 Ready to stake on open tasks
               </Text>
@@ -176,7 +176,7 @@ export const WalletScreen: React.FC = () => {
               <Text style={[styles.lockedNumber, { color: '#D97706' }]}>
                 {wallet.locked_balance}
               </Text>
-              <Text style={[styles.balanceUnit, { color: '#D97706' }]}>HZN</Text>
+              <Text style={[styles.balanceUnit, { color: '#D97706' }]}>TKN</Text>
               <Text style={[styles.balanceCardDesc, { color: theme.textMuted }]}>
                 Held in commitment escrow
               </Text>
@@ -193,7 +193,7 @@ export const WalletScreen: React.FC = () => {
               <Text style={[styles.totalNumber, { color: theme.textPrimary }]}>
                 {wallet.total_tokens}
               </Text>
-              <Text style={[styles.balanceUnit, { color: theme.textMuted }]}>HZN</Text>
+              <Text style={[styles.balanceUnit, { color: theme.textMuted }]}>TKN</Text>
               <Text style={[styles.balanceCardDesc, { color: theme.textMuted }]}>
                 Aggregate contributor balance
               </Text>
@@ -265,7 +265,7 @@ export const WalletScreen: React.FC = () => {
                         >
                           {isPositive ? `+${tx.amount}` : tx.amount}
                         </Text>
-                        <Text style={[styles.txAmountUnit, { color: theme.textMuted }]}>HZN</Text>
+                        <Text style={[styles.txAmountUnit, { color: theme.textMuted }]}>TKN</Text>
                       </View>
                     </View>
                   );

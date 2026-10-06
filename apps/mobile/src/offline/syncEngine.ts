@@ -161,7 +161,7 @@ export class SyncEngine {
 
     // Trigger sync if online
     if (this.isOnline()) {
-      this.syncNow().catch((err) => console.warn('Sync post-queue encountered error:', err));
+      await this.syncNow().catch((err) => console.warn('Sync post-queue encountered error:', err));
     }
   }
 
@@ -278,6 +278,10 @@ export class SyncEngine {
 
       case 'ATTACH_MEDIA': {
         if (!serverSubId) {
+          const fresh = await this.subRepo.getDraft(op.local_submission_id);
+          serverSubId = fresh?.server_submission_id;
+        }
+        if (!serverSubId) {
           throw new Error('Cannot attach media before server submission ID is created');
         }
         const payload = op.payload as any;
@@ -294,6 +298,10 @@ export class SyncEngine {
       }
 
       case 'FINALIZE_SUBMISSION': {
+        if (!serverSubId) {
+          const fresh = await this.subRepo.getDraft(op.local_submission_id);
+          serverSubId = fresh?.server_submission_id;
+        }
         if (!serverSubId) {
           throw new Error('Cannot finalize submission before server submission ID is created');
         }

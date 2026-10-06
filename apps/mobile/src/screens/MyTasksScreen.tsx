@@ -292,14 +292,14 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                   <View style={styles.stakeBox}>
                     <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>STAKE LOCKED</Text>
                     <Text style={[styles.stakeVal, { color: theme.tokenGold }]}>
-                      {item.stake_amount} HZN
+                      {item.stake_amount} TKN
                     </Text>
                   </View>
 
                   <View style={styles.rewardBox}>
                     <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>POTENTIAL REWARD</Text>
                     <Text style={[styles.rewardVal, { color: theme.primaryLight }]}>
-                      +{t.base_reward} HZN
+                      +{t.base_reward} TKN
                     </Text>
                   </View>
                 </View>

@@ -177,7 +177,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleCommit = async () => {
     if (!canAffordStake) {
       setErrorMessage(
-        `Insufficient available tokens: Required ${task.commitment_stake} HZN, but your wallet only has ${availableTokens} HZN available.`
+        `Insufficient available tokens: Required ${task.commitment_stake} TKN, but your wallet only has ${availableTokens} TKN available.`
       );
       return;
     }
@@ -260,8 +260,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       throw new Error('No local submission draft found');
     }
 
-    // Delegate to existing syncEngine architecture to mark ready and enqueue CREATE_SUBMISSION, ATTACH_MEDIA, and FINALIZE_SUBMISSION
+    // Queue submission operations
     await syncEngine.queueSubmissionForSync(currentDraft.local_submission_id);
+
+    // If online, perform sync and confirm server persistence
+    if (syncEngine.isOnline()) {
+      const syncResult = await syncEngine.syncNow();
+      if (syncResult.failed > 0 && syncResult.succeeded === 0) {
+        throw new Error(syncEngine.getState().lastError || 'Server could not persist submission. Saved locally in offline queue.');
+      }
+    }
+
     const updated = await submissionRepo.getDraft(currentDraft.local_submission_id);
     if (updated) {
       setCurrentDraft(updated);
@@ -514,7 +523,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   <View style={[styles.mapPinCenter, { backgroundColor: theme.primary }]} />
                 </View>
                 <Text style={[styles.mapSnippetLabel, { color: theme.textSecondary }]}>
-                  PostGIS WGS84 Spatial Target (SRID 4326)
+                  Target Coordinates
                 </Text>
               </View>
             </View>
@@ -604,7 +613,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   <Text style={[styles.rewardNumber, { color: theme.primaryLight }]}>
                     +{task.base_reward}
                   </Text>
-                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>HZN TOKENS ON VERIFICATION</Text>
+                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>TKN TOKENS ON VERIFICATION</Text>
                 </View>
 
                 <View style={[styles.ecoColDivider, { backgroundColor: theme.border }]} />
@@ -614,7 +623,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   <Text style={[styles.stakeNumber, { color: theme.tokenGold }]}>
                     {task.commitment_stake}
                   </Text>
-                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>HZN TOKENS LOCKED IN ESCROW</Text>
+                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>TKN TOKENS LOCKED IN ESCROW</Text>
                 </View>
               </View>
 
@@ -665,7 +674,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 ]}
               >
                 <Text style={[styles.escrowNoticeText, { color: theme.tokenGold }]}>
-                  {task.commitment_stake} HZN locked in escrow guarantees exclusive collection rights.
+                  {task.commitment_stake} TKN locked in escrow guarantees exclusive collection rights.
                 </Text>
                 <Text style={[styles.escrowDetailText, { color: theme.textSecondary }]}>
                   Your stake guarantees exclusive collection rights and will be returned upon successful verification.
@@ -684,7 +693,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                     Your Available Balance:
                   </Text>
                   <Text style={[styles.balanceStatusValue, { color: theme.textPrimary }]}>
-                    {availableTokens} HZN
+                    {availableTokens} TKN
                   </Text>
                 </View>
 
@@ -699,7 +708,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                     ]}
                   >
                     <Text style={[styles.insufficientText, { color: theme.error }]}>
-                      Insufficient balance: You need {task.commitment_stake} HZN to commit, but you only have {availableTokens} HZN available (Short by {deficit} HZN).
+                      Insufficient balance: You need {task.commitment_stake} TKN to commit, but you only have {availableTokens} TKN available (Short by {deficit} TKN).
                     </Text>
                   </View>
                 )}
@@ -740,7 +749,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 <HorizonButton
                   title={
                     canAffordStake
-                      ? `Commit to Task (${task.commitment_stake} HZN)`
+                      ? `Commit to Task (${task.commitment_stake} TKN)`
                       : `Insufficient Tokens (Need ${task.commitment_stake})`
                   }
                   onPress={handleCommit}
@@ -854,7 +863,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               Commitment Established
             </Text>
             <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
-              {claimedStake} HZN tokens have been successfully locked into escrow from your available balance.
+              {claimedStake} TKN tokens have been successfully locked into escrow from your available balance.
             </Text>
 
             <View
@@ -878,7 +887,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               <View style={styles.modalSummaryRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Locked Stake</Text>
                 <Text style={[styles.modalSumValue, { color: theme.textPrimary }]}>
-                  {claimedStake} HZN
+                  {claimedStake} TKN
                 </Text>
               </View>
               <View style={styles.modalSummaryRow}>

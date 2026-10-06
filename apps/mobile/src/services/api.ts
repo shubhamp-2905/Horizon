@@ -149,9 +149,15 @@ export class HorizonApiClient {
         {
           method: 'POST',
           headers: this.getHeaders(),
-          body: JSON.stringify({ ...params, role: 'contributor' }),
+          body: JSON.stringify({
+            email: params.email,
+            username: params.username,
+            password: params.password,
+            display_name: params.full_name || params.username,
+            role: 'contributor',
+          }),
         },
-        50000
+        20000
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));

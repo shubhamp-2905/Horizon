@@ -81,23 +81,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         if (!mounted) return;
         if (cachedClaims.length > 0) {
           setActiveTasks(
-            cachedClaims.map((c) => ({
-              claim_id: c.claim_id,
-              status: c.status,
-              stake_amount: c.stake_amount,
-              claimed_at: c.claimed_at,
-              task: {
-                id: c.task_id,
-                title: 'Cached Task',
-                artifact_type: 'offline_task',
-                status: 'published',
-                difficulty: 1.0,
-                scarcity: 1.0,
-                base_reward: 50,
-                commitment_stake: c.stake_amount,
-                created_at: c.claimed_at,
-              },
-            }))
+            cachedClaims.map((c) => {
+              const matched = cachedTasks.find((t) => t.id === c.task_id);
+              return {
+                claim_id: c.claim_id,
+                status: c.status,
+                stake_amount: c.stake_amount,
+                claimed_at: c.claimed_at,
+                task: {
+                  id: c.task_id,
+                  title: matched?.title || 'Field Task',
+                  artifact_type: matched?.artifact_type || 'survey',
+                  status: 'published',
+                  difficulty: matched?.difficulty || 1.0,
+                  scarcity: matched?.scarcity || 1.0,
+                  base_reward: matched?.base_reward || 100,
+                  commitment_stake: c.stake_amount,
+                  created_at: c.claimed_at,
+                },
+              };
+            })
           );
         }
         if (cachedTasks.length > 0) {
@@ -142,26 +145,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         setActiveTasks(myTasksRes.value);
         claimRepo.cacheClaims(myTasksRes.value).catch(() => {});
       } else {
-        const cachedClaims = await claimRepo.getCachedClaims();
+        const [cachedClaims, cachedTasks] = await Promise.all([
+          claimRepo.getCachedClaims(),
+          taskRepo.getAllCachedTasks(),
+        ]);
         if (cachedClaims.length > 0) {
           setActiveTasks(
-            cachedClaims.map((c) => ({
-              claim_id: c.claim_id,
-              status: c.status,
-              stake_amount: c.stake_amount,
-              claimed_at: c.claimed_at,
-              task: {
-                id: c.task_id,
-                title: 'Cached Task',
-                artifact_type: 'offline_task',
-                status: 'published',
-                difficulty: 1.0,
-                scarcity: 1.0,
-                base_reward: 50,
-                commitment_stake: c.stake_amount,
-                created_at: c.claimed_at,
-              },
-            }))
+            cachedClaims.map((c) => {
+              const matched = cachedTasks.find((t) => t.id === c.task_id);
+              return {
+                claim_id: c.claim_id,
+                status: c.status,
+                stake_amount: c.stake_amount,
+                claimed_at: c.claimed_at,
+                task: {
+                  id: c.task_id,
+                  title: matched?.title || 'Field Task',
+                  artifact_type: matched?.artifact_type || 'survey',
+                  status: 'published',
+                  difficulty: matched?.difficulty || 1.0,
+                  scarcity: matched?.scarcity || 1.0,
+                  base_reward: matched?.base_reward || 100,
+                  commitment_stake: c.stake_amount,
+                  created_at: c.claimed_at,
+                },
+              };
+            })
           );
         }
       }
@@ -267,7 +276,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={[styles.availableNumber, { color: theme.textPrimary }]}>
                 {wallet ? wallet.available_balance : '100'}
               </Text>
-              <Text style={[styles.tokenUnitPurple, { color: theme.electricPurple }]}>HZN</Text>
+              <Text style={[styles.tokenUnitPurple, { color: theme.electricPurple }]}>TKN</Text>
             </View>
           </View>
 
@@ -279,7 +288,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={[styles.lockedNumber, { color: '#D97706' }]}>
                 {wallet ? wallet.locked_balance : '0'}
               </Text>
-              <Text style={styles.tokenUnitAmber}>HZN</Text>
+              <Text style={styles.tokenUnitAmber}>TKN</Text>
             </View>
           </View>
         </View>
@@ -345,7 +354,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </Text>
                   </View>
                   <Text style={[styles.stakeAmountText, { color: theme.textSecondary }]}>
-                    {item.stake_amount} HZN
+                    {item.stake_amount} TKN
                   </Text>
                 </View>
                 <Text style={[styles.commitmentTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
@@ -354,7 +363,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     Ready for field collection
                   </Text>
                   <Text style={[styles.rewardPotentialText, { color: theme.textSecondary }]}>
-                    Reward: +{item.task.base_reward} HZN
+                    Reward: +{item.task.base_reward} TKN
                   </Text>
                 </View>
               </TouchableOpacity>

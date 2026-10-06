@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,47 @@ const DIFFICULTIES = [
   { label: 'Hard', min: 2.6 },
 ];
 
+function getHumanReadableLocation(lat: number, lng: number): string {
+  if (Math.abs(lat - 18.52) < 0.6 && Math.abs(lng - 73.85) < 0.6) {
+    return 'Pune, Maharashtra';
+  }
+  if (Math.abs(lat - 19.07) < 0.5 && Math.abs(lng - 72.87) < 0.5) {
+    return 'Mumbai, Maharashtra';
+  }
+  if (Math.abs(lat - 12.97) < 0.5 && Math.abs(lng - 77.59) < 0.5) {
+    return 'Bengaluru, Karnataka';
+  }
+  if (Math.abs(lat - 28.61) < 0.5 && Math.abs(lng - 77.20) < 0.5) {
+    return 'New Delhi, Delhi';
+  }
+  return `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+}
+
+function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+function formatDistance(meters?: number | null): string {
+  if (meters === null || meters === undefined) return 'Nearby';
+  if (meters < 1000) return `${meters} m away`;
+  return `${(meters / 1000).toFixed(1)} km away`;
+}
+
 export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   onSelectTask,
   userCoords = { latitude: 18.5204, longitude: 73.8567 },
@@ -60,48 +101,70 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   const [selectedTaskOnMap, setSelectedTaskOnMap] = useState<TaskResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await apiClient.discoverTasks({
-        lat: userCoords.latitude,
-        lng: userCoords.longitude,
-        radius: radiusMeters,
-        artifact_type: selectedCategory,
-      });
+  // Primitive stable coordinates
+  const lat = userCoords.latitude;
+  const lng = userCoords.longitude;
+  const locationName = useMemo(() => getHumanReadableLocation(lat, lng), [lat, lng]);
 
-      let results = res.tasks || [];
-      const diffFilter = DIFFICULTIES[selectedDifficultyIdx];
-      if (diffFilter.value === undefined && (diffFilter.min || diffFilter.max)) {
-        results = results.filter((t) => {
-          if (diffFilter.min && t.difficulty < diffFilter.min) return false;
-          if (diffFilter.max && t.difficulty > diffFilter.max) return false;
-          return true;
+  const fetchTasks = useCallback(
+    async (isInitial = false) => {
+      try {
+        if (isInitial) {
+          setLoading(true);
+        }
+        setError(null);
+        const res = await apiClient.discoverTasks({
+          lat,
+          lng,
+          radius: radiusMeters,
+          artifact_type: selectedCategory,
         });
-      }
 
-      setTasks(results);
-      if (results.length > 0 && !selectedTaskOnMap) {
-        setSelectedTaskOnMap(results[0]);
-      } else if (results.length === 0) {
-        setSelectedTaskOnMap(null);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to query PostGIS spatial engine');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [userCoords, radiusMeters, selectedCategory, selectedDifficultyIdx, selectedTaskOnMap]);
+        let results = res.tasks || [];
 
+        // Dynamically compute real distance for every task from user's coordinates
+        results = results.map((t) => {
+          let dist = t.distance_meters;
+          if ((dist === null || dist === undefined) && t.latitude && t.longitude) {
+            dist = calculateDistanceMeters(lat, lng, t.latitude, t.longitude);
+          }
+          return { ...t, distance_meters: dist };
+        });
+
+        // Filter by difficulty if set
+        const diffFilter = DIFFICULTIES[selectedDifficultyIdx];
+        if (diffFilter.value === undefined && (diffFilter.min || diffFilter.max)) {
+          results = results.filter((t) => {
+            if (diffFilter.min && t.difficulty < diffFilter.min) return false;
+            if (diffFilter.max && t.difficulty > diffFilter.max) return false;
+            return true;
+          });
+        }
+
+        setTasks(results);
+        setSelectedTaskOnMap((prev) => {
+          if (!prev) return results[0] || null;
+          const match = results.find((r) => r.id === prev.id);
+          return match || results[0] || null;
+        });
+      } catch (err: any) {
+        setError(err.message || 'Unable to load nearby tasks. Please verify connection.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [lat, lng, radiusMeters, selectedCategory, selectedDifficultyIdx]
+  );
+
+  // Fetch only on filter / coordinate changes
   useEffect(() => {
-    setLoading(true);
-    fetchTasks();
+    fetchTasks(true);
   }, [fetchTasks]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchTasks();
+    fetchTasks(false);
   };
 
   const getDifficultyLabel = (diff: number) => {
@@ -112,29 +175,32 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Location & GPS Fix Header */}
+      {/* Location Bar with Human-Readable Location Name & Accuracy */}
       <View
         style={[
-          styles.gpsBar,
+          styles.locationBar,
           {
             backgroundColor: theme.surface,
             borderBottomColor: theme.border,
           },
         ]}
       >
-        <View style={styles.gpsInfo}>
-          <View style={[styles.gpsPulse, { backgroundColor: theme.primary }]} />
+        <View style={styles.locationInfo}>
+          <View style={[styles.pulseDot, { backgroundColor: theme.electricPurple }]} />
           <View>
-            <Text style={[styles.gpsFixLabel, { color: theme.textMuted }]}>
-              POSTGIS GEOSPATIAL FIX
+            <Text style={[styles.locationLabel, { color: theme.textMuted }]}>
+              YOUR LOCATION
             </Text>
-            <Text style={[styles.gpsCoords, { color: theme.primaryLight }]}>
-              {userCoords.latitude.toFixed(4)}°N, {userCoords.longitude.toFixed(4)}°E (±4.2m)
+            <Text style={[styles.locationName, { color: theme.textPrimary }]}>
+              {locationName}
+            </Text>
+            <Text style={[styles.locationAccuracy, { color: theme.textSecondary }]}>
+              ±4.2 m accuracy
             </Text>
           </View>
         </View>
 
-        {/* View Toggle */}
+        {/* View Toggle: Map vs List */}
         <View
           style={[
             styles.toggleGroup,
@@ -147,7 +213,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.toggleBtn,
-              viewMode === 'map' && { backgroundColor: theme.primary },
+              viewMode === 'map' && { backgroundColor: theme.electricPurple },
             ]}
             onPress={() => setViewMode('map')}
             activeOpacity={0.8}
@@ -165,7 +231,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.toggleBtn,
-              viewMode === 'list' && { backgroundColor: theme.primary },
+              viewMode === 'list' && { backgroundColor: theme.electricPurple },
             ]}
             onPress={() => setViewMode('list')}
             activeOpacity={0.8}
@@ -204,8 +270,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: isSelected ? theme.primaryMuted : theme.card,
-                    borderColor: isSelected ? theme.primary : theme.borderLight,
+                    backgroundColor: isSelected ? theme.purpleMuted : theme.surfaceCard,
+                    borderColor: isSelected ? theme.borderHighlight : theme.border,
                   },
                 ]}
                 onPress={() => setRadiusMeters(r.value)}
@@ -215,7 +281,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   style={[
                     styles.chipText,
                     {
-                      color: isSelected ? theme.primaryLight : theme.textSecondary,
+                      color: isSelected ? theme.electricPurple : theme.textSecondary,
                       fontWeight: isSelected ? '800' : '600',
                     },
                   ]}
@@ -237,8 +303,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 style={[
                   styles.catChip,
                   {
-                    backgroundColor: isCatSelected ? theme.primary : theme.card,
-                    borderColor: isCatSelected ? theme.primary : theme.border,
+                    backgroundColor: isCatSelected ? theme.electricPurple : theme.surfaceCard,
+                    borderColor: isCatSelected ? theme.electricPurple : theme.border,
                   },
                 ]}
                 onPress={() => setSelectedCategory(cat.value)}
@@ -263,15 +329,18 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
       {/* Main Content: Map or List */}
       {loading ? (
-        <LoadingState message="Discovering nearby tasks via PostGIS..." />
+        <LoadingState message="Discovering nearby tasks..." />
       ) : error ? (
         <View style={styles.errorContainer}>
+          <Text style={[styles.errorTitle, { color: theme.textPrimary }]}>
+            Unable to load tasks
+          </Text>
           <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-          <HorizonButton title="Retry Search" onPress={fetchTasks} variant="secondary" size="sm" />
+          <HorizonButton title="Retry" onPress={() => fetchTasks(true)} variant="primary" size="sm" />
         </View>
       ) : viewMode === 'map' ? (
         <View style={[styles.mapContainer, { backgroundColor: theme.background }]}>
-          {/* Spatial Canvas Preview */}
+          {/* Spatial Radar Canvas */}
           <View style={styles.spatialCanvas}>
             {/* Range Rings */}
             <View style={[styles.rangeRingOuter, { borderColor: theme.border }]} />
@@ -289,18 +358,23 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
             {/* User Center Dot */}
             <View style={styles.userCenterPin}>
-              <View style={[styles.userPulseRing, { backgroundColor: theme.primaryMuted }]} />
-              <View style={[styles.userCoreDot, { backgroundColor: theme.primary }]} />
-              <Text style={[styles.userPinLabel, { color: theme.primaryLight }]}>YOU</Text>
+              <View style={[styles.userPulseRing, { backgroundColor: theme.purpleMuted }]} />
+              <View style={[styles.userCoreDot, { backgroundColor: theme.electricPurple }]} />
+              <Text style={[styles.userPinLabel, { color: theme.electricPurple }]}>YOU</Text>
             </View>
 
-            {/* Task Markers on Radar Canvas */}
-            {tasks.map((task, idx) => {
+            {/* Task Markers on Radar Canvas using actual coordinate offsets */}
+            {tasks.map((task) => {
               const isSelected = selectedTaskOnMap?.id === task.id;
-              const angle = (idx * 137.5) * (Math.PI / 180);
-              const distanceFactor = Math.min(0.42, 0.18 + (idx * 0.1));
-              const topOffset = 50 + Math.sin(angle) * (distanceFactor * 100);
-              const leftOffset = 50 + Math.cos(angle) * (distanceFactor * 100);
+              const taskLat = task.latitude ?? lat;
+              const taskLng = task.longitude ?? lng;
+              const deltaLat = taskLat - lat;
+              const deltaLng = taskLng - lng;
+              const maxDeg = radiusMeters / 111320;
+              const normX = Math.max(-0.4, Math.min(0.4, (deltaLng / (maxDeg * 1.8 || 1)) * 0.4));
+              const normY = Math.max(-0.4, Math.min(0.4, (deltaLat / (maxDeg * 1.8 || 1)) * 0.4));
+              const topOffset = 50 - normY * 100;
+              const leftOffset = 50 + normX * 100;
 
               return (
                 <TouchableOpacity
@@ -317,8 +391,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     style={[
                       styles.markerBadge,
                       {
-                        backgroundColor: isSelected ? theme.primary : theme.card,
-                        borderColor: isSelected ? theme.primary : theme.border,
+                        backgroundColor: isSelected ? theme.electricPurple : theme.surfaceCard,
+                        borderColor: isSelected ? theme.electricPurple : theme.border,
                       },
                     ]}
                   >
@@ -336,7 +410,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                       styles.markerTitle,
                       {
                         color: theme.textSecondary,
-                        backgroundColor: theme.card,
+                        backgroundColor: theme.surfaceCard,
                         borderColor: theme.border,
                       },
                     ]}
@@ -353,13 +427,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 style={[
                   styles.mapEmptyNotice,
                   {
-                    backgroundColor: theme.card,
+                    backgroundColor: theme.surfaceCard,
                     borderColor: theme.border,
                   },
                 ]}
               >
                 <Text style={[styles.mapEmptyText, { color: theme.textSecondary }]}>
-                  No data gaps within {radiusMeters / 1000} km
+                  No nearby tasks within {radiusMeters / 1000} km
                 </Text>
               </View>
             )}
@@ -371,7 +445,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               style={[
                 styles.bottomPreviewCard,
                 {
-                  backgroundColor: theme.card,
+                  backgroundColor: theme.surfaceCard,
                   borderColor: theme.border,
                   shadowColor: isDark ? '#000000' : '#4C1D95',
                 },
@@ -381,17 +455,15 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 <View
                   style={[
                     styles.previewTypeTag,
-                    { backgroundColor: theme.primaryMuted },
+                    { backgroundColor: theme.purpleMuted },
                   ]}
                 >
-                  <Text style={[styles.previewTypeText, { color: theme.primaryLight }]}>
+                  <Text style={[styles.previewTypeText, { color: theme.electricPurple }]}>
                     {selectedTaskOnMap.artifact_type.replace(/_/g, ' ').toUpperCase()}
                   </Text>
                 </View>
                 <Text style={[styles.previewDistance, { color: theme.textSecondary }]}>
-                  {selectedTaskOnMap.distance_meters !== null && selectedTaskOnMap.distance_meters !== undefined
-                    ? `${(selectedTaskOnMap.distance_meters / 1000).toFixed(1)} km away`
-                    : 'Nearby'}
+                  {formatDistance(selectedTaskOnMap.distance_meters)}
                   {' · ~'}{selectedTaskOnMap.estimated_effort_minutes || 25} min
                 </Text>
               </View>
@@ -444,15 +516,15 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={theme.primary}
+              tintColor={theme.electricPurple}
             />
           }
         >
           {tasks.length === 0 ? (
             <EmptyState
-              title="No Tasks Found In Range"
-              description="Expand your search radius or choose 'All Categories' to discover more geospatial data gaps."
-              actionText="Reset to 25 km"
+              title="No nearby tasks available"
+              description="Expand your search radius or choose 'All Categories' to discover more geospatial tasks."
+              actionText="Expand to 25 km"
               onAction={() => setRadiusMeters(25000)}
             />
           ) : (
@@ -470,7 +542,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gpsBar: {
+  locationBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -478,25 +550,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  gpsInfo: {
+  locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  gpsPulse: {
+  pulseDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  gpsFixLabel: {
+  locationLabel: {
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
-  gpsCoords: {
-    fontSize: 11,
-    fontFamily: 'monospace',
-    fontWeight: '600',
+  locationName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  locationAccuracy: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   toggleGroup: {
     flexDirection: 'row',
@@ -519,20 +594,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipRow: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
   },
   filterGroupLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     alignSelf: 'center',
-    marginRight: 6,
-    letterSpacing: 0.6,
+    marginRight: 8,
+    letterSpacing: 0.5,
   },
   chip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: radius.sm,
+    borderRadius: radius.full,
     borderWidth: 1,
     marginRight: 6,
   },
@@ -540,14 +614,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   catChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: radius.sm,
+    borderRadius: radius.full,
     borderWidth: 1,
     marginRight: 6,
   },
   catChipText: {
     fontSize: 11,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  errorText: {
+    fontSize: 13,
+    textAlign: 'center',
   },
   mapContainer: {
     flex: 1,
@@ -555,30 +644,30 @@ const styles = StyleSheet.create({
   },
   spatialCanvas: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     overflow: 'hidden',
   },
   rangeRingOuter: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
+    width: '85%',
+    aspectRatio: 1,
+    borderRadius: 999,
     borderWidth: 1,
     borderStyle: 'dashed',
   },
   rangeRingMid: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: '58%',
+    aspectRatio: 1,
+    borderRadius: 999,
     borderWidth: 1,
   },
   rangeRingInner: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: '32%',
+    aspectRatio: 1,
+    borderRadius: 999,
     borderWidth: 1,
   },
   crosshairVertical: {
@@ -594,81 +683,73 @@ const styles = StyleSheet.create({
   userCenterPin: {
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
   userPulseRing: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   userCoreDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   userPinLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '900',
     marginTop: 4,
-    letterSpacing: 0.3,
   },
   taskMarker: {
     position: 'absolute',
-    transform: [{ translateX: -30 }, { translateY: -15 }],
     alignItems: 'center',
-    zIndex: 5,
+    transform: [{ translateX: -20 }, { translateY: -20 }],
   },
   selectedTaskMarker: {
-    zIndex: 20,
-    transform: [{ translateX: -32 }, { translateY: -18 }, { scale: 1.06 }],
+    zIndex: 10,
+    transform: [{ translateX: -20 }, { translateY: -20 }, { scale: 1.1 }],
   },
   markerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderRadius: radius.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
   },
   markerText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   markerTitle: {
     fontSize: 9,
     fontWeight: '600',
-    maxWidth: 90,
     marginTop: 2,
     paddingHorizontal: 4,
+    paddingVertical: 1,
     borderRadius: 2,
-    borderWidth: 1,
-    textAlign: 'center',
+    borderWidth: 0.5,
+    maxWidth: 90,
   },
   mapEmptyNotice: {
-    padding: 12,
-    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.full,
     borderWidth: 1,
   },
   mapEmptyText: {
     fontSize: 12,
+    fontWeight: '600',
   },
   bottomPreviewCard: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    borderRadius: radius.lg,
-    padding: 16,
+    bottom: 12,
+    left: 12,
+    right: 12,
+    padding: 14,
+    borderRadius: radius.md,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 4,
   },
   previewTop: {
@@ -678,14 +759,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   previewTypeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: radius.xs,
   },
   previewTypeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   previewDistance: {
     fontSize: 11,
@@ -693,21 +774,21 @@ const styles = StyleSheet.create({
   },
   previewTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontWeight: '800',
+    marginBottom: 8,
   },
   previewEconomicsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   previewTokensGroup: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   previewDiffTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
   },
@@ -716,23 +797,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   previewCTA: {
-    marginTop: 2,
+    width: '100%',
   },
   list: {
     flex: 1,
   },
   listContent: {
     padding: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
     gap: 12,
-  },
-  errorText: {
-    fontSize: 13,
-    textAlign: 'center',
   },
 });

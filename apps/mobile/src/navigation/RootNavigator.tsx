@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IntroScreen } from '../screens/IntroScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -15,7 +17,9 @@ type Tab = 'home' | 'discover' | 'tasks' | 'wallet';
 
 export const RootNavigator: React.FC = () => {
   const { theme, isDark, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [auth, setAuth] = useState<AuthTokenResponse | null>(null);
+  const [authFlow, setAuthFlow] = useState<'intro' | 'login' | 'register'>('intro');
   const [currentTab, setCurrentTab] = useState<Tab>('home');
   const [selectedTask, setSelectedTask] = useState<TaskResponseDTO | null>(null);
   const [availableTokens, setAvailableTokens] = useState<number>(100);
@@ -38,6 +42,7 @@ export const RootNavigator: React.FC = () => {
   const handleSignOut = () => {
     apiClient.clearSession();
     setAuth(null);
+    setAuthFlow('intro');
     setCurrentTab('home');
     setSelectedTask(null);
   };
@@ -53,30 +58,42 @@ export const RootNavigator: React.FC = () => {
 
   if (!auth) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <StatusBar
           barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor={theme.background}
         />
-        <AuthScreen onAuthenticated={handleAuthenticated} />
-      </SafeAreaView>
+        {authFlow === 'intro' ? (
+          <IntroScreen
+            onStartContributing={() => setAuthFlow('register')}
+            onSignIn={() => setAuthFlow('login')}
+          />
+        ) : (
+          <AuthScreen
+            initialMode={authFlow}
+            onBackToIntro={() => setAuthFlow('intro')}
+            onAuthenticated={handleAuthenticated}
+          />
+        )}
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.surface}
       />
 
-      {/* Top Application Bar */}
+      {/* Top Application Bar - Safe Area Inset Aware */}
       <View
         style={[
           styles.topBar,
           {
             backgroundColor: theme.surface,
             borderBottomColor: theme.divider,
+            paddingTop: Math.max(insets.top, 10),
           },
         ]}
       >
@@ -116,7 +133,7 @@ export const RootNavigator: React.FC = () => {
           >
             <View style={[styles.balanceDot, { backgroundColor: theme.electricPurple }]} />
             <Text style={[styles.balancePillText, { color: theme.electricPurple }]}>
-              {availableTokens} HZN
+              {availableTokens} TKN
             </Text>
           </TouchableOpacity>
 
@@ -171,13 +188,14 @@ export const RootNavigator: React.FC = () => {
         )}
       </View>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar - Safe Area Inset Aware */}
       <View
         style={[
           styles.bottomNav,
           {
             backgroundColor: theme.navigation,
             borderTopColor: theme.navigationBorder,
+            paddingBottom: Math.max(insets.bottom, 12),
           },
         ]}
       >
@@ -293,7 +311,7 @@ export const RootNavigator: React.FC = () => {
           </Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -306,7 +324,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
   brandGroup: {
@@ -384,8 +402,7 @@ const styles = StyleSheet.create({
   bottomNav: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingVertical: 8,
-    paddingBottom: 14,
+    paddingTop: 8,
   },
   navItem: {
     flex: 1,

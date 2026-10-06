@@ -212,7 +212,7 @@ export const LocationCaptureStep: React.FC<LocationCaptureStepProps> = ({
         <View style={styles.targetPinContainer}>
           <View style={[styles.targetPinPulse, { backgroundColor: theme.primaryMuted }]} />
           <View style={[styles.targetPinCenter, { backgroundColor: theme.primary }]} />
-          <Text style={[styles.targetPinLabel, { color: theme.primaryLight }]}>POSTGIS TARGET</Text>
+          <Text style={[styles.targetPinLabel, { color: theme.primaryLight }]}>TARGET LOCATION</Text>
         </View>
 
         {/* Current GPS Position Indicator (if captured) */}

@@ -107,7 +107,7 @@ export const TokenBadge: React.FC<TokenBadgeProps> = ({
           size === 'lg' && styles.lgLabel,
         ]}
       >
-        {label || (type === 'stake' ? 'STAKE' : 'HZN')}
+        {label || (type === 'stake' ? 'STAKE' : 'TKN')}
       </Text>
     </View>
   );
