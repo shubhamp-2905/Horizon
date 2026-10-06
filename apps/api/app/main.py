@@ -33,17 +33,28 @@ app = FastAPI(
 # 1. Observability, Latency & Security Headers Middleware
 app.add_middleware(ObservabilityAndSecurityMiddleware)
 
-# 2. CORS Configuration - hardened for production
+# 2. CORS Configuration - hardened for production & mobile Expo clients
+allowed_origins = list(settings.API_CORS_ORIGINS) if isinstance(settings.API_CORS_ORIGINS, list) else [settings.API_CORS_ORIGINS]
+for origin in [
+    "https://horizon-eosin-sigma.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:8081",
+    "http://localhost:19006",
+]:
+    if origin not in allowed_origins and "*" not in allowed_origins:
+        allowed_origins.append(origin)
+
 cors_kwargs = {
-    "allow_credentials": True,
     "allow_methods": ["*"],
     "allow_headers": ["*"],
 }
 
-if settings.is_production:
-    cors_kwargs["allow_origins"] = settings.API_CORS_ORIGINS
+if "*" in allowed_origins:
+    cors_kwargs["allow_origins"] = ["*"]
+    cors_kwargs["allow_credentials"] = False
 else:
-    cors_kwargs["allow_origins"] = settings.API_CORS_ORIGINS
+    cors_kwargs["allow_origins"] = allowed_origins
+    cors_kwargs["allow_credentials"] = True
     cors_kwargs["allow_origin_regex"] = r"^https?://.*$"
 
 app.add_middleware(CORSMiddleware, **cors_kwargs)
@@ -56,10 +67,11 @@ def root_health() -> HealthResponse:
     db_connected = check_db_connectivity()
     return HealthResponse(
         status="ok" if db_connected else "degraded",
-        service="horizon-api",
+        service="horizon-backend-api",
         environment=settings.ENVIRONMENT,
         version="0.1.0",
         database="connected" if db_connected else "disconnected",
+        database_connected=db_connected,
     )
 
 

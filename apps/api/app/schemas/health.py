@@ -3,11 +3,12 @@ from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
-    status: str = Field(..., examples=["ok"])
-    service: str = Field(..., examples=["horizon-api"])
-    environment: str = Field(..., examples=["development"])
-    version: str = Field(..., examples=["0.1.0"])
-    database: str = Field(..., examples=["connected"])
+    status: str = Field(default="ok", examples=["ok"])
+    service: str = Field(default="horizon-backend-api", examples=["horizon-backend-api"])
+    environment: str = Field(default="production", examples=["production"])
+    version: str = Field(default="0.1.0", examples=["0.1.0"])
+    database: str = Field(default="connected", examples=["connected"])
+    database_connected: Optional[bool] = None
 
 
 class SubsystemStatus(BaseModel):

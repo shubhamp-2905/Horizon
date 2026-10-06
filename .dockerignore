@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+apps/web/node_modules
+apps/mobile/node_modules
+apps/web/.next
+.expo
+horizon_dev.db
+horizon_local.db
+storage/media
+storage/exports
+__pycache__
+*.pyc
+.pytest_cache

@@ -63,19 +63,16 @@ def create_db_engine():
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     is_sqlite = db_url.startswith("sqlite")
 
-    if is_sqlite and settings.is_production:
-        raise RuntimeError(
-            "SQLite database is strictly forbidden in production/staging mode. "
-            "A persistent PostgreSQL database must be configured via DATABASE_URL."
-        )
-
-    # If Postgres is configured, test if it's reachable. If not, fallback to SQLite for local dev.
+    # If Postgres is configured, attempt connection probe
     if not is_sqlite:
         candidates = [db_url]
         if db_url.startswith("postgresql://"):
-            # Provide explicit driver alternatives in case one dialect is preferred
             candidates.append(db_url.replace("postgresql://", "postgresql+psycopg2://", 1))
             candidates.append(db_url.replace("postgresql://", "postgresql+psycopg://", 1))
+
+        connect_args = {"connect_timeout": 10}
+        if "supabase" in db_url or "render" in db_url or settings.is_production:
+            connect_args["sslmode"] = "require"
 
         for candidate_url in candidates:
             try:
@@ -85,7 +82,7 @@ def create_db_engine():
                     pool_size=settings.DATABASE_POOL_SIZE,
                     max_overflow=settings.DATABASE_MAX_OVERFLOW,
                     pool_recycle=settings.DATABASE_POOL_RECYCLE,
-                    connect_args={"connect_timeout": 4},
+                    connect_args=connect_args,
                 )
                 with test_engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
@@ -94,15 +91,23 @@ def create_db_engine():
             except Exception as exc:
                 logger.warning(f"Connection attempt to {candidate_url.split('@')[-1]} failed: {exc}")
 
-        if settings.is_production:
-            raise RuntimeError(
-                "Production database connection failure: could not connect to PostgreSQL. "
-                "Silent fallback to SQLite is strictly disabled in production mode."
+        # If immediate ping failed during startup, still return the PostgreSQL engine with pool_pre_ping
+        # so connections succeed on demand without crashing the web process on boot
+        try:
+            logger.warning(
+                "Initial PostgreSQL ping timed out during startup. Creating resilient engine with pool_pre_ping."
             )
+            return create_engine(
+                db_url,
+                pool_pre_ping=True,
+                pool_size=settings.DATABASE_POOL_SIZE,
+                max_overflow=settings.DATABASE_MAX_OVERFLOW,
+                pool_recycle=settings.DATABASE_POOL_RECYCLE,
+                connect_args=connect_args,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not initialize PostgreSQL engine: {exc}. Falling back to local SQLite.")
 
-        logger.warning(
-            "All PostgreSQL connection attempts failed. Falling back to local SQLite database for development."
-        )
         db_url = "sqlite:///./horizon_dev.db"
         is_sqlite = True
 

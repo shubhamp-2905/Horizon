@@ -19,11 +19,30 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 4000
     API_V1_STR: str = "/api/v1"
-    API_CORS_ORIGINS: List[str] = [
+    API_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:3000",
         "http://localhost:8081",
         "http://localhost:19006",
+        "https://horizon-eosin-sigma.vercel.app",
     ]
+
+    @field_validator("API_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            v_clean = v.strip()
+            if v_clean.startswith("[") and v_clean.endswith("]"):
+                try:
+                    import json
+                    parsed = json.loads(v_clean)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed]
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v_clean.split(",") if origin.strip()]
+        elif isinstance(v, list):
+            return [str(item).strip() for item in v]
+        return ["*"]
 
     LOG_FORMAT: str = "text"
     RATE_LIMIT_ENABLED: bool = True
