@@ -13,7 +13,7 @@ import { SubmissionsTab } from '../../components/SubmissionsTab';
 import { PipelineTab } from '../../components/PipelineTab';
 import { CheckCircle2Icon, ShieldCheckIcon, AlertTriangleIcon } from '../../components/Icons';
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1').replace(/\/+$/, '');
 const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 const INITIAL_DEMO_TASKS: AdminTaskItem[] = [

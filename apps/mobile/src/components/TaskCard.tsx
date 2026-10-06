@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { TaskResponseDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { radius } from '../theme/colors';
 import { TokenBadge } from './ui/TokenBadge';
 
 interface TaskCardProps {
@@ -10,6 +11,8 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
+  const { theme } = useTheme();
+
   const formatDistance = (meters?: number) => {
     if (meters === null || meters === undefined) return 'Nearby';
     if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
@@ -28,50 +31,62 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.surfaceCard,
+          borderColor: theme.border,
+          shadowColor: theme.secondaryPurple,
+        },
+      ]}
       onPress={() => onPress(task)}
       activeOpacity={0.75}
       accessibilityLabel={`Task: ${task.title}`}
     >
       {/* Top Meta Line: Type & Geospatial Proximity */}
       <View style={styles.topRow}>
-        <View style={styles.typeBadge}>
-          <Text style={styles.typeText}>{formattedType}</Text>
+        <View
+          style={[
+            styles.typeBadge,
+            { backgroundColor: theme.surfaceElevated, borderColor: theme.borderLight },
+          ]}
+        >
+          <Text style={[styles.typeText, { color: theme.textSecondary }]}>{formattedType}</Text>
         </View>
         <View style={styles.locationContainer}>
-          <View style={styles.locationDot} />
-          <Text style={styles.distanceText}>
+          <View style={[styles.locationDot, { backgroundColor: theme.electricPurple }]} />
+          <Text style={[styles.distanceText, { color: theme.textSecondary }]}>
             {formatDistance(task.distance_meters)} · ~{effortMinutes} min
           </Text>
         </View>
       </View>
 
       {/* Title */}
-      <Text style={styles.title} numberOfLines={2}>
+      <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={2}>
         {task.title}
       </Text>
 
       {/* Description */}
       {task.description ? (
-        <Text style={styles.description} numberOfLines={2}>
+        <Text style={[styles.description, { color: theme.textSecondary }]} numberOfLines={2}>
           {task.description}
         </Text>
       ) : null}
 
-      {/* Economics & Difficulty Footer */}
-      <View style={styles.footer}>
+      {/* Bottom Economics Row: Reward & Difficulty */}
+      <View style={[styles.footer, { borderTopColor: theme.divider }]}>
         <View style={styles.economicsGroup}>
           <TokenBadge amount={task.base_reward} type="reward" size="sm" />
-          <TokenBadge
-            amount={`${task.commitment_stake}`}
-            label="STAKE"
-            type="stake"
-            size="sm"
-          />
+          <TokenBadge amount={task.commitment_stake} type="stake" size="sm" />
         </View>
 
-        <View style={styles.difficultyBadge}>
-          <Text style={styles.difficultyLabel}>{difficultyText}</Text>
+        <View
+          style={[
+            styles.difficultyBadge,
+            { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.difficultyLabel, { color: theme.textMuted }]}>{difficultyText}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -80,17 +95,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: radius.lg,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: radius.md,
+    padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
   },
   topRow: {
     flexDirection: 'row',
@@ -99,17 +110,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   typeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   locationContainer: {
@@ -121,23 +129,19 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentOrange,
   },
   distanceText: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.textSecondary,
   },
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
     lineHeight: 20,
     marginBottom: 4,
   },
   description: {
     fontSize: 13,
-    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 12,
   },
@@ -147,7 +151,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   economicsGroup: {
     flexDirection: 'row',
@@ -155,16 +158,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   difficultyBadge: {
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   difficultyLabel: {
     fontSize: 11,
-    color: colors.textMuted,
     fontWeight: '600',
   },
 });

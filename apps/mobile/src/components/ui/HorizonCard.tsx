@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface HorizonCardProps {
   children: React.ReactNode;
@@ -13,21 +14,56 @@ export const HorizonCard: React.FC<HorizonCardProps> = ({
   style,
   variant = 'default',
 }) => {
-  const getVariantStyle = () => {
+  const { theme, isDark } = useTheme();
+
+  const getVariantStyle = (): ViewStyle => {
     switch (variant) {
       case 'elevated':
-        return styles.elevatedCard;
+        return {
+          backgroundColor: theme.surfaceElevated,
+          borderColor: theme.border,
+          shadowOpacity: isDark ? 0.5 : 0.1,
+          shadowRadius: 12,
+          elevation: 5,
+        };
       case 'subtle':
-        return styles.subtleCard;
+        return {
+          backgroundColor: theme.surfaceSubtle,
+          borderColor: theme.borderLight,
+        };
       case 'highlight':
-        return styles.highlightCard;
+        return {
+          backgroundColor: theme.card,
+          borderColor: theme.primary,
+          shadowColor: theme.primary,
+          shadowOpacity: isDark ? 0.35 : 0.15,
+          shadowRadius: 10,
+        };
       case 'default':
       default:
-        return styles.defaultCard;
+        return {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+        };
     }
   };
 
-  return <View style={[styles.baseCard, getVariantStyle(), style]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.baseCard,
+        {
+          borderColor: theme.border,
+          shadowColor: isDark ? '#000000' : '#4C1D95',
+          shadowOpacity: isDark ? 0.35 : 0.08,
+        },
+        getVariantStyle(),
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -36,34 +72,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    backgroundColor: colors.surfaceCard,
-    borderColor: colors.border,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 3,
-  },
-  defaultCard: {
-    backgroundColor: colors.surfaceCard,
-    borderColor: colors.border,
-  },
-  elevatedCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  subtleCard: {
-    backgroundColor: colors.surfaceSubtle,
-    borderColor: colors.borderLight,
-  },
-  highlightCard: {
-    backgroundColor: colors.surfaceCard,
-    borderColor: colors.accentOrange,
-    shadowColor: colors.accentOrange,
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
   },
 });

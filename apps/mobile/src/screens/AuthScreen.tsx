@@ -6,10 +6,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { apiClient } from '../services/api';
 import type { AuthTokenResponse } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { radius } from '../theme/colors';
 import { HorizonButton } from '../components/ui/HorizonButton';
 
 interface AuthScreenProps {
@@ -17,6 +21,7 @@ interface AuthScreenProps {
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
+  const { theme, isDark, toggleTheme } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [emailOrUsername, setEmailOrUsername] = useState('scout_alex');
   const [email, setEmail] = useState('');
@@ -79,7 +84,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   };
 
   const handleSubmit = async () => {
-    // Prevent duplicate submissions and concurrent taps
     if (loading || isSubmittingRef.current) return;
     if (!validateForm()) return;
 
@@ -88,10 +92,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
     setErrorMessage(null);
     setLoadingStage('Signing in...');
 
-    // Feedback for cloud cold starts
     const stageTimer = setTimeout(() => {
       if (isSubmittingRef.current) {
-        setLoadingStage('Connecting to cloud server (Render free tier may take 15–30s to wake up)...');
+        setLoadingStage('Connecting to cloud server...');
       }
     }, 3500);
 
@@ -119,220 +122,362 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Brand & Logo Header */}
-      <View style={styles.brandArea}>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoSymbol}>◈</Text>
-        </View>
-        <Text style={styles.brandTitle}>Horizon</Text>
-        <Text style={styles.brandSubtitle}>Geospatial Field Collection Network</Text>
-      </View>
-
-      {/* Starter Balance Info Card */}
-      <View style={styles.starterBalanceCard}>
-        <View style={styles.starterTopRow}>
-          <Text style={styles.starterLabel}>Starter Grant</Text>
-          <View style={styles.starterPill}>
-            <Text style={styles.starterPillText}>100 HZN</Text>
+    <KeyboardAvoidingView
+      style={[styles.kavContainer, { backgroundColor: theme.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Header Row with Theme Toggle */}
+        <View style={styles.topControlRow}>
+          <View style={styles.platformBadge}>
+            <Text style={[styles.platformBadgeText, { color: theme.textMuted }]}>FIELD CONTRIBUTOR</Text>
           </View>
-        </View>
-        <Text style={styles.starterExplanation}>
-          Verified contributors receive 100 starter tokens in an immutable ledger for task commitment stakes.
-        </Text>
-      </View>
-
-      {/* Form Card */}
-      <View style={styles.card}>
-        {/* Tab Switcher */}
-        <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[styles.tab, isLogin && styles.activeTab]}
-            onPress={() => {
-              setIsLogin(true);
-              setErrorMessage(null);
-              setValidationError(null);
-            }}
-            activeOpacity={0.8}
+            style={[styles.themeToggleBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, isLogin && styles.activeTabText]}>Log In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, !isLogin && styles.activeTab]}
-            onPress={() => {
-              setIsLogin(false);
-              setErrorMessage(null);
-              setValidationError(null);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>Create Account</Text>
+            <Text style={[styles.themeToggleText, { color: theme.textSecondary }]}>
+              {isDark ? '☀ Light' : '☾ Dark'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Error Feedback */}
-        {(errorMessage || validationError) && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorIcon}>⚠</Text>
-            <Text style={styles.errorText}>{errorMessage || validationError}</Text>
+        {/* Brand & Logo Header */}
+        <View style={styles.brandArea}>
+          <View
+            style={[
+              styles.logoMark,
+              {
+                backgroundColor: theme.purpleMuted,
+                borderColor: theme.borderHighlight,
+                shadowColor: theme.secondaryPurple,
+              },
+            ]}
+          >
+            <Text style={[styles.logoSymbol, { color: theme.electricPurple }]}>◈</Text>
           </View>
-        )}
+          <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>Horizon</Text>
+          <Text style={[styles.brandSubtitle, { color: theme.textSecondary }]}>
+            Geospatial Field Collection Network
+          </Text>
+        </View>
 
-        {isLogin ? (
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username or Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. scout_alex"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                value={emailOrUsername}
-                onChangeText={(val) => {
-                  setEmailOrUsername(val);
-                  if (validationError) setValidationError(null);
-                }}
-              />
+        {/* Starter Balance Info Card */}
+        <View
+          style={[
+            styles.starterBalanceCard,
+            {
+              backgroundColor: theme.surfaceCard,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={styles.starterTopRow}>
+            <Text style={[styles.starterLabel, { color: theme.textSecondary }]}>Starter Grant</Text>
+            <View
+              style={[
+                styles.starterPill,
+                {
+                  backgroundColor: theme.purpleMuted,
+                  borderColor: theme.borderHighlight,
+                },
+              ]}
+            >
+              <Text style={[styles.starterPillText, { color: theme.electricPurple }]}>100 HZN</Text>
             </View>
+          </View>
+          <Text style={[styles.starterExplanation, { color: theme.textMuted }]}>
+            Verified contributors receive 100 starter tokens in an immutable ledger for task commitment stakes.
+          </Text>
+        </View>
 
-            <View style={styles.inputGroup}>
-              <View style={styles.passwordLabelRow}>
-                <Text style={styles.label}>Password</Text>
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.visibilityBtn}
-                >
-                  <Text style={styles.visibilityText}>
-                    {showPassword ? 'Hide' : 'Show'}
-                  </Text>
-                </TouchableOpacity>
+        {/* Form Card */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.surfaceCard,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          {/* Tab Switcher */}
+          <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSubtle }]}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                isLogin && styles.activeTab,
+                isLogin && { backgroundColor: theme.surfaceCard },
+              ]}
+              onPress={() => {
+                setIsLogin(true);
+                setErrorMessage(null);
+                setValidationError(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.textMuted },
+                  isLogin && { color: theme.electricPurple, fontWeight: '700' },
+                ]}
+              >
+                Log In
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                !isLogin && styles.activeTab,
+                !isLogin && { backgroundColor: theme.surfaceCard },
+              ]}
+              onPress={() => {
+                setIsLogin(false);
+                setErrorMessage(null);
+                setValidationError(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.textMuted },
+                  !isLogin && { color: theme.electricPurple, fontWeight: '700' },
+                ]}
+              >
+                Create Account
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Error Feedback */}
+          {(errorMessage || validationError) && (
+            <View
+              style={[
+                styles.errorBox,
+                {
+                  backgroundColor: theme.statusErrorMuted,
+                  borderColor: theme.statusError,
+                },
+              ]}
+            >
+              <Text style={[styles.errorIcon, { color: theme.statusError }]}>⚠</Text>
+              <Text style={[styles.errorText, { color: theme.statusError }]}>
+                {errorMessage || validationError}
+              </Text>
+            </View>
+          )}
+
+          {isLogin ? (
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Username or Email</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. scout_alex"
+                  placeholderTextColor={theme.textMuted}
+                  autoCapitalize="none"
+                  value={emailOrUsername}
+                  onChangeText={(val) => {
+                    setEmailOrUsername(val);
+                    if (validationError) setValidationError(null);
+                  }}
+                />
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter password"
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(val) => {
-                  setPassword(val);
-                  if (validationError) setValidationError(null);
-                }}
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="contributor@horizon.dev"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={(val) => {
-                  setEmail(val);
-                  if (validationError) setValidationError(null);
-                }}
-              />
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. scout_ranger"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                value={username}
-                onChangeText={(val) => {
-                  setUsername(val);
-                  if (validationError) setValidationError(null);
-                }}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Alex River"
-                placeholderTextColor={colors.textMuted}
-                value={fullName}
-                onChangeText={setFullName}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.passwordLabelRow}>
-                <Text style={styles.label}>Password</Text>
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.visibilityBtn}
-                >
-                  <Text style={styles.visibilityText}>
-                    {showPassword ? 'Hide' : 'Show'}
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <View style={styles.passwordLabelRow}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.visibilityBtn}
+                  >
+                    <Text style={[styles.visibilityText, { color: theme.electricPurple }]}>
+                      {showPassword ? 'Hide' : 'Show'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="Enter password"
+                  placeholderTextColor={theme.textMuted}
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(val) => {
+                    setPassword(val);
+                    if (validationError) setValidationError(null);
+                  }}
+                />
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Minimum 8 characters"
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(val) => {
-                  setPassword(val);
-                  if (validationError) setValidationError(null);
-                }}
-              />
             </View>
-          </View>
-        )}
+          ) : (
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Email Address</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="contributor@horizon.dev"
+                  placeholderTextColor={theme.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={(val) => {
+                    setEmail(val);
+                    if (validationError) setValidationError(null);
+                  }}
+                />
+              </View>
 
-        <HorizonButton
-          title={
-            loading
-              ? (isLogin ? 'Signing In...' : 'Creating Account...')
-              : (isLogin ? 'Sign In' : 'Create Contributor Account')
-          }
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={loading}
-          size="lg"
-          style={styles.submitBtn}
-        />
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Username</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. scout_ranger"
+                  placeholderTextColor={theme.textMuted}
+                  autoCapitalize="none"
+                  value={username}
+                  onChangeText={(val) => {
+                    setUsername(val);
+                    if (validationError) setValidationError(null);
+                  }}
+                />
+              </View>
 
-        {loadingStage && (
-          <View style={styles.loadingStageBox}>
-            <Text style={styles.loadingStageText}>{loadingStage}</Text>
-          </View>
-        )}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Full Name (Optional)</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="Alex River"
+                  placeholderTextColor={theme.textMuted}
+                  value={fullName}
+                  onChangeText={setFullName}
+                />
+              </View>
 
-        {/* Server Connection Indicator / Config for Expo Go & LAN */}
-        <View style={styles.serverCard}>
+              <View style={styles.inputGroup}>
+                <View style={styles.passwordLabelRow}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.visibilityBtn}
+                  >
+                    <Text style={[styles.visibilityText, { color: theme.electricPurple }]}>
+                      {showPassword ? 'Hide' : 'Show'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="Minimum 8 characters"
+                  placeholderTextColor={theme.textMuted}
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(val) => {
+                    setPassword(val);
+                    if (validationError) setValidationError(null);
+                  }}
+                />
+              </View>
+            </View>
+          )}
+
+          <HorizonButton
+            title={
+              loading
+                ? (isLogin ? 'Signing In...' : 'Creating Account...')
+                : (isLogin ? 'Sign In' : 'Create Contributor Account')
+            }
+            onPress={handleSubmit}
+            loading={loading}
+            size="lg"
+            variant="primary"
+          />
+
+          {loadingStage && (
+            <View style={styles.loadingStageBox}>
+              <ActivityIndicator size="small" color={theme.electricPurple} />
+              <Text style={[styles.loadingStageText, { color: theme.textMuted }]}>{loadingStage}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Backend Configuration Accordion */}
+        <View style={styles.serverConfigContainer}>
           <TouchableOpacity
-            style={styles.serverCardHeader}
+            style={styles.serverConfigHeader}
             onPress={() => setShowServerConfig(!showServerConfig)}
+            activeOpacity={0.7}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.serverLabel}>Backend Endpoint</Text>
-              <Text style={styles.serverUrlText} numberOfLines={1}>{serverUrl}</Text>
+            <View style={styles.serverConfigHeaderLeft}>
+              <Text style={[styles.serverConfigTitle, { color: theme.textMuted }]}>BACKEND ENDPOINT</Text>
+              <Text style={[styles.serverConfigActiveUrl, { color: theme.textSecondary }]} numberOfLines={1}>
+                {serverUrl}
+              </Text>
             </View>
-            <Text style={styles.serverToggleText}>{showServerConfig ? 'Close' : 'Configure'}</Text>
+            <Text style={[styles.serverConfigToggle, { color: theme.electricPurple }]}>
+              {showServerConfig ? 'Close ▲' : 'Configure ▼'}
+            </Text>
           </TouchableOpacity>
 
           {showServerConfig && (
-            <View style={styles.serverConfigBody}>
-              <Text style={styles.serverHelpText}>
-                Expo Go connects over Wi-Fi. Modify host IP if running on a physical phone.
+            <View style={[styles.serverConfigBody, { backgroundColor: theme.surfaceCard, borderColor: theme.border }]}>
+              <Text style={[styles.serverHelpText, { color: theme.textMuted }]}>
+                Production mobile APK connects securely over HTTPS to the deployed Horizon FastAPI backend.
               </Text>
-              
-              {/* Quick Preset Selector */}
+
               <View style={styles.presetRow}>
                 <TouchableOpacity
-                  style={styles.presetPill}
+                  style={[styles.presetPill, { backgroundColor: theme.purpleMuted, borderColor: theme.borderHighlight }]}
                   onPress={() => {
                     const u = 'https://horizon-backend-api.onrender.com/api/v1';
                     setServerUrl(u);
@@ -340,349 +485,315 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                     setServerStatus(null);
                   }}
                 >
-                  <Text style={styles.presetPillText}>☁ Render</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetPill}
-                  onPress={() => {
-                    const u = 'http://10.67.243.54:4000/api/v1';
-                    setServerUrl(u);
-                    apiClient.setBaseUrl(u);
-                    setServerStatus(null);
-                  }}
-                >
-                  <Text style={styles.presetPillText}>📶 Wi-Fi LAN</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetPill}
-                  onPress={() => {
-                    const u = 'http://localhost:4000/api/v1';
-                    setServerUrl(u);
-                    apiClient.setBaseUrl(u);
-                    setServerStatus(null);
-                  }}
-                >
-                  <Text style={styles.presetPillText}>💻 Localhost</Text>
+                  <Text style={[styles.presetPillText, { color: theme.electricPurple }]}>☁ Production Cloud</Text>
                 </TouchableOpacity>
               </View>
 
               <TextInput
-                style={styles.serverInput}
+                style={[
+                  styles.serverInput,
+                  {
+                    backgroundColor: theme.inputBackground,
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                  },
+                ]}
                 value={serverUrl}
-                onChangeText={(val) => {
-                  setServerUrl(val);
-                  apiClient.setBaseUrl(val.trim());
-                  setServerStatus(null);
-                }}
+                onChangeText={setServerUrl}
+                placeholder="https://your-api.onrender.com/api/v1"
+                placeholderTextColor={theme.textMuted}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+
               <TouchableOpacity
-                style={styles.pingButton}
+                style={[styles.pingButton, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
                 onPress={testServerConnection}
                 disabled={serverTesting}
               >
-                <Text style={styles.pingButtonText}>
+                <Text style={[styles.pingButtonText, { color: theme.textPrimary }]}>
                   {serverTesting ? 'Testing connection...' : 'Ping Server'}
                 </Text>
               </TouchableOpacity>
+
               {serverStatus && (
-                <Text style={[styles.serverStatusText, serverStatus.startsWith('🟢') ? styles.serverStatusSuccess : styles.serverStatusError]}>
+                <Text
+                  style={[
+                    styles.serverStatusText,
+                    serverStatus.startsWith('🟢') ? { color: theme.statusSuccess } : { color: theme.statusError },
+                  ]}
+                >
                   {serverStatus}
                 </Text>
               )}
             </View>
           )}
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  kavContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 20,
-    paddingTop: 48,
+    paddingTop: 16,
     paddingBottom: 40,
+  },
+  topControlRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  platformBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  platformBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  themeToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  themeToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   brandArea: {
     alignItems: 'center',
     marginBottom: 20,
   },
   logoMark: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: radius.md,
-    backgroundColor: colors.accentOrangeMuted,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoSymbol: {
-    fontSize: 20,
-    color: colors.accentOrange,
+    fontSize: 22,
     fontWeight: '800',
   },
   brandTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   brandSubtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
     marginTop: 2,
     textAlign: 'center',
   },
   starterBalanceCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
     marginBottom: 16,
   },
   starterTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   starterLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   starterPill: {
-    backgroundColor: colors.accentOrangeMuted,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.3)',
   },
   starterPillText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.accentOrange,
+    fontWeight: '800',
   },
   starterExplanation: {
     fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   card: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 18,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 16,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     padding: 3,
     marginBottom: 18,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
   tab: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.xs,
   },
   activeTab: {
-    backgroundColor: colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: colors.accentOrange,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  activeTabText: {
-    color: colors.accentOrange,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: radius.md,
-    padding: 10,
-    marginBottom: 14,
     gap: 8,
+    padding: 12,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    marginBottom: 14,
   },
   errorIcon: {
     fontSize: 14,
-    color: colors.statusError,
   },
   errorText: {
-    flex: 1,
     fontSize: 12,
-    color: colors.statusError,
-    fontWeight: '500',
+    fontWeight: '600',
+    flex: 1,
   },
   form: {
-    gap: 12,
+    gap: 14,
     marginBottom: 18,
   },
   inputGroup: {
-    gap: 5,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    gap: 6,
   },
   passwordLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   visibilityBtn: {
     padding: 2,
   },
   visibilityText: {
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   input: {
-    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 14,
-    color: colors.textPrimary,
   },
-  submitBtn: {
-    marginBottom: 16,
+  loadingStageBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
   },
-  serverCard: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    paddingTop: 12,
+  loadingStageText: {
+    fontSize: 11,
+    fontStyle: 'italic',
   },
-  serverCardHeader: {
+  serverConfigContainer: {
+    marginTop: 8,
+  },
+  serverConfigHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
-  serverLabel: {
+  serverConfigHeaderLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  serverConfigTitle: {
     fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: colors.textMuted,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
-  serverUrlText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  serverConfigActiveUrl: {
+    fontSize: 11,
     fontFamily: 'monospace',
-    marginTop: 1,
+    marginTop: 2,
   },
-  serverToggleText: {
-    fontSize: 12,
-    color: colors.accentOrange,
-    fontWeight: '600',
+  serverConfigToggle: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   serverConfigBody: {
-    marginTop: 10,
-    gap: 8,
+    borderRadius: radius.md,
+    padding: 14,
+    borderWidth: 1,
+    marginTop: 8,
+    gap: 10,
   },
   serverHelpText: {
     fontSize: 11,
-    color: colors.textSecondary,
     lineHeight: 15,
   },
-  serverInput: {
-    backgroundColor: colors.surfaceElevated,
+  presetRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  presetPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+  },
+  presetPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  serverInput: {
+    borderWidth: 1,
     borderRadius: radius.sm,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 12,
-    color: colors.textPrimary,
     fontFamily: 'monospace',
   },
   pingButton: {
-    backgroundColor: colors.surfaceSubtle,
     paddingVertical: 8,
-    alignItems: 'center',
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    alignItems: 'center',
   },
   pingButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
   },
   serverStatusText: {
     fontSize: 11,
-    fontWeight: '500',
-  },
-  serverStatusSuccess: {
-    color: colors.statusSuccess,
-  },
-  serverStatusError: {
-    color: colors.statusError,
-  },
-  loadingStageBox: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.accentOrangeMuted,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.3)',
-    alignItems: 'center',
-  },
-  loadingStageText: {
-    fontSize: 12,
-    color: colors.accentOrange,
-    fontWeight: '500',
     textAlign: 'center',
-  },
-  presetRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginVertical: 4,
-  },
-  presetPill: {
-    flex: 1,
-    backgroundColor: colors.surfaceSubtle,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    alignItems: 'center',
-  },
-  presetPillText: {
-    fontSize: 11,
     fontWeight: '600',
-    color: colors.textPrimary,
   },
 });

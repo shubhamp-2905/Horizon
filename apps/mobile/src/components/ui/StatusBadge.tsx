@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 
 interface StatusBadgeProps {
   status: string;
@@ -9,37 +10,44 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }) => {
+  const { theme } = useTheme();
   const norm = status.toLowerCase();
 
   const getStatusColor = () => {
     switch (norm) {
       case 'published':
       case 'active':
+        return theme.primaryPurple;
       case 'verified':
-        return colors.statusActive;
+      case 'completed':
+        return theme.statusSuccess;
       case 'draft':
       case 'pending':
-        return colors.statusPending;
+        return theme.statusPending;
       case 'claimed':
       case 'submitted':
-        return colors.statusClaimed;
-      case 'completed':
-        return colors.statusCompleted;
+        return theme.secondaryPurple;
       case 'rejected':
       case 'expired':
-        return colors.statusError;
+        return theme.statusError;
       default:
-        return colors.textMuted;
+        return theme.textMuted;
     }
   };
 
   const statusColor = getStatusColor();
 
   return (
-    <View style={[styles.badge, { borderColor: `${statusColor}40`, backgroundColor: `${statusColor}18` }, style]}>
+    <View
+      style={[
+        styles.badge,
+        { borderColor: `${statusColor}40`, backgroundColor: `${statusColor}18` },
+        style,
+      ]}
+    >
       <View style={[styles.dot, { backgroundColor: statusColor }]} />
       <Text style={[styles.text, { color: statusColor }]}>
-        {label || status.replace('_', ' ').toUpperCase()}
+        {label || status.replace(/_/g, ' ').toUpperCase()}
       </Text>
     </View>
   );

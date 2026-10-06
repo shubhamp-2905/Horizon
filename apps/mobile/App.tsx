@@ -1,19 +1,27 @@
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+
+function AppContent() {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <RootNavigator />
+    </View>
+  );
+}
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#090D16" />
-      <RootNavigator />
-    </SafeAreaView>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090D16',
   },
 });

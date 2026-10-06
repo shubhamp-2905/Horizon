@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 
 export type SurveyStep = 'overview' | 'location' | 'images' | 'observations' | 'review';
 
@@ -33,6 +34,7 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
   stepStatus,
   onSelectStep,
 }) => {
+  const { theme, isDark } = useTheme();
   const currentIndex = STEPS.findIndex((s) => s.key === currentStep);
 
   const isStepComplete = (key: SurveyStep): boolean => {
@@ -72,13 +74,31 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.card,
+          borderBottomColor: theme.border,
+        },
+      ]}
+    >
       {/* Top Banner: Step X of 5 */}
       <View style={styles.headerRow}>
-        <View style={styles.counterBadge}>
-          <Text style={styles.counterText}>STEP {currentIndex + 1} OF 5</Text>
+        <View
+          style={[
+            styles.counterBadge,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: theme.borderLight,
+            },
+          ]}
+        >
+          <Text style={[styles.counterText, { color: theme.textSecondary }]}>
+            STEP {currentIndex + 1} OF 5
+          </Text>
         </View>
-        <Text style={styles.currentStepLabel}>
+        <Text style={[styles.currentStepLabel, { color: theme.primaryLight }]}>
           {STEPS[currentIndex]?.label.toUpperCase()}
         </Text>
       </View>
@@ -100,23 +120,45 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
                 onPress={() => onSelectStep(step.key)}
                 style={[
                   styles.stepNode,
-                  isActive && styles.stepNodeActive,
-                  isComplete && !isActive && styles.stepNodeComplete,
+                  {
+                    backgroundColor: isActive
+                      ? theme.primaryMuted
+                      : isComplete
+                      ? theme.card
+                      : theme.surfaceElevated,
+                    borderColor: isActive
+                      ? theme.primary
+                      : isComplete
+                      ? isDark ? 'rgba(124, 58, 237, 0.45)' : 'rgba(124, 58, 237, 0.3)'
+                      : theme.borderLight,
+                  },
                 ]}
                 activeOpacity={0.7}
               >
                 <View
                   style={[
                     styles.iconCircle,
-                    isActive && styles.iconCircleActive,
-                    isComplete && styles.iconCircleComplete,
+                    {
+                      backgroundColor: isActive
+                        ? theme.primary
+                        : isComplete
+                        ? theme.primaryMuted
+                        : theme.surfaceElevated,
+                      borderColor: isActive || isComplete ? theme.primary : theme.borderLight,
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.iconText,
-                      isActive && styles.iconTextActive,
-                      isComplete && styles.iconTextComplete,
+                      {
+                        color: isActive
+                          ? '#FFFFFF'
+                          : isComplete
+                          ? theme.primary
+                          : theme.textSecondary,
+                        fontWeight: isActive || isComplete ? '800' : '700',
+                      },
                     ]}
                   >
                     {isComplete ? '✓' : step.index}
@@ -127,14 +169,23 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
                   <Text
                     style={[
                       styles.stepLabel,
-                      isActive && styles.stepLabelActive,
-                      isComplete && styles.stepLabelComplete,
+                      {
+                        color: isActive
+                          ? theme.primaryLight
+                          : isComplete
+                          ? theme.textPrimary
+                          : theme.textSecondary,
+                        fontWeight: isActive ? '700' : isComplete ? '600' : '500',
+                      },
                     ]}
                     numberOfLines={1}
                   >
                     {step.label}
                   </Text>
-                  <Text style={styles.stepSubtitle} numberOfLines={1}>
+                  <Text
+                    style={[styles.stepSubtitle, { color: theme.textMuted }]}
+                    numberOfLines={1}
+                  >
                     {getStepSubtitle(step.key)}
                   </Text>
                 </View>
@@ -144,7 +195,12 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
                 <View
                   style={[
                     styles.connectorLine,
-                    (isPast || (idx === 0 && isComplete)) && styles.connectorLineActive,
+                    {
+                      backgroundColor:
+                        isPast || (idx === 0 && isComplete)
+                          ? theme.primary
+                          : theme.borderLight,
+                    },
                   ]}
                 />
               )}
@@ -158,9 +214,7 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surfaceCard,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
@@ -171,23 +225,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   counterBadge: {
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
   counterText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   currentStepLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.accentOrange,
   },
   stepsRow: {
     flexDirection: 'row',
@@ -200,78 +250,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
     gap: 6,
-  },
-  stepNodeActive: {
-    backgroundColor: colors.accentOrangeMuted,
-    borderColor: colors.accentOrange,
-  },
-  stepNodeComplete: {
-    borderColor: 'rgba(255, 107, 0, 0.4)',
-    backgroundColor: colors.surfaceCard,
   },
   iconCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconCircleActive: {
-    backgroundColor: colors.accentOrange,
-    borderColor: colors.accentOrange,
-  },
-  iconCircleComplete: {
-    backgroundColor: colors.accentOrangeMuted,
-    borderColor: colors.accentOrange,
-  },
   iconText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  iconTextActive: {
-    color: '#07080A',
-    fontWeight: '800',
-  },
-  iconTextComplete: {
-    color: colors.accentOrange,
-    fontWeight: '800',
   },
   stepTextGroup: {
     maxWidth: 90,
   },
   stepLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  stepLabelActive: {
-    color: colors.accentOrange,
-    fontWeight: '700',
-  },
-  stepLabelComplete: {
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
   stepSubtitle: {
     fontSize: 9,
-    color: colors.textMuted,
     marginTop: 1,
   },
   connectorLine: {
     width: 14,
     height: 2,
-    backgroundColor: colors.borderSubtle,
     marginHorizontal: 4,
-  },
-  connectorLineActive: {
-    backgroundColor: colors.accentOrange,
   },
 });

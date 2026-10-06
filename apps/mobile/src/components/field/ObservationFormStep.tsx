@@ -5,9 +5,9 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { HorizonButton } from '../ui/HorizonButton';
 import type { TaskFormFieldDefinitionDTO, TaskFormSchemaResponseDTO } from '@horizon/types';
 
@@ -26,6 +26,7 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
   onNext,
   onBack,
 }) => {
+  const { theme, isDark } = useTheme();
   const [formData, setFormData] = useState<Record<string, unknown>>(initialValues || {});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -110,49 +111,85 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
     try {
       await onSaveObservations(formData);
       onNext();
-    } catch (err: any) {
-      // Still proceed if local save succeeds
+    } catch {
+      // Proceed on error since local state is maintained
       onNext();
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!schema) {
+  const fields = schema?.fields || [];
+  const requiredCount = fields.filter((f) => f.required).length;
+  const completedRequiredCount = fields.filter(
+    (f) => f.required && formData[f.id] !== undefined && formData[f.id] !== ''
+  ).length;
+
+  if (fields.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>NO SCHEMA DEFINED</Text>
-        <Text style={styles.emptySub}>
-          This task has no dynamic observation schema fields. You may proceed directly to Review.
-        </Text>
-        <HorizonButton title="Proceed to Review →" onPress={onNext} size="md" variant="primary" />
+      <View style={styles.container}>
+        <View
+          style={[
+            styles.emptyContainer,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Dynamic Survey Fields</Text>
+          <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+            This geospatial artifact type does not mandate structured field observations. You may proceed directly to the final survey review.
+          </Text>
+          <HorizonButton
+            title="Proceed to Review →"
+            onPress={onNext}
+            size="md"
+            variant="primary"
+          />
+        </View>
       </View>
     );
   }
 
-  const fields = schema.fields || [];
-  const requiredCount = fields.filter((f) => f.required).length;
-  const completedRequiredCount = fields.filter(
-    (f) => f.required && formData[f.id] !== undefined && formData[f.id] !== '' && formData[f.id] !== null
-  ).length;
-
   return (
     <View style={styles.container}>
-      {/* Schema Instructions Banner */}
-      <View style={styles.headerCard}>
+      {/* Instructions & Completion Progress Card */}
+      <View
+        style={[
+          styles.headerCard,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            shadowColor: isDark ? '#000000' : '#4C1D95',
+          },
+        ]}
+      >
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>GROUND-TRUTH OBSERVATIONS</Text>
-          <View style={styles.progressBadge}>
-            <Text style={styles.progressBadgeText}>
-              {completedRequiredCount} / {requiredCount} REQUIRED
+          <Text style={[styles.headerTitle, { color: theme.textMuted }]}>
+            STRUCTURED ATTRIBUTE SURVEY
+          </Text>
+          <View
+            style={[
+              styles.progressBadge,
+              {
+                backgroundColor: theme.primaryMuted,
+                borderColor: theme.borderLight,
+              },
+            ]}
+          >
+            <Text style={[styles.progressBadgeText, { color: theme.primaryLight }]}>
+              {completedRequiredCount} OF {requiredCount} REQUIRED
             </Text>
           </View>
         </View>
 
-        {schema.instructions ? (
-          <Text style={styles.instructionsText}>{schema.instructions}</Text>
+        {schema?.instructions ? (
+          <Text style={[styles.instructionsText, { color: theme.textSecondary }]}>
+            {schema.instructions}
+          </Text>
         ) : (
-          <Text style={styles.instructionsText}>
+          <Text style={[styles.instructionsText, { color: theme.textSecondary }]}>
             Inspect the physical site condition and record all mandatory fields. Progress is saved locally in SQLite automatically.
           </Text>
         )}
@@ -166,15 +203,24 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
           const errorMsg = validationErrors[field.id];
 
           return (
-            <View key={field.id} style={styles.fieldGroup}>
+            <View
+              key={field.id}
+              style={[
+                styles.fieldGroup,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: hasError ? theme.error : theme.border,
+                },
+              ]}
+            >
               {/* Field Label & Required Indicator */}
               <View style={styles.labelRow}>
-                <Text style={styles.fieldLabel}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
                   {field.label}
-                  {field.required && <Text style={styles.requiredAsterisk}> *</Text>}
+                  {field.required && <Text style={[styles.requiredAsterisk, { color: theme.error }]}> *</Text>}
                 </Text>
                 {field.required && (
-                  <Text style={styles.requiredTag}>REQUIRED</Text>
+                  <Text style={[styles.requiredTag, { color: theme.tokenGold }]}>REQUIRED</Text>
                 )}
               </View>
 
@@ -190,14 +236,20 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
                           onPress={() => handleFieldChange(field, opt)}
                           style={[
                             styles.selectChip,
-                            isSelected && styles.selectChipActive,
+                            {
+                              backgroundColor: isSelected ? theme.primaryMuted : theme.surfaceElevated,
+                              borderColor: isSelected ? theme.primary : theme.border,
+                            },
                           ]}
                           activeOpacity={0.7}
                         >
                           <Text
                             style={[
                               styles.chipText,
-                              isSelected && styles.chipTextActive,
+                              {
+                                color: isSelected ? theme.primaryLight : theme.textSecondary,
+                                fontWeight: isSelected ? '800' : '600',
+                              },
                             ]}
                           >
                             {opt.replace(/_/g, ' ')}
@@ -213,14 +265,20 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
                     onPress={() => handleFieldChange(field, true)}
                     style={[
                       styles.boolOption,
-                      val === true && styles.boolOptionActiveTrue,
+                      {
+                        backgroundColor: val === true ? theme.primaryMuted : theme.surfaceElevated,
+                        borderColor: val === true ? theme.primary : theme.border,
+                      },
                     ]}
                     activeOpacity={0.7}
                   >
                     <Text
                       style={[
                         styles.boolOptionText,
-                        val === true && styles.boolOptionTextActive,
+                        {
+                          color: val === true ? theme.primaryLight : theme.textSecondary,
+                          fontWeight: val === true ? '800' : '600',
+                        },
                       ]}
                     >
                       Yes / Confirmed
@@ -231,14 +289,20 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
                     onPress={() => handleFieldChange(field, false)}
                     style={[
                       styles.boolOption,
-                      val === false && styles.boolOptionActiveFalse,
+                      {
+                        backgroundColor: val === false ? theme.errorMuted : theme.surfaceElevated,
+                        borderColor: val === false ? theme.error : theme.border,
+                      },
                     ]}
                     activeOpacity={0.7}
                   >
                     <Text
                       style={[
                         styles.boolOptionText,
-                        val === false && styles.boolOptionTextActive,
+                        {
+                          color: val === false ? theme.error : theme.textSecondary,
+                          fontWeight: val === false ? '800' : '600',
+                        },
                       ]}
                     >
                       No / Absent
@@ -247,19 +311,34 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
                 </View>
               ) : field.type === 'textarea' || field.type === 'multiline' ? (
                 <TextInput
-                  style={[styles.input, styles.textarea, hasError && styles.inputError]}
+                  style={[
+                    styles.input,
+                    styles.textarea,
+                    {
+                      backgroundColor: theme.input,
+                      borderColor: hasError ? theme.error : theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
                   value={(val as string) || ''}
                   onChangeText={(text) => handleFieldChange(field, text)}
                   onBlur={() => handleBlur(field)}
                   placeholder={field.placeholder || `Enter detailed ${field.label.toLowerCase()}...`}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
                 />
               ) : (
                 <TextInput
-                  style={[styles.input, hasError && styles.inputError]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.input,
+                      borderColor: hasError ? theme.error : theme.border,
+                      color: theme.textPrimary,
+                    },
+                  ]}
                   value={val !== undefined && val !== null ? String(val) : ''}
                   onChangeText={(text) =>
                     handleFieldChange(
@@ -269,7 +348,7 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
                   }
                   onBlur={() => handleBlur(field)}
                   placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   keyboardType={field.type === 'number' ? 'numeric' : 'default'}
                 />
               )}
@@ -277,7 +356,7 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
               {/* Inline Validation Warning */}
               {hasError && (
                 <View style={styles.inlineErrorBox}>
-                  <Text style={styles.inlineErrorText}>{errorMsg}</Text>
+                  <Text style={[styles.inlineErrorText, { color: theme.error }]}>{errorMsg}</Text>
                 </View>
               )}
             </View>
@@ -288,7 +367,7 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
       {/* Navigation Footer */}
       <View style={styles.navRow}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>← Images</Text>
+          <Text style={[styles.backBtnText, { color: theme.textSecondary }]}>← Images</Text>
         </TouchableOpacity>
 
         <HorizonButton
@@ -310,11 +389,9 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   headerCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   headerRow: {
     flexDirection: 'row',
@@ -325,26 +402,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 1.2,
   },
   progressBadge: {
-    backgroundColor: colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   progressBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.accentGreen,
     letterSpacing: 0.5,
   },
   instructionsText: {
     fontSize: 12,
-    color: colors.textSecondary,
     lineHeight: 18,
     marginTop: 2,
   },
@@ -352,11 +424,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   fieldGroup: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   labelRow: {
     flexDirection: 'row',
@@ -367,30 +437,21 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   requiredAsterisk: {
-    color: colors.statusError,
     fontWeight: '900',
   },
   requiredTag: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.tokenGold,
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: colors.surface,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.textPrimary,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-  },
-  inputError: {
-    borderColor: colors.statusError,
   },
   textarea: {
     minHeight: 88,
@@ -404,26 +465,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectChip: {
-    backgroundColor: colors.surface,
     borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  selectChipActive: {
-    backgroundColor: colors.accentGreenMuted,
-    borderColor: colors.accentGreen,
   },
   chipText: {
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
     textTransform: 'capitalize',
-  },
-  chipTextActive: {
-    color: colors.accentGreen,
-    fontWeight: '800',
   },
   booleanRow: {
     flexDirection: 'row',
@@ -434,49 +483,31 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: radius.sm,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  boolOptionActiveTrue: {
-    backgroundColor: colors.accentGreenMuted,
-    borderColor: colors.accentGreen,
-  },
-  boolOptionActiveFalse: {
-    backgroundColor: colors.statusErrorMuted,
-    borderColor: colors.statusError,
   },
   boolOptionText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  boolOptionTextActive: {
-    color: colors.textPrimary,
   },
   inlineErrorBox: {
     marginTop: 8,
   },
   inlineErrorText: {
     fontSize: 11,
-    color: colors.statusError,
     fontWeight: '600',
   },
   emptyContainer: {
     padding: 24,
     alignItems: 'center',
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
+    borderWidth: 1,
     gap: 12,
   },
   emptyTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: colors.textPrimary,
   },
   emptySub: {
     fontSize: 12,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
   navRow: {
@@ -492,8 +523,6 @@ const styles = StyleSheet.create({
   },
   backBtnText: {
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   nextBtn: {
     flex: 1,

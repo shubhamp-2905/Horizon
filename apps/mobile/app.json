@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Horizon Contributor",
+    "name": "Horizon",
     "slug": "horizon-contributor",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "horizon",
     "splash": {
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#07060B"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -23,7 +23,7 @@
     "android": {
       "package": "org.earthlens.horizon.contributor",
       "adaptiveIcon": {
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#07060B"
       },
       "permissions": [
         "CAMERA",
@@ -32,6 +32,11 @@
         "INTERNET",
         "RECEIVE_BOOT_COMPLETED"
       ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "63739409-1b8b-4335-8665-d28958b70353"
+      }
     }
   }
 }

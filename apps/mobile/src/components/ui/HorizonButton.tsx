@@ -7,7 +7,8 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 
 interface HorizonButtonProps {
   title: string;
@@ -32,55 +33,78 @@ export const HorizonButton: React.FC<HorizonButtonProps> = ({
   textStyle,
   icon,
 }) => {
-  const getContainerStyle = () => {
+  const { theme } = useTheme();
+
+  const getContainerStyle = (): ViewStyle => {
     switch (variant) {
       case 'secondary':
-        return styles.secondaryContainer;
+        return {
+          backgroundColor: theme.surfaceElevated,
+          borderWidth: 1,
+          borderColor: theme.border,
+        };
       case 'outline':
-        return styles.outlineContainer;
+        return {
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderColor: theme.borderHighlight,
+        };
       case 'danger':
-        return styles.dangerContainer;
+        return {
+          backgroundColor: theme.statusErrorMuted,
+          borderWidth: 1,
+          borderColor: theme.statusError,
+        };
       case 'primary':
       default:
-        return styles.primaryContainer;
+        return {
+          backgroundColor: theme.primaryPurple,
+          borderWidth: 1,
+          borderColor: theme.deepViolet,
+          shadowColor: theme.secondaryPurple,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 8,
+          elevation: 3,
+        };
     }
   };
 
-  const getTextStyle = () => {
+  const getTextColor = (): string => {
     switch (variant) {
       case 'secondary':
-        return styles.secondaryText;
+        return theme.textPrimary;
       case 'outline':
-        return styles.outlineText;
+        return theme.electricPurple;
       case 'danger':
-        return styles.dangerText;
+        return theme.statusError;
       case 'primary':
       default:
-        return styles.primaryText;
+        return '#FFFFFF';
     }
   };
 
-  const getSizeStyle = () => {
+  const getSizeStyle = (): ViewStyle => {
     switch (size) {
       case 'sm':
-        return styles.smSize;
+        return { paddingVertical: 6, paddingHorizontal: 12 };
       case 'lg':
-        return styles.lgSize;
+        return { paddingVertical: 15, paddingHorizontal: 22 };
       case 'md':
       default:
-        return styles.mdSize;
+        return { paddingVertical: 12, paddingHorizontal: 16 };
     }
   };
 
-  const getTextSizeStyle = () => {
+  const getTextSizeStyle = (): TextStyle => {
     switch (size) {
       case 'sm':
-        return styles.smText;
+        return { fontSize: 12 };
       case 'lg':
-        return styles.lgText;
+        return { fontSize: 15 };
       case 'md':
       default:
-        return styles.mdText;
+        return { fontSize: 14 };
     }
   };
 
@@ -102,7 +126,7 @@ export const HorizonButton: React.FC<HorizonButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? '#FFFFFF' : colors.accentOrange}
+          color={variant === 'primary' ? '#FFFFFF' : theme.primaryPurple}
         />
       ) : (
         <>
@@ -110,9 +134,9 @@ export const HorizonButton: React.FC<HorizonButtonProps> = ({
           <Text
             style={[
               styles.baseText,
-              getTextStyle(),
+              { color: getTextColor() },
               getTextSizeStyle(),
-              disabled && styles.disabledText,
+              disabled && { color: theme.textMuted },
               textStyle,
             ]}
           >
@@ -132,72 +156,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     gap: 8,
   },
-  primaryContainer: {
-    backgroundColor: colors.accentOrange,
-    borderWidth: 1,
-    borderColor: colors.accentOrangeDark,
-    shadowColor: colors.accentOrange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  secondaryContainer: {
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  outlineContainer: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dangerContainer: {
-    backgroundColor: colors.statusErrorMuted,
-    borderWidth: 1,
-    borderColor: colors.statusError,
-  },
   disabledContainer: {
     opacity: 0.5,
-  },
-  smSize: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  mdSize: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  lgSize: {
-    paddingVertical: 15,
-    paddingHorizontal: 22,
   },
   baseText: {
     fontWeight: '700',
     letterSpacing: -0.1,
-  },
-  primaryText: {
-    color: '#FFFFFF',
-  },
-  secondaryText: {
-    color: colors.textPrimary,
-  },
-  outlineText: {
-    color: colors.textSecondary,
-  },
-  dangerText: {
-    color: colors.statusError,
-  },
-  disabledText: {
-    color: colors.textMuted,
-  },
-  smText: {
-    fontSize: 12,
-  },
-  mdText: {
-    fontSize: 14,
-  },
-  lgText: {
-    fontSize: 15,
   },
 });

@@ -7,8 +7,11 @@ import {
   Modal,
   Image,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 import { HorizonButton } from '../ui/HorizonButton';
 import type { LocalMediaRecord } from '../../database/schema';
 
@@ -31,6 +34,7 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
   onNext,
   onBack,
 }) => {
+  const { theme } = useTheme();
   const [selectedMedia, setSelectedMedia] = useState<LocalMediaRecord | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [retakeTargetId, setRetakeTargetId] = useState<string | null>(null);
@@ -39,67 +43,110 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
   const canProceed = mediaList.length >= requiredPhotos;
   const missingCount = Math.max(0, requiredPhotos - mediaList.length);
 
-  const handleTriggerCapture = async (retakeId?: string) => {
+  // Real device camera capture
+  const handleTriggerCamera = async (retakeId?: string) => {
     setCapturing(true);
     setErrorMessage(null);
 
     try {
-      // In mobile web or browser, create hidden file input with camera capture
-      if (typeof document !== 'undefined') {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.setAttribute('capture', 'environment');
-
-        input.onchange = async (e: any) => {
-          const file = e.target?.files?.[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = async (readEvt) => {
-              const dataUrl = readEvt.target?.result as string;
-              if (retakeId) {
-                await onDeletePhoto(retakeId);
-              }
-              await onCapturePhoto(dataUrl, {
-                file_size: file.size,
-                file_name: file.name,
-                mime_type: file.type || 'image/jpeg',
-                captured_at: new Date().toISOString(),
-              });
-              setCapturing(false);
-              setRetakeTargetId(null);
-              setSelectedMedia(null);
-            };
-            reader.onerror = () => {
-              setErrorMessage('Failed to read photo data.');
-              setCapturing(false);
-            };
-            reader.readAsDataURL(file);
-          } else {
-            setCapturing(false);
-          }
-        };
-
-        input.click();
-      } else {
-        // Fallback simulated ground-truth capture for environments without DOM input
-        const timestamp = new Date().toISOString();
-        const fakeDataUri = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%231E293B"/><circle cx="300" cy="200" r="80" fill="%2310B981" opacity="0.3"/><text x="50%" y="45%" fill="%23F8FAFC" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle">HORIZON FIELD EVIDENCE</text><text x="50%" y="60%" fill="%2394A3B8" font-family="monospace" font-size="14" text-anchor="middle">CAPTURED: ${timestamp}</text></svg>`;
-
-        if (retakeId) {
-          await onDeletePhoto(retakeId);
+      // 1. Request camera permissions
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        if (!permission.canAskAgain) {
+          setErrorMessage(
+            'Camera permission permanently denied. Please allow Camera access in your Android device Settings > Apps > Horizon.'
+          );
+        } else {
+          setErrorMessage('Camera access is required to capture ground-truth field evidence.');
         }
-        await onCapturePhoto(fakeDataUri, {
-          file_size: 2450000,
-          captured_at: timestamp,
-          hash: `sha256_${Date.now()}`,
-        });
         setCapturing(false);
-        setRetakeTargetId(null);
-        setSelectedMedia(null);
+        return;
       }
+
+      // 2. Launch native Android camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.85,
+        exif: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setCapturing(false);
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (retakeId) {
+        await onDeletePhoto(retakeId);
+      }
+
+      const now = new Date().toISOString();
+      await onCapturePhoto(asset.uri, {
+        file_size: asset.fileSize || 2450000,
+        file_name: asset.fileName || `field_photo_${Date.now()}.jpg`,
+        mime_type: asset.mimeType || 'image/jpeg',
+        width: asset.width,
+        height: asset.height,
+        captured_at: now,
+        exif: asset.exif || {},
+      });
+
+      setCapturing(false);
+      setRetakeTargetId(null);
+      setSelectedMedia(null);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to capture field photo.');
+      setErrorMessage(err.message || 'Failed to capture field photo with camera.');
+      setCapturing(false);
+    }
+  };
+
+  // Real device photo library fallback
+  const handleTriggerLibrary = async (retakeId?: string) => {
+    setCapturing(true);
+    setErrorMessage(null);
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setErrorMessage('Photo library permission is required to select field evidence.');
+        setCapturing(false);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setCapturing(false);
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (retakeId) {
+        await onDeletePhoto(retakeId);
+      }
+
+      const now = new Date().toISOString();
+      await onCapturePhoto(asset.uri, {
+        file_size: asset.fileSize || 2048000,
+        file_name: asset.fileName || `field_library_${Date.now()}.jpg`,
+        mime_type: asset.mimeType || 'image/jpeg',
+        width: asset.width,
+        height: asset.height,
+        captured_at: now,
+      });
+
+      setCapturing(false);
+      setRetakeTargetId(null);
+      setSelectedMedia(null);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to select image from library.');
       setCapturing(false);
     }
   };
@@ -125,7 +172,13 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
 
       if (media) {
         slots.push(
-          <View key={media.local_media_id} style={styles.photoCard}>
+          <View
+            key={media.local_media_id}
+            style={[
+              styles.photoCard,
+              { backgroundColor: theme.surfaceCard, borderColor: theme.border },
+            ]}
+          >
             <TouchableOpacity
               onPress={() => setSelectedMedia(media)}
               activeOpacity={0.8}
@@ -134,59 +187,103 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
               <Image source={{ uri: media.local_uri }} style={styles.thumbnail} resizeMode="cover" />
 
               {/* Status Badge Over Image */}
-              <View style={styles.photoOverlayBadge}>
-                <View style={styles.photoSavedDot} />
-                <Text style={styles.photoOverlayText}>SAVED LOCALLY</Text>
-              </View>
-
-              <View style={styles.slotTag}>
-                <Text style={styles.slotTagText}>Photo {i + 1}</Text>
+              <View style={[styles.photoOverlayBadge, { backgroundColor: 'rgba(7, 6, 11, 0.75)' }]}>
+                <View style={[styles.photoSavedDot, { backgroundColor: theme.statusSuccess }]} />
+                <Text style={styles.photoOverlayText}>LOCAL CACHE</Text>
               </View>
             </TouchableOpacity>
 
-            <View style={styles.photoActionsRow}>
-              <TouchableOpacity
-                onPress={() => setSelectedMedia(media)}
-                style={styles.actionPill}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.actionPillText}>Inspect</Text>
-              </TouchableOpacity>
+            <View style={styles.photoInfoRow}>
+              <View>
+                <Text style={[styles.photoLabel, { color: theme.textPrimary }]}>
+                  Evidence #{i + 1}
+                </Text>
+                <Text style={[styles.photoTimestamp, { color: theme.textMuted }]}>
+                  {new Date(media.created_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
 
-              <TouchableOpacity
-                onPress={() => handleTriggerCapture(media.local_media_id)}
-                style={styles.actionPill}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.actionPillText}>Retake</Text>
-              </TouchableOpacity>
+              <View style={styles.photoCardActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setRetakeTargetId(media.local_media_id);
+                    handleTriggerCamera(media.local_media_id);
+                  }}
+                  style={[styles.smallBtn, { backgroundColor: theme.purpleMuted }]}
+                  disabled={capturing}
+                >
+                  <Text style={[styles.smallBtnText, { color: theme.electricPurple }]}>Retake</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => handleDelete(media.local_media_id)}
-                style={[styles.actionPill, styles.deletePill]}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deletePillText}>Delete</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDelete(media.local_media_id)}
+                  style={[styles.smallBtn, { backgroundColor: theme.statusErrorMuted }]}
+                  disabled={capturing}
+                >
+                  <Text style={[styles.smallBtnText, { color: theme.statusError }]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         );
       } else {
         slots.push(
-          <TouchableOpacity
-            key={`empty-slot-${i}`}
-            onPress={() => handleTriggerCapture()}
-            style={[styles.emptySlotCard, isRequiredSlot && styles.requiredEmptySlot]}
-            activeOpacity={0.7}
+          <View
+            key={`empty_${i}`}
+            style={[
+              styles.emptySlot,
+              {
+                backgroundColor: theme.surfaceSubtle,
+                borderColor: isRequiredSlot ? theme.borderHighlight : theme.border,
+              },
+            ]}
           >
-            <View style={styles.addIconCircle}>
-              <Text style={styles.addIconText}>+</Text>
+            <View style={styles.emptySlotContent}>
+              <View
+                style={[
+                  styles.cameraIconCircle,
+                  { backgroundColor: theme.purpleMuted, borderColor: theme.borderHighlight },
+                ]}
+              >
+                <Text style={[styles.cameraIconSymbol, { color: theme.electricPurple }]}>📷</Text>
+              </View>
+
+              <Text style={[styles.emptySlotTitle, { color: theme.textPrimary }]}>
+                {isRequiredSlot ? `Photo #${i + 1} (Required)` : `Photo #${i + 1} (Optional)`}
+              </Text>
+              <Text style={[styles.emptySlotSub, { color: theme.textMuted }]}>
+                Ground-truth geotagged field capture
+              </Text>
+
+              {/* Action Buttons: Camera + Gallery */}
+              <View style={styles.captureButtonRow}>
+                <TouchableOpacity
+                  style={[styles.slotActionBtn, { backgroundColor: theme.primaryPurple }]}
+                  onPress={() => handleTriggerCamera()}
+                  disabled={capturing}
+                  activeOpacity={0.8}
+                >
+                  {capturing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.slotActionText}>Open Camera</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.slotSecondaryBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                  onPress={() => handleTriggerLibrary()}
+                  disabled={capturing}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.slotSecondaryText, { color: theme.textSecondary }]}>Library</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <Text style={styles.addSlotTitle}>
-              {isRequiredSlot ? `Required Photo ${i + 1}` : `Optional Photo ${i + 1}`}
-            </Text>
-            <Text style={styles.addSlotSubtitle}>Tap to open camera</Text>
-          </TouchableOpacity>
+          </View>
         );
       }
     }
@@ -195,69 +292,115 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header Requirements Summary */}
-      <View style={styles.countSummaryCard}>
-        <View style={styles.countRow}>
-          <Text style={styles.countLabel}>REQUIRED EVIDENCE PHOTOS</Text>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      contentContainerStyle={styles.content}
+    >
+      {/* Step Header */}
+      <View style={styles.headerArea}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.stepTitle, { color: theme.textPrimary }]}>Field Evidence Photos</Text>
           <View
             style={[
-              styles.countPill,
-              canProceed ? styles.countPillSuccess : styles.countPillPending,
+              styles.counterPill,
+              {
+                backgroundColor: canProceed ? theme.statusSuccessMuted : theme.purpleMuted,
+                borderColor: canProceed ? theme.statusSuccess : theme.borderHighlight,
+              },
             ]}
           >
             <Text
               style={[
-                styles.countPillText,
-                canProceed ? styles.countPillTextSuccess : styles.countPillTextPending,
+                styles.counterText,
+                { color: canProceed ? theme.statusSuccess : theme.electricPurple },
               ]}
             >
-              {mediaList.length} / {requiredPhotos}
+              {mediaList.length} / {requiredPhotos} REQUIRED
             </Text>
           </View>
         </View>
-
-        <Text style={styles.instructionsText}>
-          Capture geo-referenced ground truth photos. Evidence is watermarked and saved directly to
-          device storage for offline sync.
+        <Text style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+          High-resolution photos with preserved geospatial metadata are audited by the AI quality engine.
         </Text>
-
-        {!canProceed && (
-          <View style={styles.missingWarning}>
-            <Text style={styles.missingWarningText}>
-              ⚠ {missingCount} more required photo{missingCount > 1 ? 's' : ''} needed before review.
-            </Text>
-          </View>
-        )}
       </View>
 
-      {/* Grid of Photo Cards */}
-      <View style={styles.grid}>{renderPhotoSlots()}</View>
-
-      {/* Error Callout */}
+      {/* Error Alert */}
       {errorMessage && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
+        <View style={[styles.errorAlert, { backgroundColor: theme.statusErrorMuted, borderColor: theme.statusError }]}>
+          <Text style={[styles.errorAlertText, { color: theme.statusError }]}>⚠ {errorMessage}</Text>
         </View>
       )}
 
-      {/* Bottom Navigation Row */}
-      <View style={styles.navRow}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>← Location</Text>
-        </TouchableOpacity>
+      {/* Primary Capture Action Card */}
+      <View
+        style={[
+          styles.actionCard,
+          { backgroundColor: theme.surfaceCard, borderColor: theme.borderHighlight },
+        ]}
+      >
+        <View style={styles.actionLeft}>
+          <View
+            style={[
+              styles.actionIconBox,
+              { backgroundColor: theme.purpleMuted, borderColor: theme.borderHighlight },
+            ]}
+          >
+            <Text style={[styles.actionIcon, { color: theme.electricPurple }]}>📸</Text>
+          </View>
+          <View>
+            <Text style={[styles.actionHeading, { color: theme.textPrimary }]}>Device Camera Capture</Text>
+            <Text style={[styles.actionSub, { color: theme.textMuted }]}>
+              {missingCount > 0
+                ? `${missingCount} more evidence photo(s) required`
+                : 'All required evidence photos acquired'}
+            </Text>
+          </View>
+        </View>
 
-        <HorizonButton
-          title={canProceed ? 'Proceed to Observations →' : `Add ${missingCount} Photos to Proceed`}
-          onPress={onNext}
-          disabled={!canProceed}
-          size="md"
-          variant="primary"
-          style={styles.nextBtn}
-        />
+        <TouchableOpacity
+          style={[
+            styles.primaryCaptureBtn,
+            { backgroundColor: theme.primaryPurple },
+            mediaList.length >= maxPhotos && styles.btnDisabled,
+          ]}
+          onPress={() => handleTriggerCamera()}
+          disabled={capturing || mediaList.length >= maxPhotos}
+          activeOpacity={0.8}
+        >
+          {capturing ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryCaptureBtnText}>
+              {mediaList.length >= maxPhotos ? 'Limit Reached' : 'Take Photo'}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* Photo Preview Modal */}
+      {/* Slots List */}
+      <View style={styles.slotsContainer}>{renderPhotoSlots()}</View>
+
+      {/* Navigation Buttons */}
+      <View style={styles.footerNav}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+          onPress={onBack}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.backBtnText, { color: theme.textSecondary }]}>← Location</Text>
+        </TouchableOpacity>
+
+        <View style={styles.nextBtn}>
+          <HorizonButton
+            title={canProceed ? 'Proceed to Observations →' : `Need ${missingCount} More Photo(s)`}
+            onPress={onNext}
+            disabled={!canProceed}
+            variant={canProceed ? 'primary' : 'secondary'}
+          />
+        </View>
+      </View>
+
+      {/* Inspection Modal */}
       <Modal
         visible={!!selectedMedia}
         transparent
@@ -265,152 +408,178 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
         onRequestClose={() => setSelectedMedia(null)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>FIELD EVIDENCE PREVIEW</Text>
-              <TouchableOpacity onPress={() => setSelectedMedia(null)} style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseText}>✕</Text>
+          <View style={[styles.modalCard, { backgroundColor: theme.surfaceCard, borderColor: theme.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.divider }]}>
+              <Text style={[styles.modalTitle, { color: theme.textMuted }]}>EVIDENCE AUDIT</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedMedia(null)}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={[styles.modalCloseText, { color: theme.textMuted }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {selectedMedia && (
-              <ScrollView contentContainerStyle={styles.modalBody}>
+              <View style={styles.modalBody}>
                 <Image
                   source={{ uri: selectedMedia.local_uri }}
-                  style={styles.previewImage}
+                  style={[styles.previewImage, { backgroundColor: theme.surfaceElevated }]}
                   resizeMode="contain"
                 />
 
-                <View style={styles.metadataBox}>
+                <View style={[styles.metadataBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Storage Key</Text>
-                    <Text style={styles.metaVal} numberOfLines={1}>
+                    <Text style={[styles.metaLabel, { color: theme.textMuted }]}>STORAGE KEY</Text>
+                    <Text style={[styles.metaVal, { color: theme.textSecondary }]} numberOfLines={1}>
                       {selectedMedia.storage_key}
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Sync State</Text>
-                    <Text style={styles.metaValGreen}>{selectedMedia.sync_status}</Text>
+                    <Text style={[styles.metaLabel, { color: theme.textMuted }]}>STATUS</Text>
+                    <Text style={[styles.metaValGreen, { color: theme.statusSuccess }]}>
+                      {selectedMedia.sync_status}
+                    </Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Local Media ID</Text>
-                    <Text style={styles.metaVal}>{selectedMedia.local_media_id}</Text>
+                    <Text style={[styles.metaLabel, { color: theme.textMuted }]}>FILE SIZE</Text>
+                    <Text style={[styles.metaVal, { color: theme.textSecondary }]}>
+                      {((selectedMedia.metadata.file_size as number) / 1024 / 1024).toFixed(2)} MB
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.modalActions}>
-                  <HorizonButton
-                    title="Retake Photo"
+                  <TouchableOpacity
+                    style={[styles.modalRetakeBtn, { backgroundColor: theme.purpleMuted }]}
                     onPress={() => {
                       const id = selectedMedia.local_media_id;
-                      handleTriggerCapture(id);
+                      setSelectedMedia(null);
+                      handleTriggerCamera(id);
                     }}
-                    variant="outline"
-                    size="sm"
-                    style={{ flex: 1 }}
-                  />
-                  <HorizonButton
-                    title="Delete Photo"
+                  >
+                    <Text style={[styles.modalRetakeText, { color: theme.electricPurple }]}>Retake Photo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalDeleteBtn, { backgroundColor: theme.statusErrorMuted }]}
                     onPress={() => handleDelete(selectedMedia.local_media_id)}
-                    variant="outline"
-                    size="sm"
-                    style={{ flex: 1, borderColor: colors.statusError }}
-                  />
+                  >
+                    <Text style={[styles.modalDeleteText, { color: theme.statusError }]}>Delete Evidence</Text>
+                  </TouchableOpacity>
                 </View>
-              </ScrollView>
+              </View>
             )}
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  content: {
     padding: 16,
-    gap: 14,
+    paddingBottom: 40,
+    gap: 16,
   },
-  countSummaryCard: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: radius.md,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+  headerArea: {
+    gap: 6,
   },
-  countRow: {
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
   },
-  countLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 1.2,
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
-  countPill: {
-    paddingHorizontal: 10,
+  counterPill: {
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.full,
-  },
-  countPillSuccess: {
-    backgroundColor: colors.accentGreenMuted,
     borderWidth: 1,
-    borderColor: colors.accentGreen,
   },
-  countPillPending: {
-    backgroundColor: colors.tokenGoldMuted,
-    borderWidth: 1,
-    borderColor: colors.tokenGold,
+  counterText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  countPillText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  countPillTextSuccess: {
-    color: colors.accentGreen,
-  },
-  countPillTextPending: {
-    color: colors.tokenGold,
-  },
-  instructionsText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  stepSubtitle: {
+    fontSize: 13,
     lineHeight: 18,
-    marginTop: 4,
   },
-  missingWarning: {
-    marginTop: 10,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    padding: 8,
-    borderRadius: radius.xs,
+  errorAlert: {
+    padding: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
-  missingWarningText: {
-    fontSize: 11,
-    color: colors.tokenGold,
+  errorAlertText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  actionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  actionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionIcon: {
+    fontSize: 18,
+  },
+  actionHeading: {
+    fontSize: 13,
     fontWeight: '700',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  actionSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  primaryCaptureBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: radius.md,
+  },
+  primaryCaptureBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  slotsContainer: {
     gap: 12,
   },
   photoCard: {
-    width: '48%',
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderLight,
     overflow: 'hidden',
   },
   imageWrapper: {
-    height: 120,
+    width: '100%',
+    height: 180,
     position: 'relative',
-    backgroundColor: '#070B12',
   },
   thumbnail: {
     width: '100%',
@@ -418,137 +587,123 @@ const styles = StyleSheet.create({
   },
   photoOverlayBadge: {
     position: 'absolute',
-    top: 6,
-    left: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: radius.xs,
+    top: 8,
+    left: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.full,
   },
   photoSavedDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.accentGreen,
+    width: 6,
+    height: 6,
+    borderRadius: radius.full,
   },
   photoOverlayText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
-    color: colors.accentGreen,
+    color: '#F8F7FC',
     letterSpacing: 0.5,
   },
-  slotTag: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.xs,
-  },
-  slotTagText: {
-    fontSize: 9,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  photoActionsRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  actionPill: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  actionPillText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  deletePill: {
-    borderRightWidth: 0,
-  },
-  deletePillText: {
-    fontSize: 10,
-    color: colors.statusError,
-    fontWeight: '700',
-  },
-  emptySlotCard: {
-    width: '48%',
-    height: 160,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  requiredEmptySlot: {
-    borderColor: 'rgba(255, 107, 0, 0.4)',
-    backgroundColor: 'rgba(255, 107, 0, 0.04)',
-  },
-  addIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  addIconText: {
-    fontSize: 20,
-    color: colors.accentGreen,
-    fontWeight: '800',
-    marginTop: -2,
-  },
-  addSlotTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  addSlotSubtitle: {
-    fontSize: 9,
-    color: colors.textMuted,
-  },
-  errorBox: {
-    backgroundColor: colors.statusErrorMuted,
-    padding: 10,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  errorText: {
-    fontSize: 11,
-    color: colors.statusError,
-  },
-  navRow: {
+  photoInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    padding: 12,
+  },
+  photoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  photoTimestamp: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  photoCardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  smallBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
+  },
+  smallBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptySlot: {
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySlotContent: {
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  cameraIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIconSymbol: {
+    fontSize: 20,
+  },
+  emptySlotTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptySlotSub: {
+    fontSize: 11,
+  },
+  captureButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginTop: 6,
   },
+  slotActionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+  },
+  slotActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  slotSecondaryBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  slotSecondaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  footerNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+  },
   backBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
   },
   backBtnText: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
   nextBtn: {
@@ -556,7 +711,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(9, 13, 22, 0.85)',
+    backgroundColor: 'rgba(7, 6, 11, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -564,10 +719,8 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderLight,
     overflow: 'hidden',
   },
   modalHeader: {
@@ -576,12 +729,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 1,
   },
   modalCloseBtn: {
@@ -589,7 +740,6 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 16,
-    color: colors.textMuted,
   },
   modalBody: {
     padding: 14,
@@ -598,15 +748,12 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 240,
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.sm,
   },
   metadataBox: {
-    backgroundColor: colors.surface,
     padding: 12,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
     gap: 6,
   },
   metaRow: {
@@ -616,23 +763,40 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 10,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   metaVal: {
     fontSize: 11,
     fontFamily: 'monospace',
-    color: colors.textSecondary,
     maxWidth: 200,
   },
   metaValGreen: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.accentGreen,
   },
   modalActions: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 4,
+  },
+  modalRetakeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  modalRetakeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalDeleteBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

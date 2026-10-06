@@ -146,6 +146,14 @@ declare module 'react-native' {
     showsHorizontalScrollIndicator?: boolean;
     horizontal?: boolean;
     refreshControl?: React.ReactElement;
+    keyboardShouldPersistTaps?: 'always' | 'never' | 'handled' | boolean;
+  }
+
+  export interface KeyboardAvoidingViewProps extends ViewProps {
+    behavior?: 'height' | 'position' | 'padding';
+    contentContainerStyle?: StyleProp<ViewStyle>;
+    keyboardVerticalOffset?: number;
+    enabled?: boolean;
   }
 
   export interface ActivityIndicatorProps extends ViewProps {
@@ -187,6 +195,13 @@ declare module 'react-native' {
     export function addEventListener(type: 'change', handler: (dims: { window: DimensionsObject; screen: DimensionsObject }) => void): { remove: () => void };
   }
 
+  export type ColorSchemeName = 'light' | 'dark' | null | undefined;
+
+  export namespace Appearance {
+    export function getColorScheme(): ColorSchemeName;
+    export function addChangeListener(listener: (preferences: { colorScheme: ColorSchemeName }) => void): { remove: () => void };
+  }
+
   export const Platform: {
     OS: 'ios' | 'android' | 'windows' | 'macos' | 'web';
     select: <T>(specifics: { [platform: string]: T }) => T;
@@ -197,6 +212,7 @@ declare module 'react-native' {
   export const TouchableOpacity: React.FC<TouchableOpacityProps>;
   export const Pressable: React.FC<PressableProps>;
   export const SafeAreaView: React.FC<ViewProps>;
+  export const KeyboardAvoidingView: React.FC<KeyboardAvoidingViewProps>;
   export interface RefreshControlProps extends ViewProps {
     refreshing: boolean;
     onRefresh?: () => void;

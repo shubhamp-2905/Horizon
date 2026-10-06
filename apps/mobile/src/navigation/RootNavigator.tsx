@@ -8,11 +8,13 @@ import { WalletScreen } from '../screens/WalletScreen';
 import { MyTasksScreen } from '../screens/MyTasksScreen';
 import { apiClient } from '../services/api';
 import type { AuthTokenResponse, TaskResponseDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { radius } from '../theme/colors';
 
 type Tab = 'home' | 'discover' | 'tasks' | 'wallet';
 
 export const RootNavigator: React.FC = () => {
+  const { theme, isDark, toggleTheme } = useTheme();
   const [auth, setAuth] = useState<AuthTokenResponse | null>(null);
   const [currentTab, setCurrentTab] = useState<Tab>('home');
   const [selectedTask, setSelectedTask] = useState<TaskResponseDTO | null>(null);
@@ -28,7 +30,6 @@ export const RootNavigator: React.FC = () => {
   }, []);
 
   const handleAuthenticated = (authData: AuthTokenResponse) => {
-    // Instant local state transition without waiting for redundant network roundtrips
     setAuth(authData);
     setAvailableTokens(authData.user?.available_tokens ?? 100);
     apiClient.saveSession(authData);
@@ -52,50 +53,99 @@ export const RootNavigator: React.FC = () => {
 
   if (!auth) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.background}
+        />
         <AuthScreen onAuthenticated={handleAuthenticated} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.surface} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.surface}
+      />
 
       {/* Top Application Bar */}
-      <View style={styles.topBar}>
+      <View
+        style={[
+          styles.topBar,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.divider,
+          },
+        ]}
+      >
         <View style={styles.brandGroup}>
-          <View style={styles.brandIconCircle}>
-            <Text style={styles.brandIconText}>◈</Text>
+          <View
+            style={[
+              styles.brandIconCircle,
+              {
+                backgroundColor: theme.purpleMuted,
+                borderColor: theme.borderHighlight,
+              },
+            ]}
+          >
+            <Text style={[styles.brandIconText, { color: theme.electricPurple }]}>◈</Text>
           </View>
           <View>
-            <Text style={styles.brandTitle}>HORIZON</Text>
-            <Text style={styles.userName}>{auth.user.username}</Text>
+            <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>HORIZON</Text>
+            <Text style={[styles.userName, { color: theme.textMuted }]}>{auth.user.username}</Text>
           </View>
         </View>
 
         <View style={styles.topRight}>
+          {/* Balance Pill */}
           <TouchableOpacity
-            style={styles.balancePill}
+            style={[
+              styles.balancePill,
+              {
+                backgroundColor: theme.purpleMuted,
+                borderColor: theme.borderHighlight,
+              },
+            ]}
             onPress={() => {
               setSelectedTask(null);
               setCurrentTab('wallet');
             }}
             activeOpacity={0.7}
           >
-            <View style={styles.balanceDot} />
-            <Text style={styles.balancePillText}>{availableTokens} TOKENS</Text>
+            <View style={[styles.balanceDot, { backgroundColor: theme.electricPurple }]} />
+            <Text style={[styles.balancePillText, { color: theme.electricPurple }]}>
+              {availableTokens} HZN
+            </Text>
           </TouchableOpacity>
 
+          {/* Theme Switcher Toggle */}
+          <TouchableOpacity
+            style={[
+              styles.themeToggleBtn,
+              {
+                backgroundColor: theme.surfaceSubtle,
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.themeToggleText, { color: theme.textSecondary }]}>
+              {isDark ? '☀' : '☾'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Exit Button */}
           <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn} activeOpacity={0.7}>
-            <Text style={styles.signOutText}>Exit</Text>
+            <Text style={[styles.signOutText, { color: theme.textMuted }]}>Exit</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Screen Content View */}
-      <View style={styles.content}>
+      <View style={[styles.content, { backgroundColor: theme.background }]}>
         {selectedTask ? (
           <TaskDetailScreen
             task={selectedTask}
@@ -122,7 +172,15 @@ export const RootNavigator: React.FC = () => {
       </View>
 
       {/* Bottom Navigation Bar */}
-      <View style={styles.bottomNav}>
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            backgroundColor: theme.navigation,
+            borderTopColor: theme.navigationBorder,
+          },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.navItem, currentTab === 'home' && !selectedTask && styles.activeNavItem]}
           onPress={() => {
@@ -131,10 +189,22 @@ export const RootNavigator: React.FC = () => {
           }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.navSymbol, currentTab === 'home' && !selectedTask && styles.activeNavSymbol]}>
+          <Text
+            style={[
+              styles.navSymbol,
+              { color: theme.textMuted },
+              currentTab === 'home' && !selectedTask && { color: theme.electricPurple },
+            ]}
+          >
             ⌂
           </Text>
-          <Text style={[styles.navText, currentTab === 'home' && !selectedTask && styles.activeNavText]}>
+          <Text
+            style={[
+              styles.navText,
+              { color: theme.textMuted },
+              currentTab === 'home' && !selectedTask && { color: theme.textPrimary, fontWeight: '800' },
+            ]}
+          >
             Home
           </Text>
         </TouchableOpacity>
@@ -147,10 +217,22 @@ export const RootNavigator: React.FC = () => {
           }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.navSymbol, currentTab === 'discover' && !selectedTask && styles.activeNavSymbol]}>
+          <Text
+            style={[
+              styles.navSymbol,
+              { color: theme.textMuted },
+              currentTab === 'discover' && !selectedTask && { color: theme.electricPurple },
+            ]}
+          >
             ◎
           </Text>
-          <Text style={[styles.navText, currentTab === 'discover' && !selectedTask && styles.activeNavText]}>
+          <Text
+            style={[
+              styles.navText,
+              { color: theme.textMuted },
+              currentTab === 'discover' && !selectedTask && { color: theme.textPrimary, fontWeight: '800' },
+            ]}
+          >
             Discover
           </Text>
         </TouchableOpacity>
@@ -163,10 +245,22 @@ export const RootNavigator: React.FC = () => {
           }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.navSymbol, currentTab === 'tasks' && !selectedTask && styles.activeNavSymbol]}>
+          <Text
+            style={[
+              styles.navSymbol,
+              { color: theme.textMuted },
+              currentTab === 'tasks' && !selectedTask && { color: theme.electricPurple },
+            ]}
+          >
             ▤
           </Text>
-          <Text style={[styles.navText, currentTab === 'tasks' && !selectedTask && styles.activeNavText]}>
+          <Text
+            style={[
+              styles.navText,
+              { color: theme.textMuted },
+              currentTab === 'tasks' && !selectedTask && { color: theme.textPrimary, fontWeight: '800' },
+            ]}
+          >
             My Tasks
           </Text>
         </TouchableOpacity>
@@ -179,10 +273,22 @@ export const RootNavigator: React.FC = () => {
           }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.navSymbol, currentTab === 'wallet' && !selectedTask && styles.activeNavSymbol]}>
+          <Text
+            style={[
+              styles.navSymbol,
+              { color: theme.textMuted },
+              currentTab === 'wallet' && !selectedTask && { color: theme.electricPurple },
+            ]}
+          >
             ◈
           </Text>
-          <Text style={[styles.navText, currentTab === 'wallet' && !selectedTask && styles.activeNavText]}>
+          <Text
+            style={[
+              styles.navText,
+              { color: theme.textMuted },
+              currentTab === 'wallet' && !selectedTask && { color: theme.textPrimary, fontWeight: '800' },
+            ]}
+          >
             Wallet
           </Text>
         </TouchableOpacity>
@@ -194,7 +300,6 @@ export const RootNavigator: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -202,9 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   brandGroup: {
     flexDirection: 'row',
@@ -215,26 +318,21 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.borderHighlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandIconText: {
     fontSize: 14,
-    color: colors.accentGreen,
     fontWeight: '900',
   },
   brandTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: colors.textPrimary,
     letterSpacing: 1.5,
   },
   userName: {
     fontSize: 11,
-    color: colors.textMuted,
     fontWeight: '500',
   },
   topRight: {
@@ -245,9 +343,7 @@ const styles = StyleSheet.create({
   balancePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.accentGreenMuted,
     borderWidth: 1,
-    borderColor: colors.borderHighlight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radius.full,
@@ -257,22 +353,29 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
   },
   balancePillText: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.accentGreen,
     letterSpacing: 0.4,
+  },
+  themeToggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  themeToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   signOutBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderRadius: radius.xs,
   },
   signOutText: {
     fontSize: 12,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   content: {
@@ -280,9 +383,7 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
     paddingVertical: 8,
     paddingBottom: 14,
   },
@@ -297,19 +398,10 @@ const styles = StyleSheet.create({
   },
   navSymbol: {
     fontSize: 18,
-    color: colors.textMuted,
-  },
-  activeNavSymbol: {
-    color: colors.accentGreen,
   },
   navText: {
     fontSize: 10,
-    color: colors.textMuted,
     fontWeight: '600',
     letterSpacing: 0.3,
-  },
-  activeNavText: {
-    color: colors.textPrimary,
-    fontWeight: '800',
   },
 });

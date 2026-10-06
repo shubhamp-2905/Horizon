@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 
 interface TokenBadgeProps {
   amount: number | string;
@@ -17,35 +18,57 @@ export const TokenBadge: React.FC<TokenBadgeProps> = ({
   size = 'md',
   style,
 }) => {
-  const getContainerStyle = () => {
+  const { theme } = useTheme();
+
+  const getContainerStyle = (): ViewStyle => {
     switch (type) {
       case 'available':
-        return styles.availableContainer;
+        return {
+          backgroundColor: theme.purpleMuted,
+          borderWidth: 1,
+          borderColor: theme.borderHighlight,
+        };
       case 'locked':
-        return styles.lockedContainer;
+        return {
+          backgroundColor: 'rgba(217, 119, 6, 0.12)',
+          borderWidth: 1,
+          borderColor: 'rgba(217, 119, 6, 0.3)',
+        };
       case 'stake':
-        return styles.stakeContainer;
+        return {
+          backgroundColor: theme.surfaceSubtle,
+          borderWidth: 1,
+          borderColor: theme.border,
+        };
       case 'neutral':
-        return styles.neutralContainer;
+        return {
+          backgroundColor: theme.surfaceElevated,
+          borderWidth: 1,
+          borderColor: theme.border,
+        };
       case 'reward':
       default:
-        return styles.rewardContainer;
+        return {
+          backgroundColor: theme.purpleMuted,
+          borderWidth: 1,
+          borderColor: theme.borderHighlight,
+        };
     }
   };
 
-  const getTextStyle = () => {
+  const getTextColor = (): string => {
     switch (type) {
       case 'available':
-        return styles.availableText;
+        return theme.electricPurple;
       case 'locked':
-        return styles.lockedText;
+        return '#D97706';
       case 'stake':
-        return styles.stakeText;
+        return theme.textSecondary;
       case 'neutral':
-        return styles.neutralText;
+        return theme.textMuted;
       case 'reward':
       default:
-        return styles.rewardText;
+        return theme.electricPurple;
     }
   };
 
@@ -57,12 +80,34 @@ export const TokenBadge: React.FC<TokenBadgeProps> = ({
       : amount;
 
   return (
-    <View style={[styles.badge, getContainerStyle(), size === 'sm' && styles.smBadge, size === 'lg' && styles.lgBadge, style]}>
-      <Text style={[styles.amountText, getTextStyle(), size === 'sm' && styles.smAmount, size === 'lg' && styles.lgAmount]}>
+    <View
+      style={[
+        styles.badge,
+        getContainerStyle(),
+        size === 'sm' && styles.smBadge,
+        size === 'lg' && styles.lgBadge,
+        style,
+      ]}
+    >
+      <Text
+        style={[
+          styles.amountText,
+          { color: getTextColor() },
+          size === 'sm' && styles.smAmount,
+          size === 'lg' && styles.lgAmount,
+        ]}
+      >
         {formattedAmount}
       </Text>
-      <Text style={[styles.labelText, getTextStyle(), size === 'sm' && styles.smLabel, size === 'lg' && styles.lgLabel]}>
-        {label || (type === 'stake' ? 'STAKE' : 'TOKENS')}
+      <Text
+        style={[
+          styles.labelText,
+          { color: getTextColor() },
+          size === 'sm' && styles.smLabel,
+          size === 'lg' && styles.lgLabel,
+        ]}
+      >
+        {label || (type === 'stake' ? 'STAKE' : 'HZN')}
       </Text>
     </View>
   );
@@ -87,31 +132,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 6,
   },
-  rewardContainer: {
-    backgroundColor: colors.tokenGoldMuted,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  availableContainer: {
-    backgroundColor: colors.accentGreenMuted,
-    borderWidth: 1,
-    borderColor: colors.borderHighlight,
-  },
-  lockedContainer: {
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.3)',
-  },
-  stakeContainer: {
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  neutralContainer: {
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   amountText: {
     fontSize: 12,
     fontWeight: '800',
@@ -133,20 +153,5 @@ const styles = StyleSheet.create({
   },
   lgLabel: {
     fontSize: 11,
-  },
-  rewardText: {
-    color: colors.tokenGold,
-  },
-  availableText: {
-    color: colors.accentGreen,
-  },
-  lockedText: {
-    color: colors.tokenGoldDark,
-  },
-  stakeText: {
-    color: colors.textSecondary,
-  },
-  neutralText: {
-    color: colors.textMuted,
   },
 });

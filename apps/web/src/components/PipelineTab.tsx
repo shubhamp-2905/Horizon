@@ -186,7 +186,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           <div className="kpi-content">
             <div className="stat-label">Active Datasets</div>
             <div className="stat-value">{totalDatasets}</div>
-            <div className="stat-sub">Versioned Loupe feeds</div>
+            <div className="stat-sub">Verified dataset releases</div>
           </div>
         </div>
 
@@ -282,7 +282,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Published Datasets for Loupe
+            Verified Geospatial Datasets
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             {datasets.length} version{datasets.length === 1 ? '' : 's'} available
@@ -363,7 +363,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                     ⬇ CSV
                   </a>
 
-                  {/* Sync to Loupe */}
+                  {/* Sync to Downstream */}
                   <button
                     type="button"
                     className="action-btn action-btn-primary"
@@ -371,7 +371,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                     onClick={() => handleSyncLoupe(ds.dataset_version)}
                     disabled={syncingVersion === ds.dataset_version}
                   >
-                    {syncingVersion === ds.dataset_version ? 'Syncing...' : 'Push to Loupe ↗'}
+                    {syncingVersion === ds.dataset_version ? 'Syncing...' : 'Publish to Downstream ↗'}
                   </button>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
         )}
       </div>
 
-      {/* Loupe Sync Result Banner */}
+      {/* Downstream Sync Result Banner */}
       {syncResult && (
         <div style={{
           background: syncResult.dispatch_mode === 'live' ? '#ecfdf5' : '#eff6ff',
@@ -390,7 +390,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           fontSize: '13px',
         }}>
           <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            ✓ Loupe Pipeline Sync Status: {syncResult.status} ({syncResult.dispatch_mode})
+            ✓ Verified Data Downstream Sync: {syncResult.status} ({syncResult.dispatch_mode})
           </div>
           <div style={{ color: 'var(--text-secondary)' }}>
             Endpoint: <code style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>{syncResult.endpoint}</code> •{' '}

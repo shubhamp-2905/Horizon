@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 import { HorizonButton } from './HorizonButton';
 
 interface EmptyStateProps {
@@ -20,13 +21,32 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   style,
   iconText = '⌕',
 }) => {
+  const { theme } = useTheme();
+
   return (
-    <View style={[styles.container, style]}>
-      <View style={styles.iconCircle}>
-        <Text style={styles.icon}>{iconText}</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.surfaceCard,
+          borderColor: theme.border,
+        },
+        style,
+      ]}
+    >
+      <View
+        style={[
+          styles.iconCircle,
+          {
+            backgroundColor: theme.surfaceElevated,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.icon, { color: theme.electricPurple }]}>{iconText}</Text>
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <Text style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>
+      <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text>
       {actionText && onAction && (
         <HorizonButton
           title={actionText}
@@ -46,10 +66,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 36,
     paddingHorizontal: 24,
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderLight,
     borderStyle: 'dashed',
     marginVertical: 8,
   },
@@ -57,27 +75,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   icon: {
     fontSize: 18,
-    color: colors.textSecondary,
   },
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 6,
     textAlign: 'center',
   },
   description: {
     fontSize: 13,
-    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 280,

@@ -7,7 +7,8 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { HorizonButton } from '../ui/HorizonButton';
 import type { SurveyStep } from './FieldStepIndicator';
 import type { LocalMediaRecord, LocalSubmissionRecord } from '../../database/schema';
@@ -34,6 +35,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
   onBack,
   isOffline = false,
 }) => {
+  const { theme, isDark } = useTheme();
   const [submitting, setSubmitting] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [submittedModalVisible, setSubmittedModalVisible] = useState(false);
@@ -60,11 +62,11 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
   if (!photosComplete) missingItemsCount++;
   if (!observationsComplete) missingItemsCount++;
 
-  const isEligibleToSubmit = missingItemsCount === 0;
+  const isFormComplete = missingItemsCount === 0;
 
   const handleSubmit = async () => {
-    if (!isEligibleToSubmit) {
-      setErrorStatus(`Cannot submit: ${missingItemsCount} required collection item(s) are missing.`);
+    if (!isFormComplete) {
+      setErrorStatus('Please fulfill all mandatory survey prerequisites before submitting.');
       return;
     }
 
@@ -74,7 +76,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
       await onSubmitSurvey();
       setSubmittedModalVisible(true);
     } catch (err: any) {
-      setErrorStatus(err.message || 'Failed to submit field collection.');
+      setErrorStatus(err.message || 'Failed to finalize and queue submission.');
     } finally {
       setSubmitting(false);
     }
@@ -82,273 +84,312 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header Summary */}
-      <View style={styles.summaryHeader}>
-        <Text style={styles.summaryTitle}>GROUND-TRUTH SUBMISSION REVIEW</Text>
-        <Text style={styles.summarySub}>
-          Verify all spatial, imagery, and observation evidence before locking field records.
+      {/* Offline Status Notice */}
+      {isOffline && (
+        <View
+          style={[
+            styles.offlineBanner,
+            {
+              backgroundColor: theme.primaryMuted,
+              borderColor: theme.borderLight,
+            },
+          ]}
+        >
+          <View style={[styles.offlineDot, { backgroundColor: theme.primary }]} />
+          <Text style={[styles.offlineText, { color: theme.primaryLight }]}>
+            Offline Mode: Finalized package will be queued in SQLite and automatically synchronized when connectivity returns.
+          </Text>
+        </View>
+      )}
+
+      {/* Summary Header Card */}
+      <View
+        style={[
+          styles.summaryCard,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            shadowColor: isDark ? '#000000' : '#4C1D95',
+          },
+        ]}
+      >
+        <Text style={[styles.summaryTitle, { color: theme.textMuted }]}>PRE-FLIGHT AUDIT & VERIFICATION</Text>
+        <Text style={[styles.summarySub, { color: theme.textSecondary }]}>
+          Verify that all mandatory geospatial evidence meets consensus criteria before locking.
         </Text>
       </View>
 
-      {/* Incomplete Warning Callout */}
-      {!isEligibleToSubmit && (
-        <View style={styles.incompleteBox}>
-          <Text style={styles.incompleteIcon}>⚠</Text>
+      {/* Readiness Warning if Incomplete */}
+      {!isFormComplete && (
+        <View
+          style={[
+            styles.incompleteBox,
+            {
+              backgroundColor: theme.tokenGoldMuted,
+              borderColor: 'rgba(217, 119, 6, 0.35)',
+            },
+          ]}
+        >
+          <Text style={[styles.incompleteIcon, { color: theme.tokenGold }]}>⚠</Text>
           <View style={styles.incompleteTextCol}>
-            <Text style={styles.incompleteTitle}>
-              {missingItemsCount} required {missingItemsCount > 1 ? 'items' : 'item'} missing
+            <Text style={[styles.incompleteTitle, { color: theme.tokenGold }]}>
+              {missingItemsCount} SURVEY {missingItemsCount === 1 ? 'ITEM' : 'ITEMS'} PENDING
             </Text>
-            <Text style={styles.incompleteSub}>
-              Tap any incomplete section below to jump directly to that step.
+            <Text style={[styles.incompleteSub, { color: theme.textSecondary }]}>
+              Tap the pending rows below to navigate directly to the incomplete step.
             </Text>
           </View>
         </View>
       )}
 
-      {/* Checklist Sections */}
+      {/* Section Checklist */}
       <View style={styles.checklist}>
-        {/* 1. Location Card */}
+        {/* Item 1: Location */}
         <TouchableOpacity
-          style={[styles.checkCard, !hasGps && styles.checkCardIncomplete]}
+          style={[
+            styles.checkCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: hasGps ? theme.border : theme.tokenGold,
+            },
+          ]}
           onPress={() => onNavigateToStep('location')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.checkCardLeft}>
             <View
               style={[
                 styles.statusIconCircle,
-                hasGps ? styles.circleSuccess : styles.circlePending,
+                hasGps
+                  ? { backgroundColor: theme.successMuted, borderColor: theme.success, borderWidth: 1 }
+                  : { backgroundColor: theme.tokenGoldMuted, borderColor: theme.tokenGold, borderWidth: 1 },
               ]}
             >
-              <Text style={[styles.statusIconText, hasGps ? styles.textSuccess : styles.textPending]}>
+              <Text style={{ color: hasGps ? theme.success : theme.tokenGold, fontWeight: '800' }}>
                 {hasGps ? '✓' : '!'}
               </Text>
             </View>
-
             <View>
-              <Text style={styles.checkSectionTitle}>LOCATION</Text>
-              <Text style={styles.checkSectionDetail}>
+              <Text style={[styles.checkTitle, { color: theme.textPrimary }]}>GPS Coordinates</Text>
+              <Text style={[styles.checkSub, { color: theme.textSecondary }]}>
                 {hasGps
-                  ? `Captured • ± ${gpsAccuracy}m (${submission?.latitude?.toFixed(4)}, ${submission?.longitude?.toFixed(4)})`
-                  : 'Missing GPS satellite fix'}
+                  ? `${submission?.latitude?.toFixed(5)}°N, ${submission?.longitude?.toFixed(5)}°E (±${gpsAccuracy}m)`
+                  : 'Satellite coordinates missing'}
               </Text>
             </View>
           </View>
-
-          <View style={styles.checkCardRight}>
-            <Text style={[styles.statusPill, hasGps ? styles.pillSuccess : styles.pillPending]}>
-              {hasGps ? `± ${gpsAccuracy}m` : 'Required'}
-            </Text>
-            <Text style={styles.chevron}>→</Text>
-          </View>
+          <Text style={[styles.editLink, { color: theme.primaryLight }]}>Edit →</Text>
         </TouchableOpacity>
 
-        {/* 2. Photos Card */}
+        {/* Item 2: Images */}
         <TouchableOpacity
-          style={[styles.checkCard, !photosComplete && styles.checkCardIncomplete]}
+          style={[
+            styles.checkCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: photosComplete ? theme.border : theme.tokenGold,
+            },
+          ]}
           onPress={() => onNavigateToStep('images')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.checkCardLeft}>
             <View
               style={[
                 styles.statusIconCircle,
-                photosComplete ? styles.circleSuccess : styles.circlePending,
+                photosComplete
+                  ? { backgroundColor: theme.successMuted, borderColor: theme.success, borderWidth: 1 }
+                  : { backgroundColor: theme.tokenGoldMuted, borderColor: theme.tokenGold, borderWidth: 1 },
               ]}
             >
-              <Text
-                style={[
-                  styles.statusIconText,
-                  photosComplete ? styles.textSuccess : styles.textPending,
-                ]}
-              >
+              <Text style={{ color: photosComplete ? theme.success : theme.tokenGold, fontWeight: '800' }}>
                 {photosComplete ? '✓' : '!'}
               </Text>
             </View>
-
             <View>
-              <Text style={styles.checkSectionTitle}>PHOTOS</Text>
-              <Text style={styles.checkSectionDetail}>
-                {photoCount} of {requiredPhotos} required evidence photos
+              <Text style={[styles.checkTitle, { color: theme.textPrimary }]}>Field Photos</Text>
+              <Text style={[styles.checkSub, { color: theme.textSecondary }]}>
+                {photosComplete
+                  ? `${photoCount} of ${requiredPhotos} photos captured`
+                  : `Need ${requiredPhotos - photoCount} more photo(s)`}
               </Text>
             </View>
           </View>
-
-          <View style={styles.checkCardRight}>
-            <Text
-              style={[
-                styles.statusPill,
-                photosComplete ? styles.pillSuccess : styles.pillPending,
-              ]}
-            >
-              {photoCount}/{requiredPhotos}
-            </Text>
-            <Text style={styles.chevron}>→</Text>
-          </View>
+          <Text style={[styles.editLink, { color: theme.primaryLight }]}>Edit →</Text>
         </TouchableOpacity>
 
-        {/* 3. Observations Card */}
+        {/* Item 3: Observations */}
         <TouchableOpacity
-          style={[styles.checkCard, !observationsComplete && styles.checkCardIncomplete]}
+          style={[
+            styles.checkCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: observationsComplete ? theme.border : theme.tokenGold,
+            },
+          ]}
           onPress={() => onNavigateToStep('observations')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.checkCardLeft}>
             <View
               style={[
                 styles.statusIconCircle,
-                observationsComplete ? styles.circleSuccess : styles.circlePending,
+                observationsComplete
+                  ? { backgroundColor: theme.successMuted, borderColor: theme.success, borderWidth: 1 }
+                  : { backgroundColor: theme.tokenGoldMuted, borderColor: theme.tokenGold, borderWidth: 1 },
               ]}
             >
-              <Text
-                style={[
-                  styles.statusIconText,
-                  observationsComplete ? styles.textSuccess : styles.textPending,
-                ]}
-              >
+              <Text style={{ color: observationsComplete ? theme.success : theme.tokenGold, fontWeight: '800' }}>
                 {observationsComplete ? '✓' : '!'}
               </Text>
             </View>
-
             <View>
-              <Text style={styles.checkSectionTitle}>OBSERVATIONS</Text>
-              <Text style={styles.checkSectionDetail}>
-                {completedFieldCount} of {requiredFields.length} complete
+              <Text style={[styles.checkTitle, { color: theme.textPrimary }]}>Attribute Observations</Text>
+              <Text style={[styles.checkSub, { color: theme.textSecondary }]}>
+                {requiredFields.length === 0
+                  ? 'No required fields'
+                  : observationsComplete
+                  ? `${completedFieldCount} of ${requiredFields.length} attributes filled`
+                  : `${requiredFields.length - completedFieldCount} mandatory field(s) empty`}
               </Text>
             </View>
           </View>
-
-          <View style={styles.checkCardRight}>
-            <Text
-              style={[
-                styles.statusPill,
-                observationsComplete ? styles.pillSuccess : styles.pillPending,
-              ]}
-            >
-              {completedFieldCount}/{requiredFields.length}
-            </Text>
-            <Text style={styles.chevron}>→</Text>
-          </View>
+          <Text style={[styles.editLink, { color: theme.primaryLight }]}>Edit →</Text>
         </TouchableOpacity>
+      </View>
 
-        {/* 4. Notes & Target Sync Card */}
-        <View style={styles.checkCard}>
-          <View style={styles.checkCardLeft}>
-            <View style={[styles.statusIconCircle, styles.circleSuccess]}>
-              <Text style={[styles.statusIconText, styles.textSuccess]}>✓</Text>
-            </View>
-
-            <View>
-              <Text style={styles.checkSectionTitle}>LOCAL REPOSITORY</Text>
-              <Text style={styles.checkSectionDetail}>Saved on device in SQLite</Text>
-            </View>
+      {/* Economics Summary Card */}
+      <View
+        style={[
+          styles.economicsCard,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            shadowColor: isDark ? '#000000' : '#4C1D95',
+          },
+        ]}
+      >
+        <Text style={[styles.ecoSectionTitle, { color: theme.textMuted }]}>INCENTIVE OUTCOME</Text>
+        <View style={styles.ecoRow}>
+          <View>
+            <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>POTENTIAL REWARD</Text>
+            <Text style={[styles.ecoReward, { color: theme.primaryLight }]}>+{task.base_reward} HZN</Text>
           </View>
-
-          <View style={styles.checkCardRight}>
-            <Text style={[styles.statusPill, styles.pillSuccess]}>Ready</Text>
-          </View>
-        </View>
-
-        {/* 5. Sync Target Card */}
-        <View style={styles.checkCard}>
-          <View style={styles.checkCardLeft}>
-            <View style={[styles.statusIconCircle, styles.circleSuccess]}>
-              <Text style={[styles.statusIconText, styles.textSuccess]}>✓</Text>
-            </View>
-
-            <View>
-              <Text style={styles.checkSectionTitle}>SYNC QUEUE</Text>
-              <Text style={styles.checkSectionDetail}>
-                {isOffline
-                  ? 'Offline — will sync immediately once connected'
-                  : 'Online — ready for instant verification'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.checkCardRight}>
-            <Text style={[styles.statusPill, styles.pillSuccess]}>
-              {isOffline ? 'Offline' : 'Online'}
-            </Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>STAKE RETURN</Text>
+            <Text style={[styles.ecoStake, { color: theme.tokenGold }]}>+{task.commitment_stake} HZN</Text>
           </View>
         </View>
       </View>
 
       {/* Error Callout */}
       {errorStatus && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{errorStatus}</Text>
+        <View
+          style={[
+            styles.errorBox,
+            {
+              backgroundColor: theme.errorMuted,
+              borderColor: theme.error,
+            },
+          ]}
+        >
+          <Text style={[styles.errorText, { color: theme.error }]}>{errorStatus}</Text>
         </View>
       )}
 
-      {/* Submit Button Section */}
+      {/* Primary Submit Button */}
       <View style={styles.submitSection}>
         <HorizonButton
           title={
             submitting
-              ? 'Finalizing Field Survey...'
-              : isEligibleToSubmit
-              ? `Submit Survey & Claim +${task.base_reward} TOKENS`
-              : `Missing ${missingItemsCount} Required Item${missingItemsCount > 1 ? 's' : ''}`
+              ? 'Finalizing Evidence Package...'
+              : !isFormComplete
+              ? `Resolve ${missingItemsCount} Missing Prerequisites`
+              : 'Sign & Finalize Submission'
           }
           onPress={handleSubmit}
           loading={submitting}
-          disabled={!isEligibleToSubmit}
+          disabled={!isFormComplete}
           size="lg"
-          variant="primary"
+          variant={isFormComplete ? 'primary' : 'outline'}
           style={styles.submitBtn}
         />
 
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>← Observations</Text>
+          <Text style={[styles.backBtnText, { color: theme.textSecondary }]}>← Back to Observations</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Success Modal */}
-      <Modal
-        visible={submittedModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setSubmittedModalVisible(false);
-          onNavigateToStep('overview');
-        }}
-      >
+      {/* Successful Submission Modal */}
+      <Modal visible={submittedModalVisible} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalCheckCircle}>
-              <Text style={styles.modalCheckText}>✓</Text>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.borderLight,
+                shadowColor: isDark ? '#000000' : '#4C1D95',
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalCheckCircle,
+                {
+                  backgroundColor: theme.primaryMuted,
+                  borderColor: theme.primary,
+                },
+              ]}
+            >
+              <Text style={[styles.modalCheckText, { color: theme.primaryLight }]}>✓</Text>
             </View>
 
-            <Text style={styles.modalTitle}>Field Survey Submitted</Text>
-            <Text style={styles.modalSubtitle}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              Field Survey Finalized
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
               {isOffline
-                ? 'Your field survey and photos have been locked and saved locally in SQLite. The SyncEngine will synchronize your evidence as soon as internet connectivity returns.'
-                : 'Your field ground-truth submission has been queued and synchronized with the Horizon verification engine.'}
+                ? 'Your evidence package is stored locally in SQLite and will upload automatically when online.'
+                : 'Your submission has been queued and dispatched to the verification pipeline.'}
             </Text>
 
-            <View style={styles.modalSummaryBox}>
+            <View
+              style={[
+                styles.modalSummaryBox,
+                {
+                  backgroundColor: theme.surfaceElevated,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
               <View style={styles.modalSumRow}>
-                <Text style={styles.modalSumLabel}>Reward Potential</Text>
-                <Text style={styles.modalSumReward}>+{task.base_reward} TOKENS</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Artifact Task</Text>
+                <Text style={[styles.modalSumVal, { color: theme.textPrimary }]} numberOfLines={1}>
+                  {task.title}
+                </Text>
               </View>
               <View style={styles.modalSumRow}>
-                <Text style={styles.modalSumLabel}>Escrow Stake</Text>
-                <Text style={styles.modalSumVal}>{task.commitment_stake} TOKENS (Pending Release)</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Photos Attached</Text>
+                <Text style={[styles.modalSumVal, { color: theme.textPrimary }]}>{photoCount} Images</Text>
               </View>
               <View style={styles.modalSumRow}>
-                <Text style={styles.modalSumLabel}>Sync Status</Text>
-                <Text style={styles.modalSumValGreen}>
-                  {isOffline ? 'Saved Offline (Pending Sync)' : 'Synchronized to Cloud'}
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Reward Value</Text>
+                <Text style={[styles.modalSumReward, { color: theme.primaryLight }]}>+{task.base_reward} HZN</Text>
+              </View>
+              <View style={styles.modalSumRow}>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Pipeline Phase</Text>
+                <Text style={[styles.modalSumValGreen, { color: theme.primaryLight }]}>
+                  {isOffline ? 'Offline Queue' : 'Peer Verification'}
                 </Text>
               </View>
             </View>
 
             <HorizonButton
-              title="Return to Task Overview"
+              title="Return to Tasks Overview"
               onPress={() => {
                 setSubmittedModalVisible(false);
-                onNavigateToStep('overview');
+                onBack();
               }}
               size="md"
               variant="primary"
@@ -366,30 +407,42 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
-  summaryHeader: {
-    backgroundColor: colors.surfaceCard,
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: 10,
+    gap: 8,
+  },
+  offlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  offlineText: {
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  summaryCard: {
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   summaryTitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 1.2,
     marginBottom: 4,
   },
   summarySub: {
     fontSize: 12,
-    color: colors.textSecondary,
     lineHeight: 18,
   },
   incompleteBox: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
     borderRadius: radius.md,
     padding: 12,
     alignItems: 'center',
@@ -397,7 +450,6 @@ const styles = StyleSheet.create({
   },
   incompleteIcon: {
     fontSize: 20,
-    color: colors.tokenGold,
   },
   incompleteTextCol: {
     flex: 1,
@@ -405,12 +457,10 @@ const styles = StyleSheet.create({
   incompleteTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: colors.tokenGold,
     marginBottom: 2,
   },
   incompleteSub: {
     fontSize: 11,
-    color: colors.textSecondary,
   },
   checklist: {
     gap: 10,
@@ -419,15 +469,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  checkCardIncomplete: {
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    backgroundColor: colors.surfaceSubtle,
   },
   checkCardLeft: {
     flexDirection: 'row',
@@ -442,75 +486,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleSuccess: {
-    backgroundColor: colors.accentGreenMuted,
-    borderWidth: 1,
-    borderColor: colors.accentGreen,
+  checkTitle: {
+    fontSize: 13,
+    fontWeight: '700',
   },
-  circlePending: {
-    backgroundColor: colors.tokenGoldMuted,
-    borderWidth: 1,
-    borderColor: colors.tokenGold,
-  },
-  statusIconText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  textSuccess: {
-    color: colors.accentGreen,
-  },
-  textPending: {
-    color: colors.tokenGold,
-  },
-  checkSectionTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-  },
-  checkSectionDetail: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  checkSub: {
+    fontSize: 11,
     marginTop: 2,
   },
-  checkCardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusPill: {
-    fontSize: 10,
+  editLink: {
+    fontSize: 12,
     fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.xs,
+    marginLeft: 8,
   },
-  pillSuccess: {
-    backgroundColor: colors.accentGreenMuted,
-    color: colors.accentGreen,
+  economicsCard: {
+    borderRadius: radius.md,
+    padding: 14,
+    borderWidth: 1,
   },
-  pillPending: {
-    backgroundColor: colors.tokenGoldMuted,
-    color: colors.tokenGold,
+  ecoSectionTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 10,
   },
-  chevron: {
-    fontSize: 14,
-    color: colors.textMuted,
+  ecoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ecoLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  ecoReward: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  ecoStake: {
+    fontSize: 18,
+    fontWeight: '900',
   },
   errorBox: {
-    backgroundColor: colors.statusErrorMuted,
-    padding: 10,
-    borderRadius: radius.sm,
+    padding: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
   },
   errorText: {
-    fontSize: 11,
-    color: colors.statusError,
+    fontSize: 12,
   },
   submitSection: {
-    gap: 12,
+    gap: 10,
     marginTop: 6,
   },
   submitBtn: {
@@ -522,12 +550,11 @@ const styles = StyleSheet.create({
   },
   backBtnText: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(9, 13, 22, 0.88)',
+    backgroundColor: 'rgba(7, 6, 11, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -535,50 +562,41 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.xl,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   modalCheckCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.accentGreenMuted,
     borderWidth: 2,
-    borderColor: colors.accentGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
   },
   modalCheckText: {
     fontSize: 26,
-    color: colors.accentGreen,
     fontWeight: '900',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: colors.textPrimary,
     marginBottom: 6,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
     lineHeight: 18,
     textAlign: 'center',
     marginBottom: 18,
   },
   modalSummaryBox: {
     width: '100%',
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 20,
     gap: 8,
   },
@@ -589,22 +607,18 @@ const styles = StyleSheet.create({
   },
   modalSumLabel: {
     fontSize: 11,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   modalSumVal: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   modalSumReward: {
     fontSize: 14,
     fontWeight: '900',
-    color: colors.tokenGold,
   },
   modalSumValGreen: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.accentGreen,
   },
 });

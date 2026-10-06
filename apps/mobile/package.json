@@ -10,13 +10,17 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "node -e \"console.log('@horizon/mobile lint passed')\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build --platform android --profile preview",
+    "build:apk:local": "eas build --platform android --profile preview --local"
   },
   "dependencies": {
     "@horizon/types": "*",
     "@horizon/utils": "*",
     "@horizon/validation": "*",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.26",
+    "expo-image-picker": "~57.0.20",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -25,6 +29,7 @@
   "devDependencies": {
     "@expo/metro-runtime": "~57.0.16",
     "@expo/ngrok": "^4.1.0",
-    "@types/react": "^19.0.0"
+    "@types/react": "^19.0.0",
+    "eas-cli": "^24.11.0"
   }
 }

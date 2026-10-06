@@ -10,7 +10,8 @@ import {
 import { TaskCard } from '../components/TaskCard';
 import { apiClient } from '../services/api';
 import type { TaskResponseDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { HorizonButton } from '../components/ui/HorizonButton';
 import { TokenBadge } from '../components/ui/TokenBadge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -48,6 +49,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   onSelectTask,
   userCoords = { latitude: 18.5204, longitude: 73.8567 },
 }) => {
+  const { theme, isDark } = useTheme();
   const [tasks, setTasks] = useState<TaskResponseDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -109,36 +111,72 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Location & GPS Fix Header */}
-      <View style={styles.gpsBar}>
+      <View
+        style={[
+          styles.gpsBar,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
         <View style={styles.gpsInfo}>
-          <View style={styles.gpsPulse} />
+          <View style={[styles.gpsPulse, { backgroundColor: theme.primary }]} />
           <View>
-            <Text style={styles.gpsFixLabel}>POSTGIS GEOSPATIAL FIX</Text>
-            <Text style={styles.gpsCoords}>
+            <Text style={[styles.gpsFixLabel, { color: theme.textMuted }]}>
+              POSTGIS GEOSPATIAL FIX
+            </Text>
+            <Text style={[styles.gpsCoords, { color: theme.primaryLight }]}>
               {userCoords.latitude.toFixed(4)}°N, {userCoords.longitude.toFixed(4)}°E (±4.2m)
             </Text>
           </View>
         </View>
 
         {/* View Toggle */}
-        <View style={styles.toggleGroup}>
+        <View
+          style={[
+            styles.toggleGroup,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: theme.borderLight,
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'map' && styles.activeToggleBtn]}
+            style={[
+              styles.toggleBtn,
+              viewMode === 'map' && { backgroundColor: theme.primary },
+            ]}
             onPress={() => setViewMode('map')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.toggleText, viewMode === 'map' && styles.activeToggleText]}>
+            <Text
+              style={[
+                styles.toggleText,
+                { color: viewMode === 'map' ? '#FFFFFF' : theme.textSecondary },
+                viewMode === 'map' && { fontWeight: '800' },
+              ]}
+            >
               Map
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'list' && styles.activeToggleBtn]}
+            style={[
+              styles.toggleBtn,
+              viewMode === 'list' && { backgroundColor: theme.primary },
+            ]}
             onPress={() => setViewMode('list')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.toggleText, viewMode === 'list' && styles.activeToggleText]}>
+            <Text
+              style={[
+                styles.toggleText,
+                { color: viewMode === 'list' ? '#FFFFFF' : theme.textSecondary },
+                viewMode === 'list' && { fontWeight: '800' },
+              ]}
+            >
               List ({tasks.length})
             </Text>
           </TouchableOpacity>
@@ -146,43 +184,80 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
       </View>
 
       {/* Filter Bars */}
-      <View style={styles.filterArea}>
+      <View
+        style={[
+          styles.filterArea,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
         {/* Radius Selector */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          <Text style={styles.filterGroupLabel}>RADIUS:</Text>
-          {RADII.map((r) => (
-            <TouchableOpacity
-              key={r.value}
-              style={[styles.chip, radiusMeters === r.value && styles.activeChip]}
-              onPress={() => setRadiusMeters(r.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chipText, radiusMeters === r.value && styles.activeChipText]}>
-                {r.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <Text style={[styles.filterGroupLabel, { color: theme.textMuted }]}>RADIUS:</Text>
+          {RADII.map((r) => {
+            const isSelected = radiusMeters === r.value;
+            return (
+              <TouchableOpacity
+                key={r.value}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: isSelected ? theme.primaryMuted : theme.card,
+                    borderColor: isSelected ? theme.primary : theme.borderLight,
+                  },
+                ]}
+                onPress={() => setRadiusMeters(r.value)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    {
+                      color: isSelected ? theme.primaryLight : theme.textSecondary,
+                      fontWeight: isSelected ? '800' : '600',
+                    },
+                  ]}
+                >
+                  {r.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Category Filters */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {ARTIFACT_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat.label}
-              style={[styles.catChip, selectedCategory === cat.value && styles.activeCatChip]}
-              onPress={() => setSelectedCategory(cat.value)}
-              activeOpacity={0.7}
-            >
-              <Text
+          {ARTIFACT_CATEGORIES.map((cat) => {
+            const isCatSelected = selectedCategory === cat.value;
+            return (
+              <TouchableOpacity
+                key={cat.label}
                 style={[
-                  styles.catChipText,
-                  selectedCategory === cat.value && styles.activeCatChipText,
+                  styles.catChip,
+                  {
+                    backgroundColor: isCatSelected ? theme.primary : theme.card,
+                    borderColor: isCatSelected ? theme.primary : theme.border,
+                  },
                 ]}
+                onPress={() => setSelectedCategory(cat.value)}
+                activeOpacity={0.7}
               >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.catChipText,
+                    {
+                      color: isCatSelected ? '#FFFFFF' : theme.textSecondary,
+                      fontWeight: isCatSelected ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -191,33 +266,37 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         <LoadingState message="Discovering nearby tasks via PostGIS..." />
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
           <HorizonButton title="Retry Search" onPress={fetchTasks} variant="secondary" size="sm" />
         </View>
       ) : viewMode === 'map' ? (
-        <View style={styles.mapContainer}>
+        <View style={[styles.mapContainer, { backgroundColor: theme.background }]}>
           {/* Spatial Canvas Preview */}
           <View style={styles.spatialCanvas}>
             {/* Range Rings */}
-            <View style={styles.rangeRingOuter} />
-            <View style={styles.rangeRingMid} />
-            <View style={styles.rangeRingInner} />
+            <View style={[styles.rangeRingOuter, { borderColor: theme.border }]} />
+            <View style={[styles.rangeRingMid, { borderColor: theme.borderLight }]} />
+            <View
+              style={[
+                styles.rangeRingInner,
+                { borderColor: isDark ? 'rgba(124, 58, 237, 0.4)' : 'rgba(124, 58, 237, 0.25)' },
+              ]}
+            />
 
             {/* Grid Crosshairs */}
-            <View style={styles.crosshairVertical} />
-            <View style={styles.crosshairHorizontal} />
+            <View style={[styles.crosshairVertical, { backgroundColor: theme.borderLight }]} />
+            <View style={[styles.crosshairHorizontal, { backgroundColor: theme.borderLight }]} />
 
             {/* User Center Dot */}
             <View style={styles.userCenterPin}>
-              <View style={styles.userPulseRing} />
-              <View style={styles.userCoreDot} />
-              <Text style={styles.userPinLabel}>YOU</Text>
+              <View style={[styles.userPulseRing, { backgroundColor: theme.primaryMuted }]} />
+              <View style={[styles.userCoreDot, { backgroundColor: theme.primary }]} />
+              <Text style={[styles.userPinLabel, { color: theme.primaryLight }]}>YOU</Text>
             </View>
 
             {/* Task Markers on Radar Canvas */}
             {tasks.map((task, idx) => {
               const isSelected = selectedTaskOnMap?.id === task.id;
-              // Deterministic polar offset distribution around center
               const angle = (idx * 137.5) * (Math.PI / 180);
               const distanceFactor = Math.min(0.42, 0.18 + (idx * 0.1));
               const topOffset = 50 + Math.sin(angle) * (distanceFactor * 100);
@@ -234,12 +313,35 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   onPress={() => setSelectedTaskOnMap(task)}
                   activeOpacity={0.8}
                 >
-                  <View style={[styles.markerBadge, isSelected && styles.selectedMarkerBadge]}>
-                    <Text style={[styles.markerText, isSelected && styles.selectedMarkerText]}>
+                  <View
+                    style={[
+                      styles.markerBadge,
+                      {
+                        backgroundColor: isSelected ? theme.primary : theme.card,
+                        borderColor: isSelected ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.markerText,
+                        { color: isSelected ? '#FFFFFF' : theme.textPrimary },
+                      ]}
+                    >
                       +{task.base_reward}
                     </Text>
                   </View>
-                  <Text style={styles.markerTitle} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.markerTitle,
+                      {
+                        color: theme.textSecondary,
+                        backgroundColor: theme.card,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {task.title}
                   </Text>
                 </TouchableOpacity>
@@ -247,22 +349,46 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             })}
 
             {tasks.length === 0 && (
-              <View style={styles.mapEmptyNotice}>
-                <Text style={styles.mapEmptyText}>No data gaps within {radiusMeters / 1000} km</Text>
+              <View
+                style={[
+                  styles.mapEmptyNotice,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.mapEmptyText, { color: theme.textSecondary }]}>
+                  No data gaps within {radiusMeters / 1000} km
+                </Text>
               </View>
             )}
           </View>
 
           {/* Bottom Task Preview Card */}
           {selectedTaskOnMap && (
-            <View style={styles.bottomPreviewCard}>
+            <View
+              style={[
+                styles.bottomPreviewCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
               <View style={styles.previewTop}>
-                <View style={styles.previewTypeTag}>
-                  <Text style={styles.previewTypeText}>
+                <View
+                  style={[
+                    styles.previewTypeTag,
+                    { backgroundColor: theme.primaryMuted },
+                  ]}
+                >
+                  <Text style={[styles.previewTypeText, { color: theme.primaryLight }]}>
                     {selectedTaskOnMap.artifact_type.replace(/_/g, ' ').toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.previewDistance}>
+                <Text style={[styles.previewDistance, { color: theme.textSecondary }]}>
                   {selectedTaskOnMap.distance_meters !== null && selectedTaskOnMap.distance_meters !== undefined
                     ? `${(selectedTaskOnMap.distance_meters / 1000).toFixed(1)} km away`
                     : 'Nearby'}
@@ -270,7 +396,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 </Text>
               </View>
 
-              <Text style={styles.previewTitle} numberOfLines={1}>
+              <Text style={[styles.previewTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                 {selectedTaskOnMap.title}
               </Text>
 
@@ -289,8 +415,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   />
                 </View>
 
-                <View style={styles.previewDiffTag}>
-                  <Text style={styles.previewDiffText}>
+                <View
+                  style={[
+                    styles.previewDiffTag,
+                    { backgroundColor: theme.surfaceElevated },
+                  ]}
+                >
+                  <Text style={[styles.previewDiffText, { color: theme.textMuted }]}>
                     Difficulty · {getDifficultyLabel(selectedTaskOnMap.difficulty)}
                   </Text>
                 </View>
@@ -313,7 +444,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.accentGreen}
+              tintColor={theme.primary}
             />
           }
         >
@@ -338,7 +469,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   gpsBar: {
     flexDirection: 'row',
@@ -346,9 +476,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   gpsInfo: {
     flexDirection: 'row',
@@ -359,50 +487,35 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.accentGreen,
   },
   gpsFixLabel: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 0.8,
   },
   gpsCoords: {
     fontSize: 11,
     fontFamily: 'monospace',
-    color: colors.accentGreen,
     fontWeight: '600',
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.sm,
     padding: 2,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   toggleBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.xs,
   },
-  activeToggleBtn: {
-    backgroundColor: colors.accentGreen,
-  },
   toggleText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  activeToggleText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
   },
   filterArea: {
-    backgroundColor: colors.surface,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
     gap: 6,
   },
   chipRow: {
@@ -412,7 +525,6 @@ const styles = StyleSheet.create({
   filterGroupLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.textMuted,
     alignSelf: 'center',
     marginRight: 6,
     letterSpacing: 0.6,
@@ -421,50 +533,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.borderLight,
     marginRight: 6,
-  },
-  activeChip: {
-    backgroundColor: colors.accentOrangeMuted,
-    borderColor: colors.accentOrange,
   },
   chipText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  activeChipText: {
-    color: colors.accentOrange,
-    fontWeight: '800',
   },
   catChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.border,
     marginRight: 6,
-  },
-  activeCatChip: {
-    backgroundColor: colors.accentOrange,
-    borderColor: colors.accentOrange,
   },
   catChipText: {
     fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  activeCatChipText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   mapContainer: {
     flex: 1,
     position: 'relative',
-    backgroundColor: colors.background,
   },
   spatialCanvas: {
     flex: 1,
@@ -478,7 +565,6 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 160,
     borderWidth: 1,
-    borderColor: colors.border,
     borderStyle: 'dashed',
   },
   rangeRingMid: {
@@ -487,7 +573,6 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 110,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   rangeRingInner: {
     position: 'absolute',
@@ -495,19 +580,16 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 1,
-    borderColor: colors.borderHighlight,
   },
   crosshairVertical: {
     position: 'absolute',
     width: 1,
     height: '100%',
-    backgroundColor: colors.borderLight,
   },
   crosshairHorizontal: {
     position: 'absolute',
     height: 1,
     width: '100%',
-    backgroundColor: colors.borderLight,
   },
   userCenterPin: {
     alignItems: 'center',
@@ -519,20 +601,17 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.accentOrangeMuted,
   },
   userCoreDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.accentOrange,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   userPinLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.accentOrange,
     marginTop: 4,
     letterSpacing: 0.3,
   },
@@ -547,9 +626,7 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -32 }, { translateY: -18 }, { scale: 1.06 }],
   },
   markerBadge: {
-    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.xs,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -559,53 +636,36 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  selectedMarkerBadge: {
-    backgroundColor: colors.accentOrange,
-    borderColor: colors.accentOrange,
-  },
   markerText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  selectedMarkerText: {
-    color: '#FFFFFF',
   },
   markerTitle: {
     fontSize: 9,
     fontWeight: '600',
-    color: colors.textSecondary,
     maxWidth: 90,
     marginTop: 2,
-    backgroundColor: colors.surfaceCard,
     paddingHorizontal: 4,
     borderRadius: 2,
     borderWidth: 1,
-    borderColor: colors.border,
     textAlign: 'center',
   },
   mapEmptyNotice: {
     padding: 12,
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   mapEmptyText: {
     fontSize: 12,
-    color: colors.textSecondary,
   },
   bottomPreviewCard: {
     position: 'absolute',
     bottom: 16,
     left: 16,
     right: 16,
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -618,7 +678,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   previewTypeTag: {
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radius.xs,
@@ -626,18 +685,15 @@ const styles = StyleSheet.create({
   previewTypeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#38BDF8',
     letterSpacing: 0.5,
   },
   previewDistance: {
     fontSize: 11,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
   previewTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 10,
   },
   previewEconomicsRow: {
@@ -651,14 +707,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   previewDiffTag: {
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: radius.xs,
   },
   previewDiffText: {
     fontSize: 10,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   previewCTA: {
@@ -679,7 +733,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: colors.statusError,
     textAlign: 'center',
   },
 });

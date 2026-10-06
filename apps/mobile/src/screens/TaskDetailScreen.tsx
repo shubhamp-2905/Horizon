@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { apiClient } from '../services/api';
-import type { TaskResponseDTO, TaskFormSchemaResponseDTO, UserClaimedTaskDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import type { TaskResponseDTO, TaskFormSchemaResponseDTO } from '@horizon/types';
+import { radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { HorizonButton } from '../components/ui/HorizonButton';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { SyncStatusBadge } from '../components/ui/SyncStatusBadge';
@@ -19,7 +22,6 @@ import {
   taskRepo,
   claimRepo,
   submissionRepo,
-  syncRepo,
 } from '../offline/repositories';
 import type {
   LocalMediaRecord,
@@ -60,6 +62,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   onBack,
   onClaimSuccess,
 }) => {
+  const { theme, isDark } = useTheme();
+
   // Navigation & Step state
   const [currentStep, setCurrentStep] = useState<SurveyStep>('overview');
 
@@ -173,7 +177,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleCommit = async () => {
     if (!canAffordStake) {
       setErrorMessage(
-        `Insufficient available tokens: Required ${task.commitment_stake} TOKENS, but your wallet only has ${availableTokens} TOKENS available.`
+        `Insufficient available tokens: Required ${task.commitment_stake} HZN, but your wallet only has ${availableTokens} HZN available.`
       );
       return;
     }
@@ -311,12 +315,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const isOffline = syncState.networkState === 'OFFLINE';
 
   return (
-    <View style={styles.outerContainer}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.outerContainer, { backgroundColor: theme.background }]}
+    >
       {/* Top Application Bar with SyncStatusBadge */}
-      <View style={styles.headerBar}>
+      <View
+        style={[
+          styles.headerBar,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
-          <Text style={styles.backText}>Back</Text>
+          <Text style={[styles.backArrow, { color: theme.textPrimary }]}>←</Text>
+          <Text style={[styles.backText, { color: theme.textPrimary }]}>Back</Text>
         </TouchableOpacity>
 
         <SyncStatusBadge
@@ -336,14 +351,26 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       )}
 
       {/* Main Content Area Based on Current Step */}
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {currentStep === 'overview' && (
           <View style={styles.overviewContainer}>
             {/* Task Overview Header */}
             <View style={styles.headerArea}>
               <View style={styles.metaRow}>
-                <View style={styles.typeBadge}>
-                  <Text style={styles.typeText}>
+                <View
+                  style={[
+                    styles.typeBadge,
+                    {
+                      backgroundColor: theme.primaryMuted,
+                      borderColor: theme.borderLight,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.typeText, { color: theme.primaryLight }]}>
                     {task.artifact_type.replace(/_/g, ' ').toUpperCase()}
                   </Text>
                 </View>
@@ -353,161 +380,326 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   <View
                     style={[
                       styles.fieldStatusBadge,
-                      fieldStatus === 'Draft Saved' && styles.statusBadgeDraft,
-                      fieldStatus === 'Claimed' && styles.statusBadgeClaimed,
-                      fieldStatus === 'Submitted' && styles.statusBadgeSubmitted,
+                      {
+                        backgroundColor:
+                          fieldStatus === 'Draft Saved'
+                            ? theme.tokenGoldMuted
+                            : fieldStatus === 'Claimed'
+                            ? theme.primaryMuted
+                            : fieldStatus === 'Submitted'
+                            ? theme.successMuted
+                            : theme.surfaceElevated,
+                        borderColor:
+                          fieldStatus === 'Draft Saved'
+                            ? theme.tokenGold
+                            : fieldStatus === 'Claimed'
+                            ? theme.primary
+                            : fieldStatus === 'Submitted'
+                            ? theme.success
+                            : theme.borderLight,
+                      },
                     ]}
                   >
-                    <Text style={styles.fieldStatusText}>{fieldStatus.toUpperCase()}</Text>
+                    <Text
+                      style={[
+                        styles.fieldStatusText,
+                        {
+                          color:
+                            fieldStatus === 'Draft Saved'
+                              ? theme.tokenGold
+                              : fieldStatus === 'Claimed'
+                              ? theme.primaryLight
+                              : fieldStatus === 'Submitted'
+                              ? theme.success
+                              : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {fieldStatus.toUpperCase()}
+                    </Text>
                   </View>
                 </View>
               </View>
 
-              <Text style={styles.title}>{task.title}</Text>
+              <Text style={[styles.title, { color: theme.textPrimary }]}>{task.title}</Text>
 
-              {task.distance_meters !== null && task.distance_meters !== undefined && (
-                <View style={styles.distanceBadge}>
-                  <View style={styles.distanceDot} />
-                  <Text style={styles.distanceText}>
-                    {task.distance_meters >= 1000
-                      ? `${(task.distance_meters / 1000).toFixed(2)} km from current fix`
-                      : `${Math.round(task.distance_meters)} meters from current fix`}
-                  </Text>
-                </View>
-              )}
+              {/* Distance & Geospatial Pin */}
+              <View style={styles.distanceBadge}>
+                <View style={[styles.distanceDot, { backgroundColor: theme.primary }]} />
+                <Text style={[styles.distanceText, { color: theme.textSecondary }]}>
+                  {task.distance_meters !== null && task.distance_meters !== undefined
+                    ? `${(task.distance_meters / 1000).toFixed(1)} km away from current GPS fix`
+                    : 'Geospatial observation zone'}
+                </Text>
+              </View>
             </View>
 
-            {/* Offline Save Notice Banner */}
-            <View style={styles.offlineNoticeCard}>
-              <View style={styles.offlineNoticeDot} />
-              <Text style={styles.offlineNoticeText}>
-                {isOffline
-                  ? 'Offline Mode — all field captures and drafts are securely cached on this device.'
-                  : 'Cloud Synced — ready for ground-truth capture and synchronization.'}
+            {/* Offline Readiness Notice */}
+            <View
+              style={[
+                styles.offlineNoticeCard,
+                {
+                  backgroundColor: theme.primaryMuted,
+                  borderColor: isDark ? 'rgba(124, 58, 237, 0.35)' : 'rgba(124, 58, 237, 0.2)',
+                },
+              ]}
+            >
+              <View style={[styles.offlineNoticeDot, { backgroundColor: theme.primary }]} />
+              <Text style={[styles.offlineNoticeText, { color: theme.primaryLight }]}>
+                Fully cached in local SQLite. You can complete this entire field survey offline.
               </Text>
             </View>
 
-            {/* Geospatial Coordinates Card */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>GEOSPATIAL COORDINATES</Text>
+            {/* Location & Coordinates Snippet */}
+            <View
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+                TARGET LOCATION
+              </Text>
               <View style={styles.coordsGrid}>
-                <View style={styles.coordsBox}>
-                  <Text style={styles.coordsLabel}>LATITUDE</Text>
-                  <Text style={styles.coordsValue}>
+                <View
+                  style={[
+                    styles.coordsBox,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.coordsLabel, { color: theme.textMuted }]}>LATITUDE</Text>
+                  <Text style={[styles.coordsValue, { color: theme.textPrimary }]}>
                     {task.latitude !== null && task.latitude !== undefined
                       ? task.latitude.toFixed(6)
                       : '18.520400'}
                   </Text>
                 </View>
-                <View style={styles.coordsBox}>
-                  <Text style={styles.coordsLabel}>LONGITUDE</Text>
-                  <Text style={styles.coordsValue}>
+                <View
+                  style={[
+                    styles.coordsBox,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.coordsLabel, { color: theme.textMuted }]}>LONGITUDE</Text>
+                  <Text style={[styles.coordsValue, { color: theme.textPrimary }]}>
                     {task.longitude !== null && task.longitude !== undefined
                       ? task.longitude.toFixed(6)
                       : '73.856700'}
                   </Text>
                 </View>
               </View>
-              <View style={styles.mapSnippet}>
-                <View style={styles.mapGridLine1} />
-                <View style={styles.mapGridLine2} />
+              <View
+                style={[
+                  styles.mapSnippet,
+                  {
+                    backgroundColor: theme.surfaceElevated,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View style={[styles.mapGridLine1, { backgroundColor: theme.border }]} />
+                <View style={[styles.mapGridLine2, { backgroundColor: theme.border }]} />
                 <View style={styles.mapPin}>
-                  <View style={styles.mapPinPulse} />
-                  <View style={styles.mapPinCenter} />
+                  <View style={[styles.mapPinPulse, { backgroundColor: theme.primaryMuted }]} />
+                  <View style={[styles.mapPinCenter, { backgroundColor: theme.primary }]} />
                 </View>
-                <Text style={styles.mapSnippetLabel}>PostGIS WGS84 Spatial Target (SRID 4326)</Text>
+                <Text style={[styles.mapSnippetLabel, { color: theme.textSecondary }]}>
+                  PostGIS WGS84 Spatial Target (SRID 4326)
+                </Text>
               </View>
             </View>
 
             {/* Task Objective */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>TASK OBJECTIVE</Text>
-              <Text style={styles.objectiveText}>
+            <View
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+                TASK OBJECTIVE
+              </Text>
+              <Text style={[styles.objectiveText, { color: theme.textSecondary }]}>
                 {task.description ||
                   'Conduct on-site ground-truth observation, inspect physical condition, record survey parameters, and provide geo-referenced verification photos.'}
               </Text>
             </View>
 
             {/* Collection Requirements */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>COLLECTION REQUIREMENTS</Text>
+            <View
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+                COLLECTION REQUIREMENTS
+              </Text>
 
-              <Text style={styles.reqSubheading}>Required Evidence</Text>
+              <Text style={[styles.reqSubheading, { color: theme.textPrimary }]}>
+                Required Evidence
+              </Text>
               {(task.requirements && task.requirements.length > 0
                 ? task.requirements
                 : ['2 geotagged high-resolution field photos', 'Physical condition inspection']
               ).map((req, idx) => (
                 <View key={`ev-${idx}`} style={styles.reqRow}>
-                  <Text style={styles.reqCheck}>✓</Text>
-                  <Text style={styles.reqText}>{req}</Text>
+                  <Text style={[styles.reqCheck, { color: theme.primaryLight }]}>✓</Text>
+                  <Text style={[styles.reqText, { color: theme.textSecondary }]}>{req}</Text>
                 </View>
               ))}
 
-              <Text style={styles.reqSubheading}>
+              <Text style={[styles.reqSubheading, { color: theme.textPrimary }]}>
                 Photos Required: {requiredPhotos} high-resolution photos
               </Text>
-              <Text style={styles.reqSubheading}>
+              <Text style={[styles.reqSubheading, { color: theme.textPrimary }]}>
                 Observation Fields: {schema?.fields?.length || 3} dynamic inspection attributes
               </Text>
             </View>
 
             {/* Economics Section */}
-            <View style={styles.economicsCard}>
-              <Text style={styles.sectionTitle}>COMMITMENT ECONOMICS</Text>
+            <View
+              style={[
+                styles.economicsCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+                COMMITMENT ECONOMICS
+              </Text>
 
-              <View style={styles.ecoComparison}>
+              <View
+                style={[
+                  styles.ecoComparison,
+                  {
+                    backgroundColor: theme.surfaceElevated,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
                 <View style={styles.ecoColumn}>
-                  <Text style={styles.ecoColLabel}>POTENTIAL REWARD</Text>
-                  <Text style={styles.rewardNumber}>+{task.base_reward}</Text>
-                  <Text style={styles.ecoColSub}>TOKENS ON VERIFICATION</Text>
+                  <Text style={[styles.ecoColLabel, { color: theme.textMuted }]}>POTENTIAL REWARD</Text>
+                  <Text style={[styles.rewardNumber, { color: theme.primaryLight }]}>
+                    +{task.base_reward}
+                  </Text>
+                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>HZN TOKENS ON VERIFICATION</Text>
                 </View>
 
-                <View style={styles.ecoColDivider} />
+                <View style={[styles.ecoColDivider, { backgroundColor: theme.border }]} />
 
                 <View style={styles.ecoColumn}>
-                  <Text style={styles.ecoColLabel}>COMMITMENT STAKE</Text>
-                  <Text style={styles.stakeNumber}>{task.commitment_stake}</Text>
-                  <Text style={styles.ecoColSub}>TOKENS LOCKED IN ESCROW</Text>
+                  <Text style={[styles.ecoColLabel, { color: theme.textMuted }]}>COMMITMENT STAKE</Text>
+                  <Text style={[styles.stakeNumber, { color: theme.tokenGold }]}>
+                    {task.commitment_stake}
+                  </Text>
+                  <Text style={[styles.ecoColSub, { color: theme.textMuted }]}>HZN TOKENS LOCKED IN ESCROW</Text>
                 </View>
               </View>
 
               {/* Effort & Difficulty Meta */}
               <View style={styles.metaPillsRow}>
-                <View style={styles.metaPill}>
-                  <Text style={styles.metaPillLabel}>Estimated Effort: </Text>
-                  <Text style={styles.metaPillValue}>
+                <View
+                  style={[
+                    styles.metaPill,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metaPillLabel, { color: theme.textMuted }]}>
+                    Estimated Effort:{' '}
+                  </Text>
+                  <Text style={[styles.metaPillValue, { color: theme.textPrimary }]}>
                     ~{task.estimated_effort_minutes || 25} min
                   </Text>
                 </View>
-                <View style={styles.metaPill}>
-                  <Text style={styles.metaPillLabel}>Difficulty: </Text>
-                  <Text style={styles.metaPillValue}>
+                <View
+                  style={[
+                    styles.metaPill,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metaPillLabel, { color: theme.textMuted }]}>
+                    Difficulty:{' '}
+                  </Text>
+                  <Text style={[styles.metaPillValue, { color: theme.textPrimary }]}>
                     {getDifficultyLabel(task.difficulty)} ({task.difficulty.toFixed(1)})
                   </Text>
                 </View>
               </View>
 
               {/* Escrow Rule Explanation Callout */}
-              <View style={styles.escrowNoticeBox}>
-                <Text style={styles.escrowNoticeText}>
-                  {task.commitment_stake} TOKENS locked in escrow guarantees exclusive collection rights.
+              <View
+                style={[
+                  styles.escrowNoticeBox,
+                  {
+                    backgroundColor: theme.tokenGoldMuted,
+                    borderColor: 'rgba(217, 119, 6, 0.25)',
+                  },
+                ]}
+              >
+                <Text style={[styles.escrowNoticeText, { color: theme.tokenGold }]}>
+                  {task.commitment_stake} HZN locked in escrow guarantees exclusive collection rights.
                 </Text>
-                <Text style={styles.escrowDetailText}>
+                <Text style={[styles.escrowDetailText, { color: theme.textSecondary }]}>
                   Your stake guarantees exclusive collection rights and will be returned upon successful verification.
                 </Text>
               </View>
 
               {/* Wallet Balance Status */}
-              <View style={styles.balanceStatusBox}>
+              <View
+                style={[
+                  styles.balanceStatusBox,
+                  { borderTopColor: theme.border },
+                ]}
+              >
                 <View style={styles.balanceStatusRow}>
-                  <Text style={styles.balanceStatusLabel}>Your Available Balance:</Text>
-                  <Text style={styles.balanceStatusValue}>{availableTokens} TOKENS</Text>
+                  <Text style={[styles.balanceStatusLabel, { color: theme.textSecondary }]}>
+                    Your Available Balance:
+                  </Text>
+                  <Text style={[styles.balanceStatusValue, { color: theme.textPrimary }]}>
+                    {availableTokens} HZN
+                  </Text>
                 </View>
 
                 {!canAffordStake && !isClaimed && (
-                  <View style={styles.insufficientWarning}>
-                    <Text style={styles.insufficientText}>
-                      Insufficient balance: You need {task.commitment_stake} TOKENS to commit, but you only have {availableTokens} TOKENS available (Short by {deficit} TOKENS).
+                  <View
+                    style={[
+                      styles.insufficientWarning,
+                      {
+                        backgroundColor: theme.errorMuted,
+                        borderColor: theme.error,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.insufficientText, { color: theme.error }]}>
+                      Insufficient balance: You need {task.commitment_stake} HZN to commit, but you only have {availableTokens} HZN available (Short by {deficit} HZN).
                     </Text>
                   </View>
                 )}
@@ -516,8 +708,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
             {/* Error Display */}
             {errorMessage && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+              <View
+                style={[
+                  styles.errorBox,
+                  {
+                    backgroundColor: theme.errorMuted,
+                    borderColor: theme.error,
+                  },
+                ]}
+              >
+                <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
               </View>
             )}
 
@@ -540,7 +740,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 <HorizonButton
                   title={
                     canAffordStake
-                      ? `Commit to Task (${task.commitment_stake} TOKENS)`
+                      ? `Commit to Task (${task.commitment_stake} HZN)`
                       : `Insufficient Tokens (Need ${task.commitment_stake})`
                   }
                   onPress={handleCommit}
@@ -628,28 +828,64 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         }}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconCircle}>
-              <Text style={styles.modalCheck}>✓</Text>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.borderLight,
+                shadowColor: isDark ? '#000000' : '#4C1D95',
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalIconCircle,
+                {
+                  backgroundColor: theme.primaryMuted,
+                  borderColor: theme.primary,
+                },
+              ]}
+            >
+              <Text style={[styles.modalCheck, { color: theme.primaryLight }]}>✓</Text>
             </View>
 
-            <Text style={styles.modalTitle}>Commitment Established</Text>
-            <Text style={styles.modalSubtitle}>
-              {claimedStake} TOKENS have been successfully locked into escrow from your available balance.
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              Commitment Established
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              {claimedStake} HZN tokens have been successfully locked into escrow from your available balance.
             </Text>
 
-            <View style={styles.modalSummaryBox}>
+            <View
+              style={[
+                styles.modalSummaryBox,
+                {
+                  backgroundColor: theme.surfaceElevated,
+                  borderColor: theme.borderLight,
+                },
+              ]}
+            >
               <View style={styles.modalSummaryRow}>
-                <Text style={styles.modalSumLabel}>Task</Text>
-                <Text style={styles.modalSumValue} numberOfLines={1}>{task.title}</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Task</Text>
+                <Text
+                  style={[styles.modalSumValue, { color: theme.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {task.title}
+                </Text>
               </View>
               <View style={styles.modalSummaryRow}>
-                <Text style={styles.modalSumLabel}>Locked Stake</Text>
-                <Text style={styles.modalSumValue}>{claimedStake} TOKENS</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Locked Stake</Text>
+                <Text style={[styles.modalSumValue, { color: theme.textPrimary }]}>
+                  {claimedStake} HZN
+                </Text>
               </View>
               <View style={styles.modalSummaryRow}>
-                <Text style={styles.modalSumLabel}>Next Step</Text>
-                <Text style={styles.modalSumValueGreen}>Ready for field collection</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Next Step</Text>
+                <Text style={[styles.modalSumValueGreen, { color: theme.primaryLight }]}>
+                  Ready for field collection
+                </Text>
               </View>
             </View>
 
@@ -666,14 +902,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   headerBar: {
     flexDirection: 'row',
@@ -681,9 +916,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   backButton: {
     flexDirection: 'row',
@@ -692,16 +925,13 @@ const styles = StyleSheet.create({
   },
   backArrow: {
     fontSize: 16,
-    color: colors.textPrimary,
   },
   backText: {
     fontSize: 13,
-    color: colors.textPrimary,
     fontWeight: '600',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   content: {
     paddingBottom: 40,
@@ -719,17 +949,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   typeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
     textTransform: 'capitalize',
   },
   statusGroup: {
@@ -738,34 +965,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldStatusBadge: {
-    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  statusBadgeDraft: {
-    backgroundColor: colors.tokenGoldMuted,
-    borderColor: 'rgba(217, 119, 6, 0.3)',
-  },
-  statusBadgeClaimed: {
-    backgroundColor: colors.accentSkyMuted,
-    borderColor: 'rgba(2, 132, 199, 0.3)',
-  },
-  statusBadgeSubmitted: {
-    backgroundColor: colors.accentGreenMuted,
-    borderColor: colors.accentGreen,
   },
   fieldStatusText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.textPrimary,
     lineHeight: 26,
     marginBottom: 6,
   },
@@ -778,19 +989,15 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
   },
   distanceText: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontWeight: '500',
   },
   offlineNoticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.accentGreenMuted,
     borderWidth: 1,
-    borderColor: 'rgba(5, 150, 105, 0.2)',
     borderRadius: radius.sm,
     padding: 10,
     gap: 8,
@@ -800,22 +1007,17 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentGreen,
   },
   offlineNoticeText: {
     fontSize: 11,
-    color: colors.accentGreenDark,
     fontWeight: '500',
     flex: 1,
   },
   sectionCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 12,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -824,7 +1026,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 10,
@@ -836,47 +1037,39 @@ const styles = StyleSheet.create({
   },
   coordsBox: {
     flex: 1,
-    backgroundColor: colors.surfaceElevated,
     padding: 10,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   coordsLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   coordsValue: {
     fontSize: 13,
     fontFamily: 'monospace',
-    color: colors.textPrimary,
     fontWeight: '700',
   },
   mapSnippet: {
     height: 80,
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.sm,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.border,
   },
   mapGridLine1: {
     position: 'absolute',
     width: '100%',
     height: 1,
-    backgroundColor: colors.border,
   },
   mapGridLine2: {
     position: 'absolute',
     height: '100%',
     width: 1,
-    backgroundColor: colors.border,
   },
   mapPin: {
     alignItems: 'center',
@@ -887,13 +1080,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.accentOrangeMuted,
   },
   mapPinCenter: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.accentOrange,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
@@ -901,18 +1092,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 6,
     fontSize: 10,
-    color: colors.textSecondary,
     fontWeight: '500',
   },
   objectiveText: {
     fontSize: 13,
-    color: colors.textSecondary,
     lineHeight: 19,
   },
   reqSubheading: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
     marginTop: 6,
     marginBottom: 6,
   },
@@ -924,24 +1112,19 @@ const styles = StyleSheet.create({
   },
   reqCheck: {
     fontSize: 12,
-    color: colors.accentOrange,
     fontWeight: '800',
     marginTop: 1,
   },
   reqText: {
     fontSize: 13,
-    color: colors.textSecondary,
     flex: 1,
     lineHeight: 18,
   },
   economicsCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 14,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -949,11 +1132,9 @@ const styles = StyleSheet.create({
   },
   ecoComparison: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 12,
   },
   ecoColumn: {
@@ -963,32 +1144,27 @@ const styles = StyleSheet.create({
   ecoColDivider: {
     width: 1,
     height: '100%',
-    backgroundColor: colors.border,
     marginHorizontal: 10,
   },
   ecoColLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   rewardNumber: {
     fontSize: 22,
     fontWeight: '800',
-    color: colors.accentOrange,
     marginBottom: 2,
   },
   stakeNumber: {
     fontSize: 22,
     fontWeight: '800',
-    color: colors.tokenGoldDark,
     marginBottom: 2,
   },
   ecoColSub: {
     fontSize: 10,
     fontWeight: '500',
-    color: colors.textMuted,
   },
   metaPillsRow: {
     flexDirection: 'row',
@@ -998,26 +1174,20 @@ const styles = StyleSheet.create({
   metaPill: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
     padding: 8,
     borderRadius: radius.sm,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
   },
   metaPillLabel: {
     fontSize: 11,
-    color: colors.textMuted,
   },
   metaPillValue: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textPrimary,
   },
   escrowNoticeBox: {
-    backgroundColor: colors.tokenGoldMuted,
     borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.25)',
     borderRadius: radius.sm,
     padding: 10,
     marginBottom: 12,
@@ -1025,17 +1195,14 @@ const styles = StyleSheet.create({
   escrowNoticeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.tokenGoldDark,
     marginBottom: 2,
   },
   escrowDetailText: {
     fontSize: 11,
-    color: colors.textSecondary,
     lineHeight: 15,
   },
   balanceStatusBox: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
     paddingTop: 10,
   },
   balanceStatusRow: {
@@ -1045,39 +1212,31 @@ const styles = StyleSheet.create({
   },
   balanceStatusLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontWeight: '500',
   },
   balanceStatusValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   insufficientWarning: {
     marginTop: 8,
-    backgroundColor: colors.statusErrorMuted,
     padding: 8,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.statusError,
   },
   insufficientText: {
     fontSize: 11,
-    color: colors.statusError,
     lineHeight: 15,
     fontWeight: '500',
   },
   errorBox: {
-    backgroundColor: colors.statusErrorMuted,
     padding: 10,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.statusError,
     marginBottom: 12,
   },
   errorText: {
     fontSize: 12,
-    color: colors.statusError,
     lineHeight: 16,
   },
   actionContainer: {
@@ -1085,23 +1244,20 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(7, 8, 10, 0.85)',
+    backgroundColor: 'rgba(7, 6, 11, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 20,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 4,
   },
@@ -1109,39 +1265,32 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.accentGreenMuted,
     borderWidth: 1,
-    borderColor: 'rgba(5, 150, 105, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   modalCheck: {
     fontSize: 22,
-    color: colors.accentGreen,
     fontWeight: '800',
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 4,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 16,
   },
   modalSummaryBox: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
     borderRadius: radius.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.borderLight,
     marginBottom: 18,
     gap: 6,
   },
@@ -1152,19 +1301,16 @@ const styles = StyleSheet.create({
   },
   modalSumLabel: {
     fontSize: 11,
-    color: colors.textMuted,
     fontWeight: '500',
   },
   modalSumValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
     maxWidth: 180,
   },
   modalSumValueGreen: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.accentGreen,
   },
   modalCTA: {
     width: '100%',

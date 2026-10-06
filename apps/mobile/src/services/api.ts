@@ -44,9 +44,9 @@ function resolveDefaultBaseUrl(): string {
       }
     }
   } catch {
-    // Fall back to localhost
+    // Fall back to deployed production backend
   }
-  return 'http://localhost:4000/api/v1';
+  return 'https://horizon-backend-api.onrender.com/api/v1';
 }
 
 async function fetchWithTimeout(
@@ -151,7 +151,7 @@ export class HorizonApiClient {
           headers: this.getHeaders(),
           body: JSON.stringify({ ...params, role: 'contributor' }),
         },
-        20000
+        50000
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -185,7 +185,7 @@ export class HorizonApiClient {
             headers: this.getHeaders(),
             body: JSON.stringify({ email_or_username: trimmedIdent, password }),
           },
-          25000 // Accommodate cold-start on free-tier cloud containers
+          50000 // Accommodate Render free-tier cold start (~30-45s)
         );
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));

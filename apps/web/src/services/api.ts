@@ -7,7 +7,7 @@ import type { HealthResponse } from '@horizon/types';
 export class AdminApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1') {
+  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1') {
     this.baseUrl = baseUrl;
   }
 

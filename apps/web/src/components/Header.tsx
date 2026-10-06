@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { AdminTab } from './Sidebar';
 import { RefreshCwIcon, PlusIcon, CompassIcon } from './Icons';
 
@@ -19,6 +19,32 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadPresetClick,
   loading,
 }) => {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('horizon_admin_theme');
+      const current = (stored === 'light' || stored === 'dark')
+        ? stored
+        : (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark';
+      setTheme(current);
+      document.documentElement.setAttribute('data-theme', current);
+    } catch {
+      // Default to dark
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    try {
+      localStorage.setItem('horizon_admin_theme', nextTheme);
+    } catch {
+      // Ignore write errors
+    }
+  };
+
   const getTabTitle = () => {
     switch (currentTab) {
       case 'overview':
@@ -44,6 +70,17 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-actions">
+        {/* Dark / Light Theme Toggle */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="btn btn-secondary btn-sm"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          style={{ minWidth: '78px', justifyContent: 'center' }}
+        >
+          {theme === 'dark' ? '☀ Light' : '☾ Dark'}
+        </button>
+
         <button
           type="button"
           onClick={onRefreshClick}
@@ -61,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="btn btn-secondary btn-sm"
           title="Pre-populate task builder with validated spatial preset"
         >
-          <CompassIcon size={14} color="var(--cyan-glow)" />
+          <CompassIcon size={14} color="var(--accent-brand)" />
           <span>Load Preset</span>
         </button>
 

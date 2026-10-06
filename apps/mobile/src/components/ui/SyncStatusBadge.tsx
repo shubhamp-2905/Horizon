@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { colors, radius } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius } from '../../theme/colors';
 import type { SyncEngineState } from '../../offline/syncEngine';
 
 interface SyncStatusBadgeProps {
@@ -14,6 +15,7 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
   onSyncNow,
   compact = false,
 }) => {
+  const { theme } = useTheme();
   const isOffline = state.networkState === 'OFFLINE';
   const isSyncing = state.isSyncing;
   const hasPending = state.pendingCount > 0;
@@ -24,15 +26,20 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
       return (
         <View style={[styles.compactBadge, styles.badgeOffline]}>
           <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
-          <Text style={styles.compactText}>Offline</Text>
+          <Text style={[styles.compactText, { color: '#F59E0B' }]}>Offline</Text>
         </View>
       );
     }
     if (isSyncing) {
       return (
-        <View style={[styles.compactBadge, styles.badgeSyncing]}>
-          <ActivityIndicator size="small" color="#0284C7" style={styles.spinner} />
-          <Text style={styles.compactText}>Syncing</Text>
+        <View
+          style={[
+            styles.compactBadge,
+            { backgroundColor: theme.purpleMuted, borderColor: theme.borderHighlight },
+          ]}
+        >
+          <ActivityIndicator size="small" color={theme.electricPurple} style={styles.spinner} />
+          <Text style={[styles.compactText, { color: theme.electricPurple }]}>Syncing</Text>
         </View>
       );
     }
@@ -40,7 +47,10 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
       return (
         <TouchableOpacity
           onPress={onSyncNow}
-          style={[styles.compactBadge, styles.badgePending]}
+          style={[
+            styles.compactBadge,
+            { backgroundColor: 'rgba(217, 119, 6, 0.12)', borderColor: 'rgba(217, 119, 6, 0.3)' },
+          ]}
           activeOpacity={0.7}
         >
           <Text style={[styles.compactText, { color: '#D97706' }]}>
@@ -50,8 +60,16 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
       );
     }
     return (
-      <View style={[styles.compactBadge, styles.badgeSynced]}>
-        <Text style={[styles.compactText, { color: '#059669' }]}>✓ Synced</Text>
+      <View
+        style={[
+          styles.compactBadge,
+          {
+            backgroundColor: theme.statusSuccessMuted,
+            borderColor: theme.statusSuccess,
+          },
+        ]}
+      >
+        <Text style={[styles.compactText, { color: theme.statusSuccess }]}>✓ Synced</Text>
       </View>
     );
   }
@@ -61,9 +79,10 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
     <View
       style={[
         styles.bannerContainer,
+        { backgroundColor: theme.surfaceCard, borderColor: theme.border },
         isOffline && styles.bannerOffline,
-        hasError && styles.bannerError,
         isSyncing && styles.bannerSyncing,
+        isSyncing && { borderColor: theme.borderHighlight },
       ]}
     >
       <View style={styles.bannerInfo}>
@@ -75,14 +94,14 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
                 backgroundColor: isOffline
                   ? '#F59E0B'
                   : hasError
-                  ? '#EF4444'
+                  ? theme.statusError
                   : isSyncing
-                  ? '#38BDF8'
-                  : '#10B981',
+                  ? theme.electricPurple
+                  : theme.statusSuccess,
               },
             ]}
           />
-          <Text style={styles.bannerTitle}>
+          <Text style={[styles.bannerTitle, { color: theme.textPrimary }]}>
             {isOffline
               ? 'Offline Mode'
               : hasError
@@ -93,15 +112,18 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
           </Text>
         </View>
 
-        <Text style={styles.bannerSubtitle}>
+        <Text style={[styles.bannerSubtitle, { color: theme.textMuted }]}>
           {isOffline
-            ? 'Collected evidence is safely saved in local SQLite storage.'
+            ? 'Collected evidence is safely saved in local offline storage.'
             : hasError
             ? state.lastError
             : isSyncing
             ? 'Uploading observations and media to server...'
             : state.lastSyncedAt
-            ? `Last synchronized at ${new Date(state.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            ? `Last synchronized at ${new Date(state.lastSyncedAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}`
             : 'Working copy matches server state.'}
         </Text>
       </View>
@@ -110,7 +132,11 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
         <TouchableOpacity
           onPress={onSyncNow}
           disabled={isSyncing}
-          style={[styles.syncButton, isSyncing && { opacity: 0.5 }]}
+          style={[
+            styles.syncButton,
+            { backgroundColor: theme.primaryPurple },
+            isSyncing && { opacity: 0.5 },
+          ]}
           activeOpacity={0.8}
         >
           {isSyncing ? (
@@ -137,17 +163,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderColor: 'rgba(245, 158, 11, 0.3)',
   },
-  badgeSyncing: {
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    borderColor: 'rgba(14, 165, 233, 0.3)',
+  spinner: {
+    marginRight: 4,
+    transform: [{ scale: 0.7 }],
   },
-  badgePending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-  },
-  badgeSynced: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+  compactText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   statusDot: {
     width: 6,
@@ -155,66 +178,52 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginRight: 6,
   },
-  compactText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  spinner: {
-    marginRight: 4,
-  },
   bannerContainer: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    padding: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   bannerOffline: {
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    backgroundColor: 'rgba(245, 158, 11, 0.05)',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderColor: 'rgba(245, 158, 11, 0.25)',
   },
   bannerError: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
   bannerSyncing: {
-    borderColor: 'rgba(14, 165, 233, 0.4)',
-    backgroundColor: 'rgba(14, 165, 233, 0.05)',
+    backgroundColor: 'rgba(124, 58, 237, 0.08)',
   },
   bannerInfo: {
     flex: 1,
-    paddingRight: 12,
+    gap: 2,
+    marginRight: 8,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
   },
   bannerTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   bannerSubtitle: {
     fontSize: 11,
-    color: colors.textMuted,
     lineHeight: 15,
   },
   syncButton: {
-    backgroundColor: colors.accentGreen,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: radius.sm,
+    borderRadius: radius.xs,
   },
-
   syncButtonText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
 });

@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { apiClient } from '../services/api';
 import type { WalletSummaryDTO, TaskResponseDTO, UserClaimedTaskDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { radius } from '../theme/colors';
 import { HorizonButton } from '../components/ui/HorizonButton';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -37,7 +38,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectTask,
   user,
 }) => {
-  // Immediately initialize wallet from authenticated user payload to avoid blocking render
+  const { theme } = useTheme();
+
+  // Initialize wallet from authenticated user payload to avoid blocking render
   const [wallet, setWallet] = useState<WalletSummaryDTO | null>(() => {
     if (user && user.available_tokens !== undefined) {
       const avail = user.available_tokens;
@@ -208,13 +211,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.accentGreen}
+          tintColor={theme.electricPurple}
         />
       }
     >
@@ -222,8 +225,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <View style={styles.topSection}>
         <View style={styles.identityRow}>
           <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.contributorName}>{displayName}</Text>
+            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back,</Text>
+            <Text style={[styles.contributorName, { color: theme.textPrimary }]}>{displayName}</Text>
           </View>
           <SyncStatusBadge
             state={syncState}
@@ -240,31 +243,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       />
 
       {/* Main Wallet Summary Card */}
-      <View style={styles.walletCard}>
+      <View
+        style={[
+          styles.walletCard,
+          {
+            backgroundColor: theme.surfaceCard,
+            borderColor: theme.border,
+            shadowColor: theme.secondaryPurple,
+          },
+        ]}
+      >
         <View style={styles.walletHeader}>
-          <Text style={styles.walletCardLabel}>Contributor Wallet</Text>
+          <Text style={[styles.walletCardLabel, { color: theme.textPrimary }]}>Contributor Balance</Text>
           <TouchableOpacity onPress={() => onNavigate('wallet')} activeOpacity={0.7}>
-            <Text style={styles.viewLedgerLink}>View Ledger →</Text>
+            <Text style={[styles.viewLedgerLink, { color: theme.electricPurple }]}>View Ledger →</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.balanceSplit}>
           <View style={styles.balanceBlock}>
-            <Text style={styles.balanceSubLabel}>Available</Text>
+            <Text style={[styles.balanceSubLabel, { color: theme.textSecondary }]}>Available</Text>
             <View style={styles.tokenNumberRow}>
-              <Text style={styles.availableNumber}>
+              <Text style={[styles.availableNumber, { color: theme.textPrimary }]}>
                 {wallet ? wallet.available_balance : '100'}
               </Text>
-              <Text style={styles.tokenUnitGreen}>HZN</Text>
+              <Text style={[styles.tokenUnitPurple, { color: theme.electricPurple }]}>HZN</Text>
             </View>
           </View>
 
-          <View style={styles.balanceDivider} />
+          <View style={[styles.balanceDivider, { backgroundColor: theme.divider }]} />
 
           <View style={styles.balanceBlock}>
-            <Text style={styles.balanceSubLabel}>Locked Stake</Text>
+            <Text style={[styles.balanceSubLabel, { color: theme.textSecondary }]}>Locked Stake</Text>
             <View style={styles.tokenNumberRow}>
-              <Text style={styles.lockedNumber}>
+              <Text style={[styles.lockedNumber, { color: '#D97706' }]}>
                 {wallet ? wallet.locked_balance : '0'}
               </Text>
               <Text style={styles.tokenUnitAmber}>HZN</Text>
@@ -272,7 +284,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        <Text style={styles.walletExplanation}>
+        <Text style={[styles.walletExplanation, { color: theme.textMuted }]}>
           Locked tokens are held in server escrow for active field commitments.
         </Text>
 
@@ -280,6 +292,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           title="Discover Nearby Tasks"
           onPress={() => onNavigate('discover')}
           size="md"
+          variant="primary"
           style={styles.discoverCTA}
         />
       </View>
@@ -306,20 +319,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             activeTasks.map((item) => (
               <TouchableOpacity
                 key={item.claim_id}
-                style={styles.commitmentCard}
+                style={[
+                  styles.commitmentCard,
+                  {
+                    backgroundColor: theme.surfaceCard,
+                    borderColor: theme.border,
+                    shadowColor: theme.secondaryPurple,
+                  },
+                ]}
                 onPress={() => onSelectTask && onSelectTask(item.task)}
                 activeOpacity={0.75}
               >
                 <View style={styles.commitmentTop}>
-                  <View style={styles.commitmentPill}>
-                    <Text style={styles.commitmentPillText}>Escrow Stake</Text>
+                  <View
+                    style={[
+                      styles.commitmentPill,
+                      {
+                        backgroundColor: theme.purpleMuted,
+                        borderColor: theme.borderHighlight,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.commitmentPillText, { color: theme.electricPurple }]}>
+                      Escrow Stake
+                    </Text>
                   </View>
-                  <Text style={styles.stakeAmountText}>{item.stake_amount} HZN</Text>
+                  <Text style={[styles.stakeAmountText, { color: theme.textSecondary }]}>
+                    {item.stake_amount} HZN
+                  </Text>
                 </View>
-                <Text style={styles.commitmentTitle}>{item.task.title}</Text>
+                <Text style={[styles.commitmentTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
                 <View style={styles.commitmentBottom}>
-                  <Text style={styles.phase3HintText}>Ready for field collection</Text>
-                  <Text style={styles.rewardPotentialText}>
+                  <Text style={[styles.phase3HintText, { color: theme.electricPurple }]}>
+                    Ready for field collection
+                  </Text>
+                  <Text style={[styles.rewardPotentialText, { color: theme.textSecondary }]}>
                     Reward: +{item.task.base_reward} HZN
                   </Text>
                 </View>
@@ -350,40 +384,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               />
             ))
           )}
-
-          {/* Recent Ledger Activity */}
-          <SectionHeader
-            title="Recent Ledger Activity"
-            actionText="Full History"
-            onAction={() => onNavigate('wallet')}
-          />
-          {(!wallet || !wallet.transactions || wallet.transactions.length === 0) ? (
-            <EmptyState
-              title="No Transactions Recorded"
-              description="Transactions recorded in the server ledger will appear here."
-            />
-          ) : (
-            <View style={styles.txListCard}>
-              {wallet.transactions.slice(0, 3).map((tx) => {
-                const isPositive = tx.amount > 0;
-                return (
-                  <View key={tx.id} style={styles.txRow}>
-                    <View style={styles.txLeft}>
-                      <Text style={styles.txType}>
-                        {(tx.transaction_type || tx.type || '').replace(/_/g, ' ')}
-                      </Text>
-                      <Text style={styles.txDate}>
-                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Recent'}
-                      </Text>
-                    </View>
-                    <Text style={[styles.txAmount, isPositive ? styles.txPos : styles.txNeg]}>
-                      {isPositive ? `+${tx.amount}` : tx.amount} HZN
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
         </>
       )}
     </ScrollView>
@@ -393,11 +393,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
-    paddingTop: 44,
+    paddingTop: 16,
     paddingBottom: 36,
   },
   topSection: {
@@ -410,24 +409,19 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontWeight: '500',
   },
   contributorName: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   walletCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 18,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -439,13 +433,11 @@ const styles = StyleSheet.create({
   },
   walletCardLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontWeight: '700',
   },
   viewLedgerLink: {
     fontSize: 12,
-    color: colors.accentOrange,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   balanceSplit: {
     flexDirection: 'row',
@@ -458,7 +450,6 @@ const styles = StyleSheet.create({
   balanceSubLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
     marginBottom: 2,
   },
   tokenNumberRow: {
@@ -469,32 +460,27 @@ const styles = StyleSheet.create({
   availableNumber: {
     fontSize: 26,
     fontWeight: '800',
-    color: colors.textPrimary,
   },
-  tokenUnitGreen: {
+  tokenUnitPurple: {
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.accentOrange,
+    fontWeight: '800',
   },
   lockedNumber: {
     fontSize: 26,
     fontWeight: '800',
-    color: colors.tokenGold,
   },
   tokenUnitAmber: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.tokenGold,
+    color: '#D97706',
   },
   balanceDivider: {
     width: 1,
     height: 36,
-    backgroundColor: colors.border,
     marginHorizontal: 14,
   },
   walletExplanation: {
     fontSize: 12,
-    color: colors.textSecondary,
     lineHeight: 16,
     marginBottom: 14,
   },
@@ -502,17 +488,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   commitmentCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 10,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
   },
   commitmentTop: {
     flexDirection: 'row',
@@ -521,27 +504,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   commitmentPill: {
-    backgroundColor: colors.tokenGoldMuted,
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.tokenGoldDark,
   },
   commitmentPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.tokenGoldDark,
   },
   stakeAmountText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
   commitmentTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 6,
   },
   commitmentBottom: {
@@ -551,51 +529,10 @@ const styles = StyleSheet.create({
   },
   phase3HintText: {
     fontSize: 11,
-    color: colors.accentOrange,
     fontWeight: '600',
   },
   rewardPotentialText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  txListCard: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  txRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  txLeft: {
-    gap: 2,
-  },
-  txType: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textTransform: 'capitalize',
-  },
-  txDate: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  txAmount: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  txPos: {
-    color: colors.statusCompleted,
-  },
-  txNeg: {
-    color: colors.tokenGold,
   },
 });

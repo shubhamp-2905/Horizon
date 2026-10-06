@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { apiClient } from '../services/api';
 import type { UserClaimedTaskDTO } from '@horizon/types';
-import { colors, radius } from '../theme/colors';
+import { radius } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { SyncStatusBadge } from '../components/ui/SyncStatusBadge';
 import { syncEngine, type SyncEngineState } from '../offline/syncEngine';
-import { claimRepo, taskRepo, submissionRepo } from '../offline/repositories';
+import { claimRepo, taskRepo } from '../offline/repositories';
 
 interface MyTasksScreenProps {
   onSelectClaimedTask?: (task: any) => void;
@@ -28,6 +29,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
   onSelectClaimedTask,
   onExploreMore,
 }) => {
+  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [claims, setClaims] = useState<UserClaimedTaskDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,6 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
     }
   }, []);
 
-
   useEffect(() => {
     fetchMyTasks();
   }, [fetchMyTasks]);
@@ -101,20 +102,20 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.accentGreen}
+          tintColor={theme.primary}
         />
       }
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>MY FIELD TASKS</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>MY FIELD TASKS</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Committed data collection scopes with locked token escrows.
         </Text>
       </View>
@@ -126,33 +127,83 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
       />
 
       {/* Tabs: ACTIVE | COMPLETED | HISTORY */}
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar,
+          {
+            backgroundColor: theme.surfaceElevated,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === 'active' && styles.activeTab,
+            activeTab === 'active' && {
+              backgroundColor: theme.card,
+              borderColor: theme.primary,
+              shadowColor: isDark ? '#000000' : '#4C1D95',
+            },
+          ]}
           onPress={() => setActiveTab('active')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'active' ? theme.primaryLight : theme.textSecondary },
+              activeTab === 'active' && { fontWeight: '700' },
+            ]}
+          >
             ACTIVE ({activeClaims.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === 'completed' && styles.activeTab,
+            activeTab === 'completed' && {
+              backgroundColor: theme.card,
+              borderColor: theme.primary,
+              shadowColor: isDark ? '#000000' : '#4C1D95',
+            },
+          ]}
           onPress={() => setActiveTab('completed')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'completed' ? theme.primaryLight : theme.textSecondary },
+              activeTab === 'completed' && { fontWeight: '700' },
+            ]}
+          >
             COMPLETED ({completedClaims.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === 'history' && styles.activeTab,
+            activeTab === 'history' && {
+              backgroundColor: theme.card,
+              borderColor: theme.primary,
+              shadowColor: isDark ? '#000000' : '#4C1D95',
+            },
+          ]}
           onPress={() => setActiveTab('history')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'history' ? theme.primaryLight : theme.textSecondary },
+              activeTab === 'history' && { fontWeight: '700' },
+            ]}
+          >
             HISTORY ({historyClaims.length})
           </Text>
         </TouchableOpacity>
@@ -161,8 +212,16 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
       {loading ? (
         <LoadingState message="Loading your committed task list..." />
       ) : error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View
+          style={[
+            styles.errorBox,
+            {
+              backgroundColor: theme.errorMuted,
+              borderColor: theme.error,
+            },
+          ]}
+        >
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
         </View>
       ) : activeTab === 'active' ? (
         activeClaims.length === 0 ? (
@@ -178,14 +237,29 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
             return (
               <TouchableOpacity
                 key={item.claim_id}
-                style={styles.taskCard}
+                style={[
+                  styles.taskCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    shadowColor: isDark ? '#000000' : '#4C1D95',
+                  },
+                ]}
                 activeOpacity={0.75}
                 onPress={() => onSelectClaimedTask && onSelectClaimedTask(t)}
               >
                 {/* Header: Type and Status */}
                 <View style={styles.cardHeader}>
-                  <View style={styles.typeBadge}>
-                    <Text style={styles.typeText}>
+                  <View
+                    style={[
+                      styles.typeBadge,
+                      {
+                        backgroundColor: theme.primaryMuted,
+                        borderColor: theme.borderLight,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.typeText, { color: theme.primaryLight }]}>
                       {t.artifact_type.replace(/_/g, ' ').toUpperCase()}
                     </Text>
                   </View>
@@ -193,12 +267,12 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                 </View>
 
                 {/* Title */}
-                <Text style={styles.taskTitle}>{t.title}</Text>
+                <Text style={[styles.taskTitle, { color: theme.textPrimary }]}>{t.title}</Text>
 
                 {/* Location */}
                 <View style={styles.locationRow}>
-                  <View style={styles.locDot} />
-                  <Text style={styles.locationText}>
+                  <View style={[styles.locDot, { backgroundColor: theme.primary }]} />
+                  <Text style={[styles.locationText, { color: theme.textSecondary }]}>
                     {t.latitude !== undefined && t.longitude !== undefined
                       ? `${t.latitude.toFixed(4)}°N, ${t.longitude.toFixed(4)}°E (SRID 4326)`
                       : 'Geographic Target Ready'}
@@ -206,25 +280,46 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                 </View>
 
                 {/* Economics Summary */}
-                <View style={styles.economicsRow}>
+                <View
+                  style={[
+                    styles.economicsRow,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
                   <View style={styles.stakeBox}>
-                    <Text style={styles.ecoLabel}>STAKE LOCKED</Text>
-                    <Text style={styles.stakeVal}>{item.stake_amount} TOKENS</Text>
+                    <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>STAKE LOCKED</Text>
+                    <Text style={[styles.stakeVal, { color: theme.tokenGold }]}>
+                      {item.stake_amount} HZN
+                    </Text>
                   </View>
 
                   <View style={styles.rewardBox}>
-                    <Text style={styles.ecoLabel}>POTENTIAL REWARD</Text>
-                    <Text style={styles.rewardVal}>+{t.base_reward} TOKENS</Text>
+                    <Text style={[styles.ecoLabel, { color: theme.textMuted }]}>POTENTIAL REWARD</Text>
+                    <Text style={[styles.rewardVal, { color: theme.primaryLight }]}>
+                      +{t.base_reward} HZN
+                    </Text>
                   </View>
                 </View>
 
                 {/* Phase 3 Progress State */}
-                <View style={styles.progressFooter}>
+                <View
+                  style={[
+                    styles.progressFooter,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
                   <View style={styles.progressStateBox}>
-                    <View style={styles.progressPulse} />
-                    <Text style={styles.progressStatusText}>Ready for field collection</Text>
+                    <View style={[styles.progressPulse, { backgroundColor: theme.primary }]} />
+                    <Text style={[styles.progressStatusText, { color: theme.primaryLight }]}>
+                      Ready for field collection
+                    </Text>
                   </View>
-                  <Text style={styles.detailsChevron}>Inspect →</Text>
+                  <Text style={[styles.detailsChevron, { color: theme.primaryLight }]}>
+                    Inspect →
+                  </Text>
                 </View>
               </TouchableOpacity>
             );
@@ -234,18 +329,28 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
         completedClaims.length === 0 ? (
           <EmptyState
             title="No Completed Submissions"
-            description="Completed field collections and verified ground-truth submissions will appear here following Phase 3 verification."
+            description="Completed field collections and verified ground-truth submissions will appear here following verification."
             actionText="Explore Tasks"
             onAction={onExploreMore}
           />
         ) : (
           completedClaims.map((item) => (
-            <View key={item.claim_id} style={styles.taskCard}>
+            <View
+              key={item.claim_id}
+              style={[
+                styles.taskCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
               <View style={styles.cardHeader}>
-                <Text style={styles.taskTitle}>{item.task.title}</Text>
+                <Text style={[styles.taskTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
                 <StatusBadge status={item.status} />
               </View>
-              <Text style={styles.completedSubText}>
+              <Text style={[styles.completedSubText, { color: theme.textSecondary }]}>
                 Reward settled to token balance.
               </Text>
             </View>
@@ -259,9 +364,19 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
           />
         ) : (
           historyClaims.map((item) => (
-            <View key={item.claim_id} style={styles.taskCard}>
+            <View
+              key={item.claim_id}
+              style={[
+                styles.taskCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                },
+              ]}
+            >
               <View style={styles.cardHeader}>
-                <Text style={styles.taskTitle}>{item.task.title}</Text>
+                <Text style={[styles.taskTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
                 <StatusBadge status={item.status} />
               </View>
             </View>
@@ -275,7 +390,6 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 18,
@@ -288,23 +402,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: colors.textPrimary,
     letterSpacing: 2,
   },
   subtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
     marginTop: 4,
     lineHeight: 18,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: 3,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -313,10 +423,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   activeTab: {
-    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.borderHighlight,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -325,20 +432,12 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  activeTabText: {
-    color: colors.textPrimary,
-    fontWeight: '700',
   },
   taskCard: {
-    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -351,23 +450,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   typeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
   taskTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 6,
   },
   locationRow: {
@@ -380,20 +475,16 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentOrange,
   },
   locationText: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontFamily: 'monospace',
   },
   economicsRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 12,
   },
   stakeBox: {
@@ -406,19 +497,16 @@ const styles = StyleSheet.create({
   ecoLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   stakeVal: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.tokenGoldDark,
   },
   rewardVal: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.accentOrange,
   },
   progressFooter: {
     flexDirection: 'row',
@@ -426,7 +514,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   progressStateBox: {
     flexDirection: 'row',
@@ -437,33 +524,26 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accentOrange,
   },
   progressStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.accentOrange,
   },
   detailsChevron: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.textSecondary,
   },
   completedSubText: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 4,
   },
   errorBox: {
-    backgroundColor: colors.statusErrorMuted,
     padding: 12,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.statusError,
     marginBottom: 12,
   },
   errorText: {
     fontSize: 12,
-    color: colors.statusError,
   },
 });
