@@ -154,7 +154,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="kpi-content">
             <div className="stat-label">Active Tasks</div>
-            <div className="stat-value">{activeTasks.length}</div>
+            <div className="stat-value">{activeTasksCount}</div>
             <div className="stat-sub">Live in field discovery</div>
           </div>
         </div>
@@ -300,55 +300,63 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </tr>
           </thead>
           <tbody>
-            {tasks.slice(0, 4).map((task) => (
-              <tr key={task.id}>
-                <td>
-                  <div className="table-cell-title">{task.title}</div>
-                  <div className="table-cell-desc font-mono">{task.id.slice(0, 8)}...</div>
-                </td>
-                <td>
-                  <span className="badge-artifact">
-                    {task.artifact_type.replace(/_/g, ' ')}
-                  </span>
-                </td>
-                <td className="font-mono" style={{ fontSize: '12px' }}>
-                  {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
-                </td>
-                <td>
-                  <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    +{task.base_reward} TKN
-                  </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'JetBrains Mono, monospace' }}>
-                    ({task.commitment_stake} stake)
-                  </span>
-                </td>
-                <td>
-                  <span className={`status-pill ${task.status === 'published' ? 'status-pill-published' : 'status-pill-draft'}`}>
-                    <span className="badge-dot" />
-                    {task.status === 'published' ? 'Published' : 'Draft'}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'inline-flex', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => onToggleStatus(task)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      {task.status === 'published' ? 'Unpublish' : 'Publish'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onViewTask(task)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      <EyeIcon size={13} />
-                      <span>Details</span>
-                    </button>
-                  </div>
+            {tasks.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                  No field tasks found in database registry.
                 </td>
               </tr>
-            ))}
+            ) : (
+              tasks.slice(0, 10).map((task) => (
+                <tr key={task.id}>
+                  <td>
+                    <div className="table-cell-title">{task.title}</div>
+                    <div className="table-cell-desc font-mono">{task.id.slice(0, 8)}...</div>
+                  </td>
+                  <td>
+                    <span className="badge-artifact">
+                      {task.artifact_type.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td className="font-mono" style={{ fontSize: '12px' }}>
+                    {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      +{task.base_reward} TKN
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'JetBrains Mono, monospace' }}>
+                      ({task.commitment_stake} stake)
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-pill ${task.status === 'published' ? 'status-pill-published' : 'status-pill-draft'}`}>
+                      <span className="badge-dot" />
+                      {task.status === 'published' ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => onToggleStatus(task)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        {task.status === 'published' ? 'Unpublish' : 'Publish'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onViewTask(task)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <EyeIcon size={13} />
+                        <span>Details</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

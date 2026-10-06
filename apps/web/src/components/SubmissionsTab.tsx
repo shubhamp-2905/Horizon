@@ -85,13 +85,13 @@ export interface AdminSubmissionItem {
 
 const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
   {
-    id: 'sub_8f4a23c5_bc5e',
-    task_id: '4ffea264-89ec-402f-b470-f4a058729ddd',
+    id: 'ea18d003-b305-49a7-b614-72f7a6527c2a',
+    task_id: '0cf3e94e-beb0-4f2e-95db-1fd31032394c',
     task_title: 'Community Water Source Survey',
     artifact_type: 'water_source',
-    contributor_email: 'scout_alex@horizon.dev',
-    status: 'submitted',
-    gps_accuracy: 6.8,
+    contributor_email: 'contributor_288301@horizon.dev',
+    status: 'under_review',
+    gps_accuracy: 4.2,
     latitude: 18.520432,
     longitude: 73.856738,
     captured_at: new Date(Date.now() - 3600000).toISOString(),
@@ -102,8 +102,8 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
       checks: [
         { name: 'required_fields', status: 'PASSED', message: 'All dynamic schema requirements satisfied' },
         { name: 'media_evidence', status: 'PASSED', message: '2/2 required geotagged photos attached' },
-        { name: 'gps_accuracy', status: 'PASSED', message: 'High accuracy fix (±6.8m within 15m limit)' },
-        { name: 'task_radius', status: 'PASSED', message: 'Proximity 14.2m from target waypoint' },
+        { name: 'gps_accuracy', status: 'PASSED', message: 'High accuracy fix (±4.2m within 15m limit)' },
+        { name: 'task_radius', status: 'PASSED', message: 'Proximity 8.4m from target waypoint' },
         { name: 'capture_timestamp', status: 'PASSED', message: 'Valid non-future capture timestamp' },
       ],
       passed_checks: ['required_fields', 'media_evidence', 'gps_accuracy', 'task_radius', 'capture_timestamp'],
@@ -140,14 +140,14 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
       ],
     },
     consensus: {
-      status: 'APPROVED',
+      status: 'PENDING',
       pool_size: 3,
       quorum: 2,
-      total_votes: 2,
-      approve_votes: 2,
+      total_votes: 1,
+      approve_votes: 1,
       reject_votes: 0,
       flag_votes: 0,
-      settlement_status: 'settled',
+      settlement_status: 'unsettled',
       reviews: [
         {
           id: 'pr_01',
@@ -156,69 +156,52 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
           notes: 'High visual fidelity. Valve mechanism matches regional infrastructure type.',
           created_at: new Date(Date.now() - 3200000).toISOString(),
         },
-        {
-          id: 'pr_02',
-          reviewer_username: 'reviewer_kiran',
-          decision: 'APPROVE',
-          notes: 'GPS telemetry confirmed against satellite basemap. All checks satisfied.',
-          created_at: new Date(Date.now() - 3000000).toISOString(),
-        },
       ],
     },
-    verification_status: 'approved',
+    verification_status: 'pending',
   },
   {
-    id: 'sub_da052732_361d',
-    task_id: '8a1c93f0-4521-419b-a012-78d91a2bc45e',
+    id: 'a92ca7f3-e483-44b0-bed8-5825e917b768',
+    task_id: '0a89a0ff-4a70-41c8-847c-f6d2ff69e2b4',
     task_title: 'Solar Mini-Grid Installation Check',
     artifact_type: 'renewable_energy',
-    contributor_email: 'marcus.k@horizon.dev',
+    contributor_email: 'contributor_288146@horizon.dev',
     status: 'under_review',
-    gps_accuracy: 28.5,
-    latitude: 18.5152,
-    longitude: 73.8504,
+    gps_accuracy: 4.1,
+    latitude: 18.5208,
+    longitude: 73.8562,
     captured_at: new Date(Date.now() - 7200000).toISOString(),
     photo_count: 2,
-    validation_status: 'WARNING',
+    validation_status: 'PASSED',
     validation_results: {
-      status: 'WARNING',
+      status: 'PASSED',
       checks: [
         { name: 'required_fields', status: 'PASSED', message: 'All inspection fields populated' },
         { name: 'media_evidence', status: 'PASSED', message: '2 photos provided' },
-        { name: 'gps_accuracy', status: 'WARNING', message: 'Moderate GPS accuracy (±28.5m exceeds 15m threshold)' },
-        { name: 'task_radius', status: 'PASSED', message: 'Proximity 42m from installation' },
+        { name: 'gps_accuracy', status: 'PASSED', message: 'High accuracy fix (±4.1m within tolerance)' },
+        { name: 'task_radius', status: 'PASSED', message: 'Proximity 12m from installation' },
         { name: 'capture_timestamp', status: 'PASSED', message: 'Valid capture timestamp' },
       ],
-      passed_checks: ['required_fields', 'media_evidence', 'task_radius', 'capture_timestamp'],
+      passed_checks: ['required_fields', 'media_evidence', 'gps_accuracy', 'task_radius', 'capture_timestamp'],
       failed_checks: [],
-      warnings: ['Moderate GPS accuracy (±28.5m)'],
+      warnings: [],
       validated_at: new Date(Date.now() - 7100000).toISOString(),
     },
     ai_quality: {
-      overall_status: 'WARNING',
-      confidence: 0.78,
-      primary_reason: 'Mild glare on digital inverter readout; human confirmation recommended',
+      overall_status: 'PASSED',
+      confidence: 0.94,
+      primary_reason: 'PV array verified with clear landmark alignment',
       evaluated_at: new Date(Date.now() - 7000000).toISOString(),
       media_results: [
         {
           id: 'med_03',
           label: 'Photo 1: PV panel array overview',
           status: 'PASSED',
-          confidence: 0.92,
+          confidence: 0.94,
           blur_score: 110.4,
           exposure: 'optimal',
           resolution: '1920x1080',
           reasons: ['Panels visible without obstruction'],
-        },
-        {
-          id: 'med_04',
-          label: 'Photo 2: Inverter digital display',
-          status: 'WARNING',
-          confidence: 0.65,
-          blur_score: 62.1,
-          exposure: 'overexposed',
-          resolution: '1280x720',
-          reasons: ['Direct sun reflection on screen digits'],
         },
       ],
     },
@@ -236,7 +219,7 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
           id: 'pr_03',
           reviewer_username: 'reviewer_maya',
           decision: 'APPROVE',
-          notes: 'Array looks intact despite slight reflection on inverter readout.',
+          notes: 'Array looks intact and serial matches task specifications.',
           created_at: new Date(Date.now() - 6500000).toISOString(),
         },
       ],
@@ -244,78 +227,70 @@ const DEMO_SUBMISSIONS: AdminSubmissionItem[] = [
     verification_status: 'pending',
   },
   {
-    id: 'sub_e41b892a_90f1',
-    task_id: '9b3e12a8-12cd-48ea-b248-18e9741fd230',
+    id: '0a94b940-358c-4df7-9262-2d8904f0032f',
+    task_id: '7bfa44a1-d9ef-4a8e-a157-54e69fe29648',
     task_title: 'Urban Flood Drainage Channel',
     artifact_type: 'drainage_infrastructure',
-    contributor_email: 'scout_field_test@horizon.dev',
-    status: 'disputed',
-    gps_accuracy: 142.0,
-    latitude: 18.528,
-    longitude: 73.861,
+    contributor_email: 'alex@horizon.dev',
+    status: 'under_review',
+    gps_accuracy: 5.2,
+    latitude: 18.5275,
+    longitude: 73.8590,
     captured_at: new Date(Date.now() - 10800000).toISOString(),
     photo_count: 1,
-    validation_status: 'FAILED',
+    validation_status: 'PASSED',
     validation_results: {
-      status: 'FAILED',
+      status: 'PASSED',
       checks: [
-        { name: 'required_fields', status: 'FAILED', message: 'Missing culvert blockage measurement' },
-        { name: 'media_evidence', status: 'FAILED', message: 'Only 1 of 2 required photos attached' },
-        { name: 'gps_accuracy', status: 'FAILED', message: 'GPS accuracy ±142m exceeds maximum allowable tolerance' },
+        { name: 'required_fields', status: 'PASSED', message: 'Culvert drainage measurement recorded' },
+        { name: 'media_evidence', status: 'PASSED', message: 'Geotagged culvert photo attached' },
+        { name: 'gps_accuracy', status: 'PASSED', message: 'GPS accuracy ±5.2m within tolerance' },
         { name: 'task_radius', status: 'PASSED', message: 'Within bounds' },
         { name: 'capture_timestamp', status: 'PASSED', message: 'Timestamp verified' },
       ],
-      passed_checks: ['task_radius', 'capture_timestamp'],
-      failed_checks: ['required_fields', 'media_evidence', 'gps_accuracy'],
+      passed_checks: ['required_fields', 'media_evidence', 'gps_accuracy', 'task_radius', 'capture_timestamp'],
+      failed_checks: [],
       warnings: [],
       validated_at: new Date(Date.now() - 10700000).toISOString(),
     },
     ai_quality: {
-      overall_status: 'FAILED',
-      confidence: 0.38,
-      primary_reason: 'Severe motion blur and low illumination in primary capture',
+      overall_status: 'PASSED',
+      confidence: 0.91,
+      primary_reason: 'Culvert structural geometry validated against map features',
       evaluated_at: new Date(Date.now() - 10600000).toISOString(),
       media_results: [
         {
           id: 'med_05',
           label: 'Photo 1: Drainage intake culvert',
-          status: 'FAILED',
-          confidence: 0.38,
-          blur_score: 22.4,
-          exposure: 'underexposed',
-          resolution: '1280x720',
-          reasons: ['Laplacian variance below 50 threshold (blurry)', 'Mean pixel luminance under 40'],
+          status: 'PASSED',
+          confidence: 0.91,
+          blur_score: 95.4,
+          exposure: 'optimal',
+          resolution: '1920x1080',
+          reasons: ['Clear culvert intake visible'],
         },
       ],
     },
     consensus: {
-      status: 'DISPUTED',
+      status: 'PENDING',
       pool_size: 3,
       quorum: 2,
-      total_votes: 2,
-      approve_votes: 0,
-      reject_votes: 1,
-      flag_votes: 1,
-      settlement_status: 'disputed',
-      dispute_reason: 'Flagged for suspected stock photo re-upload and inaccurate GPS telemetry.',
+      total_votes: 1,
+      approve_votes: 1,
+      reject_votes: 0,
+      flag_votes: 0,
+      settlement_status: 'unsettled',
       reviews: [
         {
           id: 'pr_04',
           reviewer_username: 'reviewer_kiran',
-          decision: 'FLAG',
-          notes: 'Suspected stock photo from web. EXIF creation date conflicts with submission time.',
+          decision: 'APPROVE',
+          notes: 'Drainage channel is clear of debris. Flow rate confirmed.',
           created_at: new Date(Date.now() - 10000000).toISOString(),
-        },
-        {
-          id: 'pr_05',
-          reviewer_username: 'reviewer_maya',
-          decision: 'REJECT',
-          notes: 'Unusable photo quality, severe blur, and missing second required photo.',
-          created_at: new Date(Date.now() - 9800000).toISOString(),
         },
       ],
     },
-    verification_status: 'disputed',
+    verification_status: 'pending',
   },
 ];
 
@@ -324,9 +299,10 @@ const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backen
 interface SubmissionsTabProps {
   initialSelectedId?: string | null;
   adminToken?: string | null;
+  onSubmissionReviewed?: () => void;
 }
 
-export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedId, adminToken }) => {
+export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedId, adminToken, onSubmissionReviewed }) => {
   const [submissions, setSubmissions] = useState<AdminSubmissionItem[]>(DEMO_SUBMISSIONS);
   const [selectedSub, setSelectedSub] = useState<AdminSubmissionItem>(() => {
     if (initialSelectedId) {
@@ -459,11 +435,35 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
     }
 
     setSubmissions((prev) =>
-      prev.map((s) => (s.id === subId ? { ...s, verification_status: decision, status: decision } : s))
+      prev.map((s) =>
+        s.id === subId
+          ? {
+              ...s,
+              verification_status: decision,
+              status: decision,
+              consensus: {
+                ...s.consensus,
+                status: decision === 'approved' ? 'APPROVED' : 'REJECTED',
+                settlement_status: decision === 'approved' ? 'settled' : 'unsettled',
+              },
+            }
+          : s
+      )
     );
     if (selectedSub && selectedSub.id === subId) {
-      setSelectedSub({ ...selectedSub, verification_status: decision, status: decision });
+      setSelectedSub({
+        ...selectedSub,
+        verification_status: decision,
+        status: decision,
+        consensus: {
+          ...selectedSub.consensus,
+          status: decision === 'approved' ? 'APPROVED' : 'REJECTED',
+          settlement_status: decision === 'approved' ? 'settled' : 'unsettled',
+        },
+      });
     }
+
+    onSubmissionReviewed?.();
   };
 
   // Peer Review Action
@@ -712,7 +712,17 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
                       {sub.task_title}
                     </div>
-                    {renderBadge(sub.validation_status)}
+                    {sub.verification_status === 'approved' || sub.status === 'approved' ? (
+                      <span className="status-pill status-pill-active" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)', fontWeight: 700 }}>
+                        ✓ APPROVED
+                      </span>
+                    ) : sub.verification_status === 'rejected' || sub.status === 'rejected' ? (
+                      <span className="status-pill" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700 }}>
+                        ✕ REJECTED
+                      </span>
+                    ) : (
+                      renderBadge(sub.validation_status)
+                    )}
                   </div>
 
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
@@ -742,8 +752,29 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                 <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                   1. Observation Intake: {selectedSub.id}
                 </span>
-                <span className="status-pill status-pill-active" style={{ textTransform: 'capitalize' }}>
-                  {selectedSub.status}
+                <span
+                  className={`status-pill ${
+                    selectedSub.verification_status === 'approved' || selectedSub.status === 'approved'
+                      ? 'status-pill-active'
+                      : selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected'
+                      ? ''
+                      : 'status-pill-pending'
+                  }`}
+                  style={{
+                    textTransform: 'uppercase',
+                    fontWeight: 700,
+                    ...(selectedSub.verification_status === 'approved' || selectedSub.status === 'approved'
+                      ? { background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }
+                      : selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected'
+                      ? { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)' }
+                      : {}),
+                  }}
+                >
+                  {selectedSub.verification_status === 'approved' || selectedSub.status === 'approved'
+                    ? '✓ Approved'
+                    : selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected'
+                    ? '✕ Rejected'
+                    : selectedSub.status}
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
@@ -1001,24 +1032,89 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                 )}
               </div>
 
+              {/* Approved / Rejected Banner */}
+              {(selectedSub.verification_status === 'approved' || selectedSub.status === 'approved') && (
+                <div
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px 14px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <CheckCircle2Icon size={18} style={{ color: '#34d399', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#34d399' }}>
+                      Observation Verified &amp; Attested
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Committed to verified spatial network. Contributor reward settled and telemetry logged.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected') && (
+                <div
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px 14px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertTriangleIcon size={18} style={{ color: '#f87171', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f87171' }}>
+                      Observation Rejected
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Submission failed verification criteria. Stake handled in accordance with governance protocol.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
                   onClick={() => handleDecision(selectedSub.id, 'approved')}
-                  disabled={selectedSub.verification_status === 'approved'}
+                  disabled={selectedSub.verification_status === 'approved' || selectedSub.status === 'approved'}
                   className="btn btn-emerald"
-                  style={{ flex: 1, padding: '10px 16px', fontWeight: 700 }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    fontWeight: 700,
+                    opacity: selectedSub.verification_status === 'approved' || selectedSub.status === 'approved' ? 0.7 : 1,
+                  }}
                 >
-                  ✓ ACCEPT (Commit to Verified Data)
+                  {selectedSub.verification_status === 'approved' || selectedSub.status === 'approved'
+                    ? '✓ APPROVED'
+                    : '✓ ACCEPT (Commit to Verified Data)'}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDecision(selectedSub.id, 'rejected')}
-                  disabled={selectedSub.verification_status === 'rejected'}
+                  disabled={selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected'}
                   className="btn btn-danger"
-                  style={{ flex: 1, padding: '10px 16px', fontWeight: 700 }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    fontWeight: 700,
+                    opacity: selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected' ? 0.7 : 1,
+                  }}
                 >
-                  ✕ REJECT
+                  {selectedSub.verification_status === 'rejected' || selectedSub.status === 'rejected'
+                    ? '✕ REJECTED'
+                    : '✕ REJECT'}
                 </button>
               </div>
             </div>

@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
 
     # Database
-    DATABASE_URL: str = "postgresql://horizon_user:horizon_password@localhost:5432/horizon_db"
+    DATABASE_URL: str = "postgresql://postgres.wlelfechiyxzfxjhkvmy:%23xH7sJ%26J!hzyUdv@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
     DATABASE_POOL_RECYCLE: int = 1800
