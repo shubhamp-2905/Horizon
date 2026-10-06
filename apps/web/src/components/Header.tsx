@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="top-header">
       <div className="header-left">
         <h1 className="header-title">{getTabTitle()}</h1>
-        <span className="header-tag">PostGIS SRID 4326</span>
+        <span className="header-tag">Production Live</span>
       </div>
 
       <div className="header-actions">

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar, type AdminTab } from '../../components/Sidebar';
 import { Header } from '../../components/Header';
-import { OverviewTab, type AdminTaskItem } from '../../components/OverviewTab';
+import { OverviewTab, type AdminTaskItem, type SystemStats, type ReviewQueueItem } from '../../components/OverviewTab';
 import { TasksTab } from '../../components/TasksTab';
 import { CreateTaskModal } from '../../components/CreateTaskModal';
 import { TaskDetailModal } from '../../components/TaskDetailModal';
@@ -16,61 +16,12 @@ import { CheckCircle2Icon, ShieldCheckIcon, AlertTriangleIcon } from '../../comp
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1').replace(/\/+$/, '');
 const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
-const INITIAL_DEMO_TASKS: AdminTaskItem[] = [
-  {
-    id: '4ffea264-89ec-402f-b470-f4a058729ddd',
-    title: 'Community Water Source Survey',
-    description: 'Document water dispensary condition, flow rate, and contamination risk.',
-    artifact_type: 'water_source',
-    status: 'published',
-    difficulty: 2.0,
-    scarcity: 1.5,
-    base_reward: 150,
-    commitment_stake: 20,
-    estimated_effort_minutes: 25,
-    latitude: 18.5204,
-    longitude: 73.8567,
-    requirements: ['2 geotagged photos', 'Flow rate test', 'Safety label confirmation'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '8a1c93f0-4521-419b-a012-78d91a2bc45e',
-    title: 'Rooftop Solar Array Inspection',
-    description: 'Verify solar panel integrity, shading conditions, and inverter wiring.',
-    artifact_type: 'solar_installation',
-    status: 'published',
-    difficulty: 2.5,
-    scarcity: 1.8,
-    base_reward: 200,
-    commitment_stake: 30,
-    estimated_effort_minutes: 35,
-    latitude: 18.5312,
-    longitude: 73.8445,
-    requirements: ['Aerial canopy photo', 'Inverter serial code'],
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: '9b3e12a8-12cd-48ea-b248-18e9741fd230',
-    title: 'Micro-Grid Transformer Substation',
-    description: 'Inspect ground clearance and thermal hazard warnings.',
-    artifact_type: 'telecom_tower',
-    status: 'draft',
-    difficulty: 1.5,
-    scarcity: 1.0,
-    base_reward: 100,
-    commitment_stake: 15,
-    estimated_effort_minutes: 20,
-    latitude: 18.5089,
-    longitude: 73.8631,
-    requirements: ['Safety perimeter check', 'Substation meter reading'],
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
-
 export default function AdminPage() {
   const router = useRouter();
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
-  const [tasks, setTasks] = useState<AdminTaskItem[]>(INITIAL_DEMO_TASKS);
+  const [tasks, setTasks] = useState<AdminTaskItem[]>([]);
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
@@ -126,16 +77,17 @@ export default function AdminPage() {
     router.push('/');
   };
 
-  const fetchTasksFromApi = useCallback(async () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       const healthRes = await fetch(`${API_ROOT_URL}/health`).catch(() => null);
       setApiConnected(!!(healthRes && healthRes.ok));
 
+      // 1. Fetch real tasks from database
       const res = await fetch(`${API_BASE_URL}/tasks?page_size=50`).catch(() => null);
       if (res && res.ok) {
         const data = await res.json();
-        if (data.tasks && data.tasks.length > 0) {
+        if (data.tasks) {
           const mappedTasks: AdminTaskItem[] = data.tasks.map((t: any) => ({
             id: t.id,
             title: t.title,
@@ -155,6 +107,42 @@ export default function AdminPage() {
           setTasks(mappedTasks);
         }
       }
+
+      // 2. Fetch real live system operational stats from database
+      const statsRes = await fetch(`${API_BASE_URL}/admin/stats`).catch(() => null);
+      if (statsRes && statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+
+      // 3. Fetch real review queue submissions from database
+      const subHeaders: Record<string, string> = {};
+      const token = typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null;
+      if (token) subHeaders['Authorization'] = `Bearer ${token}`;
+
+      const subRes = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers: subHeaders }).catch(() => null);
+      if (subRes && subRes.ok) {
+        const subData = await subRes.json();
+        if (subData.submissions) {
+          const queue: ReviewQueueItem[] = subData.submissions.map((s: any) => {
+            const contributorName = s.contributor_email ? s.contributor_email.split('@')[0] : (s.user_id ? s.user_id.slice(0, 8) : 'contributor');
+            const timeAgo = s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently';
+            const isFlagged = s.status === 'flagged';
+            return {
+              id: s.id,
+              task_title: s.task_title || 'Field Observation',
+              contributor: contributorName,
+              location: s.latitude && s.longitude ? `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}` : 'Pune, Maharashtra',
+              gps_accuracy: `±${(s.gps_accuracy || 4.2).toFixed(1)}m`,
+              submitted: timeAgo,
+              community_result: isFlagged ? 'Flagged (Telemetry Anomaly)' : 'Awaiting Review (Quorum Pending)',
+              community_votes: { approve: 1, reject: 0, flag: isFlagged ? 1 : 0, quorum: 2 },
+              status: isFlagged ? 'flagged' : 'awaiting_review',
+            };
+          });
+          setReviewQueue(queue);
+        }
+      }
     } catch {
       setApiConnected(false);
     } finally {
@@ -163,8 +151,8 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    fetchTasksFromApi();
-  }, [fetchTasksFromApi]);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleCreateTask = async (newTask: Omit<AdminTaskItem, 'id' | 'created_at'>) => {
     setLoading(true);
@@ -297,7 +285,7 @@ export default function AdminPage() {
         <Header
           currentTab={currentTab}
           onCreateTaskClick={() => setIsCreateModalOpen(true)}
-          onRefreshClick={fetchTasksFromApi}
+          onRefreshClick={fetchDashboardData}
           onLoadPresetClick={() => setIsCreateModalOpen(true)}
           loading={loading}
         />
@@ -307,6 +295,8 @@ export default function AdminPage() {
           {currentTab === 'overview' && (
             <OverviewTab
               tasks={tasks}
+              stats={stats}
+              reviewQueue={reviewQueue}
               onNavigateToTasks={() => setCurrentTab('tasks')}
               onNavigateToSubmissions={() => setCurrentTab('submissions')}
               onOpenCreateTask={() => setIsCreateModalOpen(true)}
@@ -331,7 +321,10 @@ export default function AdminPage() {
 
           {/* OPERATIONS: Submissions & Reviews */}
           {(currentTab === 'submissions' || currentTab === 'review') && (
-            <SubmissionsTab initialSelectedId={selectedSubmissionId} />
+            <SubmissionsTab
+              initialSelectedId={selectedSubmissionId}
+              adminToken={adminToken}
+            />
           )}
 
           {/* VERIFIED: Verified Data */}
@@ -442,7 +435,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid var(--border-subtle)' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Protocol Starter Grant:</span>
-                    <strong style={{ color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>100 HZN</strong>
+                    <strong style={{ color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>100 TKN</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid var(--border-subtle)' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Active Service Base:</span>

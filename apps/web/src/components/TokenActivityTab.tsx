@@ -40,7 +40,7 @@ export const TokenActivityTab: React.FC = () => {
           </div>
           <div className="kpi-content">
             <div className="stat-label">Total Circulating Tokens</div>
-            <div className="stat-value">1,200 HZN</div>
+            <div className="stat-value">1,200 TKN</div>
             <div className="stat-sub">Across 3 verified accounts</div>
           </div>
         </div>
@@ -51,7 +51,7 @@ export const TokenActivityTab: React.FC = () => {
           </div>
           <div className="kpi-content">
             <div className="stat-label">Escrowed Stakes</div>
-            <div className="stat-value">20 HZN</div>
+            <div className="stat-value">20 TKN</div>
             <div className="stat-sub">1 active commitment lock</div>
           </div>
         </div>
@@ -111,7 +111,7 @@ export const TokenActivityTab: React.FC = () => {
                         color: isPositive ? 'var(--status-success)' : 'var(--accent-orange-text)',
                       }}
                     >
-                      {isPositive ? `+${tx.amount}` : tx.amount} HZN
+                      {isPositive ? `+${tx.amount}` : tx.amount} TKN
                     </span>
                   </td>
                   <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>

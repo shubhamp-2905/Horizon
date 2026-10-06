@@ -60,7 +60,7 @@ export const ContributorsTab: React.FC = () => {
           </div>
           <div className="kpi-content">
             <div className="stat-label">Starter Grant Standard</div>
-            <div className="stat-value">100 HZN</div>
+            <div className="stat-value">100 TKN</div>
             <div className="stat-sub">Initial balance per account</div>
           </div>
         </div>
@@ -71,7 +71,7 @@ export const ContributorsTab: React.FC = () => {
           </div>
           <div className="kpi-content">
             <div className="stat-label">Locked Escrow Stakes</div>
-            <div className="stat-value">20 HZN</div>
+            <div className="stat-value">20 TKN</div>
             <div className="stat-sub">Committed to active tasks</div>
           </div>
         </div>
@@ -117,12 +117,12 @@ export const ContributorsTab: React.FC = () => {
                 </td>
                 <td>
                   <span style={{ fontWeight: 700, color: 'var(--accent-orange-text)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {c.available_tokens} HZN
+                    {c.available_tokens} TKN
                   </span>
                 </td>
                 <td>
                   <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {c.locked_tokens} HZN
+                    {c.locked_tokens} TKN
                   </span>
                 </td>
                 <td>

@@ -61,3 +61,57 @@ def admin_update_task(
     """Update task parameters or toggle publication status (e.g. status='published')."""
     task = update_task_record(db, task_id, payload)
     return get_task_details(db, task.id)
+
+
+stats_router = APIRouter(prefix="/admin", tags=["Admin System"])
+
+
+@stats_router.get("/stats")
+def admin_get_system_stats(
+    db: Session = Depends(get_db),
+):
+    """
+    Get live system metrics aggregated from real Supabase database:
+    - total tasks, active/published tasks
+    - submissions breakdown: pending, awaiting review, approved, rejected, flagged
+    - active contributors count
+    - circulating token volume
+    """
+    from app.database.models.task import Task
+    from app.database.models.submission import Submission
+    from app.database.models.verification import Verification
+    from app.database.models.user import User
+    from app.database.models.token import TokenAccount
+    from sqlalchemy import func
+
+    total_tasks = db.query(Task).count()
+    active_tasks = db.query(Task).filter(Task.status == "published").count()
+
+    total_submissions = db.query(Submission).count()
+    pending_submissions = db.query(Submission).filter(Submission.status.in_(["submitted", "validating", "under_review", "pending"])).count()
+    awaiting_review = db.query(Submission).filter(Submission.status.in_(["submitted", "under_review"])).count()
+    approved_count = db.query(Submission).filter(Submission.status.in_(["approved", "verified"])).count()
+    rejected_count = db.query(Submission).filter(Submission.status == "rejected").count()
+    flagged_count = db.query(Submission).filter(Submission.status == "flagged").count()
+
+    # Also check verification records
+    if approved_count == 0:
+        approved_count = db.query(Verification).filter(Verification.status == "approved").count()
+    if rejected_count == 0:
+        rejected_count = db.query(Verification).filter(Verification.status == "rejected").count()
+
+    total_contributors = db.query(User).filter(User.role == "contributor").count()
+    total_tokens = db.query(func.coalesce(func.sum(TokenAccount.available_balance + TokenAccount.locked_balance), 0)).scalar() or 0
+
+    return {
+        "total_tasks": total_tasks,
+        "active_tasks": active_tasks,
+        "total_submissions": total_submissions,
+        "pending_submissions": pending_submissions,
+        "awaiting_review": awaiting_review,
+        "approved_count": approved_count,
+        "rejected_count": rejected_count,
+        "flagged_count": flagged_count,
+        "total_contributors": total_contributors,
+        "total_tokens_circulating": float(total_tokens),
+    }

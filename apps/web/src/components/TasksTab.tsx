@@ -135,12 +135,12 @@ export const TasksTab: React.FC<TasksTabProps> = ({
                   </td>
                   <td>
                     <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      +{task.base_reward} HZN
+                      +{task.base_reward} TKN
                     </span>
                   </td>
                   <td>
                     <span style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {task.commitment_stake} HZN
+                      {task.commitment_stake} TKN
                     </span>
                   </td>
                   <td>

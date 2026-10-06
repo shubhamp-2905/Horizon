@@ -41,8 +41,23 @@ export interface ReviewQueueItem {
   status: 'awaiting_review' | 'flagged' | 'pending';
 }
 
+export interface SystemStats {
+  total_tasks: number;
+  active_tasks: number;
+  total_submissions: number;
+  pending_submissions: number;
+  awaiting_review: number;
+  approved_count: number;
+  rejected_count: number;
+  flagged_count: number;
+  total_contributors: number;
+  total_tokens_circulating: number;
+}
+
 interface OverviewTabProps {
   tasks: AdminTaskItem[];
+  stats?: SystemStats | null;
+  reviewQueue?: ReviewQueueItem[];
   onNavigateToTasks: () => void;
   onNavigateToSubmissions: () => void;
   onOpenCreateTask: () => void;
@@ -51,44 +66,10 @@ interface OverviewTabProps {
   onInspectSubmission?: (submissionId: string) => void;
 }
 
-const DEFAULT_REVIEW_QUEUE: ReviewQueueItem[] = [
-  {
-    id: 'sub_8f4a23c5_bc5e',
-    task_title: 'Community Water Source Survey',
-    contributor: 'scout_alex',
-    location: '18.5204, 73.8567',
-    gps_accuracy: '±6.8m',
-    submitted: '14 min ago',
-    community_result: 'Quorum Met (3/3 Accept)',
-    community_votes: { approve: 3, reject: 0, flag: 0, quorum: 3 },
-    status: 'awaiting_review',
-  },
-  {
-    id: 'sub_3d79e1b2_49fa',
-    task_title: 'Rooftop Solar Array Inspection',
-    contributor: 'scout_elena',
-    location: '18.5312, 73.8445',
-    gps_accuracy: '±4.2m',
-    submitted: '42 min ago',
-    community_result: 'Quorum Met (2/2 Accept, 1 Warn)',
-    community_votes: { approve: 2, reject: 0, flag: 1, quorum: 2 },
-    status: 'awaiting_review',
-  },
-  {
-    id: 'sub_e41b892a_90f1',
-    task_title: 'Urban Flood Drainage Channel',
-    contributor: 'scout_field_test',
-    location: '18.5280, 73.8610',
-    gps_accuracy: '±142.0m',
-    submitted: '2 hours ago',
-    community_result: 'Flagged (Excessive GPS Drift)',
-    community_votes: { approve: 0, reject: 1, flag: 2, quorum: 2 },
-    status: 'flagged',
-  },
-];
-
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   tasks,
+  stats,
+  reviewQueue,
   onNavigateToTasks,
   onNavigateToSubmissions,
   onOpenCreateTask,
@@ -97,13 +78,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onInspectSubmission,
 }) => {
   const activeTasks = tasks.filter((t) => t.status === 'published');
+  const activeTasksCount = stats ? stats.active_tasks : activeTasks.length;
 
-  // Operational metrics answering "What requires my attention right now?"
-  const pendingSubmissions = 7;
-  const awaitingFinalReview = 3;
-  const approvedCount = 142;
-  const rejectedCount = 8;
-  const flaggedCount = 2;
+  // Real operational metrics directly from Supabase / API
+  const pendingSubmissions = stats ? stats.pending_submissions : (reviewQueue ? reviewQueue.length : 0);
+  const awaitingFinalReview = stats ? stats.awaiting_review : (reviewQueue ? reviewQueue.filter((r) => r.status === 'awaiting_review').length : 0);
+  const approvedCount = stats ? stats.approved_count : 0;
+  const rejectedCount = stats ? stats.rejected_count : 0;
+  const flaggedCount = stats ? stats.flagged_count : 0;
+
+  const currentQueue = reviewQueue || [];
 
   return (
     <div>
@@ -212,59 +196,67 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </tr>
             </thead>
             <tbody>
-              {DEFAULT_REVIEW_QUEUE.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="table-cell-title">{item.task_title}</div>
-                    <div className="table-cell-desc font-mono">{item.id}</div>
-                  </td>
-                  <td>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--text-primary)' }}>
-                      @{item.contributor}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{item.location}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>GPS: {item.gps_accuracy}</div>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.submitted}</span>
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: item.status === 'flagged' ? 'var(--status-warning-text)' : 'var(--accent-emerald-text)',
-                      }}
-                    >
-                      {item.community_result}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${item.status === 'flagged' ? 'status-pill-warning' : 'status-pill-pending'}`}>
-                      <span className="badge-dot" />
-                      {item.status === 'flagged' ? 'Flagged' : 'Awaiting Review'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => {
-                        if (onInspectSubmission) {
-                          onInspectSubmission(item.id);
-                        } else {
-                          onNavigateToSubmissions();
-                        }
-                      }}
-                    >
-                      <span>Inspect &amp; Decide</span>
-                      <ArrowRightIcon size={12} />
-                    </button>
+              {currentQueue.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                    No field submissions currently awaiting administrator review. All field submissions are up to date.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                currentQueue.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="table-cell-title">{item.task_title}</div>
+                      <div className="table-cell-desc font-mono">{item.id}</div>
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--text-primary)' }}>
+                        @{item.contributor}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{item.location}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>GPS: {item.gps_accuracy}</div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.submitted}</span>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: item.status === 'flagged' ? 'var(--status-warning-text)' : 'var(--accent-emerald-text)',
+                        }}
+                      >
+                        {item.community_result}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-pill ${item.status === 'flagged' ? 'status-pill-warning' : 'status-pill-pending'}`}>
+                        <span className="badge-dot" />
+                        {item.status === 'flagged' ? 'Flagged' : 'Awaiting Review'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          if (onInspectSubmission) {
+                            onInspectSubmission(item.id);
+                          } else {
+                            onNavigateToSubmissions();
+                          }
+                        }}
+                      >
+                        <span>Inspect &amp; Decide</span>
+                        <ArrowRightIcon size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -324,7 +316,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </td>
                 <td>
                   <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    +{task.base_reward} HZN
+                    +{task.base_reward} TKN
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'JetBrains Mono, monospace' }}>
                     ({task.commitment_stake} stake)
