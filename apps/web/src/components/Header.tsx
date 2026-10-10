@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { AdminTab } from './Sidebar';
 import { RefreshCwIcon, PlusIcon, CompassIcon } from './Icons';
 
@@ -19,32 +19,6 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadPresetClick,
   loading,
 }) => {
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('horizon_admin_theme');
-      const current = (stored === 'light' || stored === 'dark')
-        ? stored
-        : (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'light';
-      setTheme(current);
-      document.documentElement.setAttribute('data-theme', current);
-    } catch {
-      // Default to light
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    try {
-      localStorage.setItem('horizon_admin_theme', nextTheme);
-    } catch {
-      // Ignore write errors
-    }
-  };
-
   const getTabTitle = () => {
     switch (currentTab) {
       case 'overview':
@@ -62,53 +36,64 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const getTabSubtitle = () => {
+    switch (currentTab) {
+      case 'overview':
+        return 'Welcome back, Operations Administrator 👋';
+      case 'tasks':
+        return 'Manage and monitor all active PostGIS ground-truth waypoints';
+      case 'submissions':
+        return 'Review real-time geospatial submissions from field scouts';
+      case 'review':
+        return 'Multi-layer consensus verification queue and dispute resolution';
+      case 'pipeline':
+        return 'Loupe analytics dataset packaging and ETL export feeds';
+      case 'settings':
+        return 'Cryptographic key parameters, API status, and access controls';
+    }
+  };
+
   return (
     <header className="top-header">
       <div className="header-left">
-        <h1 className="header-title">{getTabTitle()}</h1>
-        <span className="header-tag">Production Live</span>
+        <div>
+          <h1 className="header-title">{getTabTitle()}</h1>
+          <p className="header-subtitle">{getTabSubtitle()}</p>
+        </div>
       </div>
 
       <div className="header-actions">
-        {/* Dark / Light Theme Toggle */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="btn btn-secondary btn-sm"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          style={{ minWidth: '78px', justifyContent: 'center' }}
-        >
-          {theme === 'dark' ? '☀ Light' : '☾ Dark'}
-        </button>
-
+        {/* Refresh / Sync Action Button with high-contrast text */}
         <button
           type="button"
           onClick={onRefreshClick}
-          className="btn btn-secondary btn-sm"
+          className="header-btn header-btn-secondary"
           disabled={loading}
           title="Query latest state from PostGIS and Consensus Engine"
         >
-          <RefreshCwIcon size={14} className={loading ? 'animate-spin' : ''} />
-          <span>{loading ? 'Syncing...' : 'Refresh'}</span>
+          <RefreshCwIcon size={14} className={loading ? 'animate-spin' : ''} color="#344054" />
+          <span className="header-btn-text">{loading ? 'Syncing...' : 'Sync State'}</span>
         </button>
 
+        {/* Load Spatial Preset Button with high-contrast text */}
         <button
           type="button"
           onClick={onLoadPresetClick}
-          className="btn btn-secondary btn-sm"
+          className="header-btn header-btn-secondary"
           title="Pre-populate task builder with validated spatial preset"
         >
-          <CompassIcon size={14} color="var(--accent-brand)" />
-          <span>Load Preset</span>
+          <CompassIcon size={14} color="#15803D" />
+          <span className="header-btn-text">Load Preset</span>
         </button>
 
+        {/* Create Task Button — Solid Emerald Green CTA */}
         <button
           type="button"
           onClick={onCreateTaskClick}
-          className="btn btn-primary btn-sm"
+          className="header-btn header-btn-primary"
         >
-          <PlusIcon size={15} />
-          <span>Create Task</span>
+          <PlusIcon size={15} color="#FFFFFF" />
+          <span>+ Create Task</span>
         </button>
       </div>
     </header>

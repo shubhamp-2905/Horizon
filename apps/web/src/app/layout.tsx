@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#072418',
+  themeColor: '#FFFFFF',
 };
 
 export default function RootLayout({
@@ -30,8 +30,8 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var theme = localStorage.getItem('horizon_admin_theme') || 'light';
-                  document.documentElement.setAttribute('data-theme', theme);
+                  localStorage.removeItem('horizon_admin_theme');
+                  document.documentElement.setAttribute('data-theme', 'light');
                 } catch (e) {}
               })();
             `,

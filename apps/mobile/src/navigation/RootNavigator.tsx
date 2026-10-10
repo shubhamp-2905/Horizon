@@ -137,22 +137,6 @@ export const RootNavigator: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Theme Switcher Toggle */}
-          <TouchableOpacity
-            style={[
-              styles.themeToggleBtn,
-              {
-                backgroundColor: theme.surfaceSubtle,
-                borderColor: theme.border,
-              },
-            ]}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.themeToggleText, { color: theme.textSecondary }]}>
-              {isDark ? '☀' : '☾'}
-            </Text>
-          </TouchableOpacity>
 
           {/* Exit Button */}
           <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn} activeOpacity={0.7}>

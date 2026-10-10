@@ -93,15 +93,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <div>
       {/* 6 Essential Operational Metric Cards */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-        <div className="kpi-card kpi-card-featured">
-          <div className="kpi-icon-wrap kpi-icon-featured">
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap kpi-icon-emerald">
             <ClockIcon size={18} />
           </div>
           <div className="kpi-content">
             <div className="stat-label">Pending Submissions</div>
             <div className="stat-value">{pendingSubmissions}</div>
             <div className="stat-sub">
-              <span className="stat-trend-tag">+ In intake &amp; review</span>
+              <span className="stat-trend-tag">↑ In intake &amp; review</span>
             </div>
           </div>
         </div>

@@ -2,7 +2,6 @@
 
 import React from 'react';
 import {
-  LogoMark,
   CompassIcon,
   LayersIcon,
   CheckCircle2Icon,
@@ -37,16 +36,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className="app-sidebar">
-      {/* Brand Header */}
+      {/* Brand Header: Logo removed, only Horizon bold + Admin Dashboard below */}
       <div className="sidebar-header">
-        <div className="brand-badge">
-          <div className="brand-logo-mark">
-            <LogoMark size={20} />
-          </div>
-          <div>
-            <div className="brand-name">HORIZON</div>
-            <div className="brand-version">Operations Console</div>
-          </div>
+        <div className="brand-header-group">
+          <div className="brand-title-bold">Horizon</div>
+          <div className="brand-subtitle-text">Admin Dashboard</div>
         </div>
       </div>
 
@@ -61,14 +55,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <CompassIcon size={16} />
+              <CompassIcon size={18} />
             </span>
             <span>Dashboard</span>
           </span>
         </button>
 
         {/* OPERATIONS */}
-        <div className="nav-section-title" style={{ marginTop: '14px' }}>
+        <div className="nav-section-title" style={{ marginTop: '16px' }}>
           Operations
         </div>
         <button
@@ -78,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <LayersIcon size={16} />
+              <LayersIcon size={18} />
             </span>
             <span>Tasks</span>
           </span>
@@ -92,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <EyeIcon size={16} />
+              <EyeIcon size={18} />
             </span>
             <span>Submissions</span>
           </span>
@@ -105,14 +99,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <CheckCircle2Icon size={16} />
+              <CheckCircle2Icon size={18} />
             </span>
             <span>Reviews</span>
           </span>
         </button>
 
         {/* VERIFIED */}
-        <div className="nav-section-title" style={{ marginTop: '14px' }}>
+        <div className="nav-section-title" style={{ marginTop: '16px' }}>
           Verified
         </div>
         <button
@@ -122,14 +116,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <SatelliteIcon size={16} />
+              <SatelliteIcon size={18} />
             </span>
             <span>Verified Data</span>
           </span>
         </button>
 
         {/* SYSTEM */}
-        <div className="nav-section-title" style={{ marginTop: '14px' }}>
+        <div className="nav-section-title" style={{ marginTop: '16px' }}>
           System
         </div>
         <button
@@ -139,12 +133,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <span className="nav-link-left">
             <span className="nav-icon">
-              <SlidersIcon size={16} />
+              <SlidersIcon size={18} />
             </span>
             <span>Settings</span>
           </span>
         </button>
       </nav>
+
+      {/* Need Help Card (from target design) */}
+      <div className="sidebar-help-card-wrap">
+        <div className="sidebar-help-card">
+          <div className="help-icon-circle">
+            <span style={{ fontSize: '18px', color: '#15803D' }}>⚡</span>
+          </div>
+          <div className="help-card-title">Need Help?</div>
+          <div className="help-card-desc">
+            Check our verification docs or contact protocol operations.
+          </div>
+          <button
+            type="button"
+            className="help-card-btn"
+            onClick={() => onSelectTab('settings')}
+          >
+            Operational Specs
+          </button>
+        </div>
+      </div>
 
       {/* Footer with Operational Status and Sign Out */}
       <div className="sidebar-footer">
@@ -153,11 +167,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span>{apiConnected ? 'PostGIS Active (:4000)' : 'Connecting to API...'}</span>
         </div>
         <div className="admin-profile-pill" style={{ justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="admin-avatar">OP</div>
             <div className="admin-info">
               <span className="admin-name">Admin</span>
-              <span className="admin-role">Operations</span>
+              <span className="admin-role">Operations Manager</span>
             </div>
           </div>
           {onSignOut && (
@@ -167,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--text-muted)',
+                color: '#64748B',
                 cursor: 'pointer',
                 padding: '4px',
                 display: 'flex',

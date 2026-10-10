@@ -57,19 +57,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({
               FIELD CONTRIBUTOR
             </Text>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.themeToggleBtn,
-              { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-            ]}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-            accessibilityLabel="Toggle dark/light theme"
-          >
-            <Text style={[styles.themeToggleText, { color: theme.textSecondary }]}>
-              {isDark ? '☀ Light' : '☾ Dark'}
-            </Text>
-          </TouchableOpacity>
+
         </View>
 
         {/* Hero Section */}
