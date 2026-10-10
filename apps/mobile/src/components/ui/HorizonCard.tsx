@@ -54,8 +54,8 @@ export const HorizonCard: React.FC<HorizonCardProps> = ({
         styles.baseCard,
         {
           borderColor: theme.border,
-          shadowColor: isDark ? '#000000' : '#4C1D95',
-          shadowOpacity: isDark ? 0.35 : 0.08,
+          shadowColor: '#000000',
+          shadowOpacity: isDark ? 0.3 : 0.04,
         },
         getVariantStyle(),
         style,

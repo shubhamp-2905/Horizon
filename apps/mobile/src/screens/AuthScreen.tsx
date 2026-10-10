@@ -180,7 +180,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               {
                 backgroundColor: theme.purpleMuted,
                 borderColor: theme.borderHighlight,
-                shadowColor: theme.secondaryPurple,
+                shadowColor: '#000000',
               },
             ]}
           >

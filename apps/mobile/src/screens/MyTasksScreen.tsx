@@ -143,7 +143,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
             activeTab === 'active' && {
               backgroundColor: theme.card,
               borderColor: theme.primary,
-              shadowColor: isDark ? '#000000' : '#4C1D95',
+              shadowColor: '#000000',
             },
           ]}
           onPress={() => setActiveTab('active')}
@@ -167,7 +167,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
             activeTab === 'completed' && {
               backgroundColor: theme.card,
               borderColor: theme.primary,
-              shadowColor: isDark ? '#000000' : '#4C1D95',
+              shadowColor: '#000000',
             },
           ]}
           onPress={() => setActiveTab('completed')}
@@ -191,7 +191,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
             activeTab === 'history' && {
               backgroundColor: theme.card,
               borderColor: theme.primary,
-              shadowColor: isDark ? '#000000' : '#4C1D95',
+              shadowColor: '#000000',
             },
           ]}
           onPress={() => setActiveTab('history')}
@@ -242,7 +242,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                   {
                     backgroundColor: theme.card,
                     borderColor: theme.border,
-                    shadowColor: isDark ? '#000000' : '#4C1D95',
+                    shadowColor: '#000000',
                   },
                 ]}
                 activeOpacity={0.75}
@@ -342,7 +342,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                 {
                   backgroundColor: theme.card,
                   borderColor: theme.border,
-                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                  shadowColor: '#000000',
                 },
               ]}
             >
@@ -371,7 +371,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                 {
                   backgroundColor: theme.card,
                   borderColor: theme.border,
-                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                  shadowColor: '#000000',
                 },
               ]}
             >

@@ -16,17 +16,17 @@ interface ThemeContextType {
 const THEME_STORAGE_KEY = '@horizon_theme_mode';
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: darkTheme,
-  mode: 'dark',
-  isDark: true,
+  theme: lightTheme,
+  mode: 'light',
+  isDark: false,
   setMode: async () => {},
   toggleTheme: async () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setModeState] = useState<ThemeMode>('dark');
+  const [mode, setModeState] = useState<ThemeMode>('light');
   const [systemScheme, setSystemScheme] = useState<ColorSchemeName>(
-    Appearance.getColorScheme?.() || 'dark'
+    Appearance.getColorScheme?.() || 'light'
   );
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setModeState(saved);
         }
       } catch {
-        // Fall back to default
+        // Fall back to light default
       }
     };
     loadPersistedTheme();
@@ -50,7 +50,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => subscription.remove();
   }, []);
 
-  const isDark = mode === 'system' ? systemScheme !== 'light' : mode === 'dark';
+  const isDark = mode === 'system' ? systemScheme === 'dark' : mode === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
 
   const setMode = async (newMode: ThemeMode) => {

@@ -161,7 +161,7 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
           {
             backgroundColor: theme.card,
             borderColor: theme.border,
-            shadowColor: isDark ? '#000000' : '#4C1D95',
+            shadowColor: '#000000',
           },
         ]}
       >

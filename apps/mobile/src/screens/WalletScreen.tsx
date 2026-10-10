@@ -151,7 +151,7 @@ export const WalletScreen: React.FC = () => {
                 {
                   backgroundColor: theme.surfaceCard,
                   borderColor: theme.borderHighlight,
-                  shadowColor: theme.secondaryPurple,
+                  shadowColor: '#000000',
                 },
               ]}
             >

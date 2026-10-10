@@ -58,14 +58,14 @@ export const HorizonButton: React.FC<HorizonButtonProps> = ({
       case 'primary':
       default:
         return {
-          backgroundColor: theme.primaryPurple,
+          backgroundColor: theme.primary,
           borderWidth: 1,
           borderColor: theme.deepViolet,
-          shadowColor: theme.secondaryPurple,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.35,
-          shadowRadius: 8,
-          elevation: 3,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.10,
+          shadowRadius: 4,
+          elevation: 2,
         };
     }
   };

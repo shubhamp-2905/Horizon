@@ -476,7 +476,7 @@ export default function AdminPage() {
               <div className="stat-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <ShieldCheckIcon size={18} color="var(--cyan-glow)" />
-                  <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>
+                  <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
                     Change Administrator Password
                   </h2>
                 </div>
@@ -554,7 +554,7 @@ export default function AdminPage() {
 
               {/* Administrative Parameters */}
               <div className="stat-card">
-                <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px', color: '#ffffff' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
                   Operational Parameters
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>

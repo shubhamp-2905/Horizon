@@ -80,7 +80,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({
               {
                 backgroundColor: theme.purpleMuted,
                 borderColor: theme.borderHighlight,
-                shadowColor: theme.secondaryPurple,
+                shadowColor: '#000000',
               },
             ]}
           >

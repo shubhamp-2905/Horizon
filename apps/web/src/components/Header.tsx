@@ -19,18 +19,18 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadPresetClick,
   loading,
 }) => {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem('horizon_admin_theme');
       const current = (stored === 'light' || stored === 'dark')
         ? stored
-        : (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark';
+        : (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'light';
       setTheme(current);
       document.documentElement.setAttribute('data-theme', current);
     } catch {
-      // Default to dark
+      // Default to light
     }
   }, []);
 

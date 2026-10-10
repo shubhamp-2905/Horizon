@@ -109,7 +109,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
           {
             backgroundColor: theme.card,
             borderColor: theme.border,
-            shadowColor: isDark ? '#000000' : '#4C1D95',
+            shadowColor: '#000000',
           },
         ]}
       >
@@ -265,7 +265,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
           {
             backgroundColor: theme.card,
             borderColor: theme.border,
-            shadowColor: isDark ? '#000000' : '#4C1D95',
+            shadowColor: '#000000',
           },
         ]}
       >
@@ -329,7 +329,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
               {
                 backgroundColor: theme.card,
                 borderColor: theme.borderLight,
-                shadowColor: isDark ? '#000000' : '#4C1D95',
+                shadowColor: '#000000',
               },
             ]}
           >

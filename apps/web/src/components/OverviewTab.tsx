@@ -93,24 +93,26 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <div>
       {/* 6 Essential Operational Metric Cards */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-        <div className="kpi-card">
-          <div className="kpi-icon-wrap kpi-icon-blue">
+        <div className="kpi-card kpi-card-featured">
+          <div className="kpi-icon-wrap kpi-icon-featured">
             <ClockIcon size={18} />
           </div>
           <div className="kpi-content">
             <div className="stat-label">Pending Submissions</div>
             <div className="stat-value">{pendingSubmissions}</div>
-            <div className="stat-sub">In intake &amp; review</div>
+            <div className="stat-sub">
+              <span className="stat-trend-tag">+ In intake &amp; review</span>
+            </div>
           </div>
         </div>
 
-        <div className="kpi-card" style={{ borderColor: 'var(--border-highlight)' }}>
+        <div className="kpi-card">
           <div className="kpi-icon-wrap kpi-icon-blue">
             <EyeIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label" style={{ color: 'var(--cyan-glow)' }}>Awaiting Review</div>
-            <div className="stat-value" style={{ color: '#ffffff' }}>{awaitingFinalReview}</div>
+            <div className="stat-label">Awaiting Review</div>
+            <div className="stat-value">{awaitingFinalReview}</div>
             <div className="stat-sub">Community quorum met</div>
           </div>
         </div>
@@ -165,7 +167,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className="work-queue-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>Requires Review</h2>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>Requires Review</h2>
               <span className="work-queue-badge">{awaitingFinalReview} Actionable</span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>

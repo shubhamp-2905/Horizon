@@ -258,7 +258,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {
             backgroundColor: theme.surfaceCard,
             borderColor: theme.border,
-            shadowColor: theme.secondaryPurple,
+            shadowColor: '#000000',
           },
         ]}
       >

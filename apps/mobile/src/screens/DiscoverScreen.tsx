@@ -447,7 +447,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 {
                   backgroundColor: theme.surfaceCard,
                   borderColor: theme.border,
-                  shadowColor: isDark ? '#000000' : '#4C1D95',
+                  shadowColor: '#000000',
                 },
               ]}
             >
