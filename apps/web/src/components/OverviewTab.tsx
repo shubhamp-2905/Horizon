@@ -243,7 +243,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <td style={{ textAlign: 'right' }}>
                       <button
                         type="button"
-                        className="btn btn-primary btn-sm"
+                        className="btn-table-action"
                         onClick={() => {
                           if (onInspectSubmission) {
                             onInspectSubmission(item.id);

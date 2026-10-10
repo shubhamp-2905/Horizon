@@ -100,32 +100,36 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '920px', width: '95%' }}>
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div>
             <h2 className="modal-title">Create Geospatial Task</h2>
+            <div className="modal-subtitle">Configure spatial boundaries, telemetry requirements, and economic rewards</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
               onClick={loadDemoPreset}
               className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Load Demo Preset
+              <span>⚡ Load Spatial Preset</span>
+            </button>
+            <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close modal">
+              ✕
             </button>
           </div>
-          <button type="button" className="modal-close-btn" onClick={onClose}>
-            ✕
-          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ maxHeight: '72vh' }}>
             {validationError && (
               <div style={{
-                background: 'var(--status-error-subtle)',
-                border: '1px solid var(--status-error)',
-                borderRadius: 'var(--radius-md)',
+                background: '#FEF3F2',
+                border: '1px solid #FECDCA',
+                borderRadius: '8px',
                 padding: '10px 14px',
-                color: 'var(--status-error)',
+                color: '#B42318',
                 fontSize: '12px',
                 marginBottom: '16px',
                 fontWeight: 600,
@@ -134,12 +138,15 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px' }}>
-              {/* Left Column: Form Fields */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '28px', alignItems: 'start' }}>
+              {/* Left Column: Structured Form Sections */}
               <div>
                 {/* 1. Basic Information */}
                 <div className="form-section">
-                  <div className="form-section-title">1. Basic Information</div>
+                  <div className="form-section-title">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>1</span>
+                    <span>Basic Information</span>
+                  </div>
                   <div className="form-group">
                     <label className="form-label">Task Title</label>
                     <input
@@ -159,6 +166,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       placeholder="Specify observation goals, required accuracy, and target feature details..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      rows={3}
                     />
                   </div>
 
@@ -181,9 +189,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                 {/* 2. Location & Geographic Scope */}
                 <div className="form-section">
-                  <div className="form-section-title">2. Location & Spatial Scope (WGS84)</div>
-                  <div className="form-grid">
-                    <div className="form-group">
+                  <div className="form-section-title">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>2</span>
+                    <span>Location &amp; Spatial Scope (WGS84)</span>
+                  </div>
+                  <div className="form-grid" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Latitude</label>
                       <input
                         type="text"
@@ -193,7 +204,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         placeholder="18.5204"
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Longitude</label>
                       <input
                         type="text"
@@ -204,7 +215,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       />
                     </div>
                   </div>
-                  <div className="form-group">
+                  <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Geographic Scope</label>
                     <input
                       type="text"
@@ -217,7 +228,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                 {/* 3. Task Requirements */}
                 <div className="form-section">
-                  <div className="form-section-title">3. Task Requirements</div>
+                  <div className="form-section-title">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>3</span>
+                    <span>Task Requirements</span>
+                  </div>
                   <div className="form-group">
                     <label className="form-label">Required Evidence (one per line)</label>
                     <textarea
@@ -228,7 +242,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     />
                   </div>
                   <div className="form-grid">
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Required Form Fields</label>
                       <input
                         type="text"
@@ -237,7 +251,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         onChange={(e) => setRequiredFields(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Media Requirements</label>
                       <input
                         type="text"
@@ -249,11 +263,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Economics & Stake */}
+                {/* 4. Economics & Escrow Stake */}
                 <div className="form-section">
-                  <div className="form-section-title">4. Economics & Escrow Stake</div>
-                  <div className="form-grid">
-                    <div className="form-group">
+                  <div className="form-section-title">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>4</span>
+                    <span>Economics &amp; Escrow Stake</span>
+                  </div>
+                  <div className="form-grid" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Base Reward (Tokens)</label>
                       <input
                         type="number"
@@ -262,7 +279,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         onChange={(e) => setBaseReward(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Commitment Stake (Tokens)</label>
                       <input
                         type="number"
@@ -272,8 +289,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       />
                     </div>
                   </div>
-                  <div className="form-grid">
-                    <div className="form-group">
+                  <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Difficulty Factor</label>
                       <input
                         type="text"
@@ -282,7 +299,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         onChange={(e) => setDifficulty(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Scarcity Multiplier</label>
                       <input
                         type="text"
@@ -291,7 +308,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         onChange={(e) => setScarcity(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Estimated Effort (min)</label>
                       <input
                         type="number"
@@ -305,74 +322,118 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                 {/* 5. Publishing Status */}
                 <div className="form-section" style={{ marginBottom: 0 }}>
-                  <div className="form-section-title">5. Publishing State</div>
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                  <div className="form-section-title">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>5</span>
+                    <span>Publishing State</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: status === 'published' ? '1.5px solid #15803D' : '1px solid #D0D5DD',
+                        background: status === 'published' ? '#F0FDF4' : '#FFFFFF',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
                       <input
                         type="radio"
                         name="status"
                         checked={status === 'published'}
                         onChange={() => setStatus('published')}
+                        style={{ accentColor: '#15803D' }}
                       />
-                      <span style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>
-                        Published (Immediately open for contributor discovery)
-                      </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '13px', color: status === 'published' ? '#15803D' : '#344054' }}>
+                          Published
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748B' }}>
+                          Open for contributor discovery
+                        </div>
+                      </div>
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: status === 'draft' ? '1.5px solid #475467' : '1px solid #D0D5DD',
+                        background: status === 'draft' ? '#F8F9FA' : '#FFFFFF',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
                       <input
                         type="radio"
                         name="status"
                         checked={status === 'draft'}
                         onChange={() => setStatus('draft')}
+                        style={{ accentColor: '#475467' }}
                       />
-                      <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
-                        Draft (Saved internally)
-                      </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '13px', color: status === 'draft' ? '#101828' : '#344054' }}>
+                          Draft
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748B' }}>
+                          Saved internally, hidden from scouts
+                        </div>
+                      </div>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Live Mobile Preview */}
-              <div>
+              {/* Right Column: Live Mobile Preview Card */}
+              <div className="preview-card-wrap">
                 <div className="preview-tag">LIVE CONTRIBUTOR MOBILE PREVIEW</div>
                 <div className="preview-box">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span className="badge-artifact">
                       {artifactType.replace(/_/g, ' ').toUpperCase()}
                     </span>
-                    <span style={{ fontSize: '11px', color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '11px', color: '#15803D', fontWeight: 700 }}>
                       Proximity Ready · ~{effortMinutes || 25} min
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#101828', marginBottom: '8px', lineHeight: 1.3 }}>
                     {title || 'Untitled Geospatial Task'}
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#475467', lineHeight: 1.5, marginBottom: '14px' }}>
                     {description || 'Task description summary will be displayed here to field contributors.'}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <span className="badge-token">+{baseReward || 150} TOKENS</span>
-                      <span className="badge-stake">{commitmentStake || 20} STAKE</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid #F2F4F7' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: '#ECFDF5', color: '#027A48', border: '1px solid #A6F4C5' }}>
+                        +{baseReward || 150} TOKENS
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: '#FFFDF0', color: '#B54708', border: '1px solid #FEDF89' }}>
+                        {commitmentStake || 20} STAKE
+                      </span>
                     </div>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
                       Diff · {parseFloat(difficulty) <= 1.5 ? 'Easy' : parseFloat(difficulty) <= 2.5 ? 'Medium' : 'Hard'}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '6px', letterSpacing: '0.8px' }}>
+                <div style={{ marginTop: '16px', padding: '16px', background: '#F8F9FA', borderRadius: '12px', border: '1px solid #EAECF0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#475467', marginBottom: '6px', letterSpacing: '0.8px' }}>
                     SPATIAL SPECIFICATION
                   </div>
-                  <div style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+                  <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#101828', wordBreak: 'break-all' }}>
                     PostGIS: POINT({longitude} {latitude})
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
                     SRID: 4326 (WGS84 Ellipsoid)
                   </div>
                 </div>

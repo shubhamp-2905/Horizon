@@ -973,8 +973,32 @@ body {
 /* ==============================================================================
    FORM CONTROLS & MODALS
    ============================================================================== */
+.form-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #EAECF0;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .form-group {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .form-label {
@@ -985,28 +1009,82 @@ body {
   margin-bottom: 6px;
 }
 
-.form-input {
+.form-input,
+.form-input-text,
+.form-select,
+.form-textarea {
   width: 100%;
   background: #FFFFFF;
   border: 1px solid #D0D5DD;
   border-radius: 8px;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 13px;
   color: #101828;
   outline: none;
   transition: all 0.15s ease;
   font-family: inherit;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
-.form-input:focus {
+.form-input:focus,
+.form-input-text:focus,
+.form-select:focus,
+.form-textarea:focus {
   border-color: #15803D;
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
+}
+
+.form-input::placeholder,
+.form-input-text::placeholder,
+.form-textarea::placeholder {
+  color: #98A2B3;
+}
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.btn-table-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #15803D;
+  color: #FFFFFF !important;
+  border: 1px solid #15803D;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.btn-table-action:hover {
+  background: #166534;
+  border-color: #166534;
 }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(16, 24, 40, 0.45);
+  background: rgba(16, 24, 40, 0.5);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -1015,32 +1093,143 @@ body {
   z-index: 200;
 }
 
-.modal-content {
+.modal-content,
+.modal-card {
   background: #FFFFFF;
   border: 1px solid #EAECF0;
   border-radius: 18px;
   max-width: 640px;
   width: 100%;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-modal);
-  padding: 28px;
+  box-shadow: 0 20px 40px -15px rgba(16, 24, 40, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #F2F4F7;
+  padding: 20px 24px;
+  border-bottom: 1px solid #EAECF0;
+  background: #FFFFFF;
 }
 
 .modal-title {
   font-size: 18px;
   font-weight: 800;
   color: #101828;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.modal-close-btn {
+  background: #F8F9FA;
+  border: 1px solid #EAECF0;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  background: #F2F4F7;
+  color: #101828;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #EAECF0;
+  background: #F9FAFB;
+}
+
+/* Contributor Mobile Preview Box */
+.preview-card-wrap {
+  position: sticky;
+  top: 0;
+}
+
+.preview-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #64748B;
+  margin-bottom: 10px;
+}
+
+.preview-box {
+  background: #FFFFFF;
+  border: 1px solid #E4E7EC;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
+}
+
+/* Submission Inspection Modular Cards */
+.sub-inspector-card {
+  background: #FFFFFF;
+  border: 1px solid #EAECF0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.03);
+}
+
+.sub-inspector-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #F2F4F7;
+}
+
+.sub-inspector-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub-audit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #F9FAFB;
+  border: 1px solid #EAECF0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.sub-audit-row:last-child {
+  margin-bottom: 0;
 }
 
 /* Admin Login Layout */
