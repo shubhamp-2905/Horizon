@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -62,18 +63,11 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({
 
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <View
-            style={[
-              styles.logoCircle,
-              {
-                backgroundColor: theme.purpleMuted,
-                borderColor: theme.borderHighlight,
-                shadowColor: '#000000',
-              },
-            ]}
-          >
-            <Text style={[styles.logoSymbol, { color: theme.electricPurple }]}>◈</Text>
-          </View>
+          <Image
+            source={require('../assets/logo.png')}
+            style={{ width: 88, height: 88, borderRadius: 22, marginBottom: 16 }}
+            resizeMode="cover"
+          />
           <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>Horizon</Text>
           <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
             Ground-Truth Geospatial Data Network

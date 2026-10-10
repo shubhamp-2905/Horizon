@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IntroScreen } from '../screens/IntroScreen';
 import { AuthScreen } from '../screens/AuthScreen';
@@ -98,17 +98,11 @@ export const RootNavigator: React.FC = () => {
         ]}
       >
         <View style={styles.brandGroup}>
-          <View
-            style={[
-              styles.brandIconCircle,
-              {
-                backgroundColor: theme.purpleMuted,
-                borderColor: theme.borderHighlight,
-              },
-            ]}
-          >
-            <Text style={[styles.brandIconText, { color: theme.electricPurple }]}>◈</Text>
-          </View>
+          <Image
+            source={require('../assets/logo.png')}
+            style={{ width: 34, height: 34, borderRadius: 9, marginRight: 10 }}
+            resizeMode="cover"
+          />
           <View>
             <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>HORIZON</Text>
             <Text style={[styles.userName, { color: theme.textMuted }]}>{auth.user.username}</Text>

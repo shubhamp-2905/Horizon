@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -162,18 +163,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
         {/* Brand Header */}
         <View style={styles.brandArea}>
-          <View
-            style={[
-              styles.logoMark,
-              {
-                backgroundColor: theme.purpleMuted,
-                borderColor: theme.borderHighlight,
-                shadowColor: '#000000',
-              },
-            ]}
-          >
-            <Text style={[styles.logoSymbol, { color: theme.electricPurple }]}>◈</Text>
-          </View>
+          <Image
+            source={require('../assets/logo.png')}
+            style={{ width: 72, height: 72, borderRadius: 18, marginBottom: 14 }}
+            resizeMode="cover"
+          />
           <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>Horizon</Text>
           <Text style={[styles.brandSubtitle, { color: theme.textSecondary }]}>
             {isLogin ? 'Sign in to access your contributor workspace' : 'Create an account to start contributing'}

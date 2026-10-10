@@ -90,8 +90,22 @@ export const AdminLogin: React.FC = () => {
 
       <div className="admin-login-card" style={{ position: 'relative', zIndex: 1 }}>
         <div className="admin-login-header">
-          <h1 className="admin-login-title" style={{ fontSize: '26px', fontWeight: 800 }}>Horizon</h1>
-          <p className="admin-login-sub" style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>Admin Dashboard</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '8px' }}>
+            <img
+              src="/logo.png"
+              alt="Horizon Logo"
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '16px',
+                objectFit: 'cover',
+                marginBottom: '14px',
+                boxShadow: '0 4px 16px rgba(21, 128, 61, 0.18)',
+              }}
+            />
+            <h1 className="admin-login-title" style={{ fontSize: '26px', fontWeight: 800 }}>Horizon</h1>
+            <p className="admin-login-sub" style={{ fontSize: '14px', fontWeight: 500, color: '#64748B' }}>Admin Dashboard</p>
+          </div>
         </div>
 
         {errorMsg && (

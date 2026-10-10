@@ -25,14 +25,22 @@ export default function RootPage() {
         style={{
           minHeight: '100vh',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'var(--bg-void)',
-          color: 'var(--text-secondary)',
-          fontSize: '13px',
-          fontFamily: 'JetBrains Mono, monospace',
+          gap: '16px',
+          background: '#F8F9FA',
+          color: '#344054',
+          fontSize: '14px',
+          fontWeight: 600,
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
         }}
       >
+        <img
+          src="/logo.png"
+          alt="Horizon Logo"
+          style={{ width: '60px', height: '60px', borderRadius: '14px', objectFit: 'cover', boxShadow: '0 4px 14px rgba(21, 128, 61, 0.15)' }}
+        />
         <span>Loading Horizon Operations Console...</span>
       </div>
     );

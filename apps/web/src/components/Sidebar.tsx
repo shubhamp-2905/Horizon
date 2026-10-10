@@ -36,11 +36,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className="app-sidebar">
-      {/* Brand Header: Logo removed, only Horizon bold + Admin Dashboard below */}
+      {/* Brand Header: Logo on left of Horizon name + Admin Dashboard below */}
       <div className="sidebar-header">
-        <div className="brand-header-group">
-          <div className="brand-title-bold">Horizon</div>
-          <div className="brand-subtitle-text">Admin Dashboard</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img
+            src="/logo.png"
+            alt="Horizon Logo"
+            style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 6px rgba(21, 128, 61, 0.15)' }}
+          />
+          <div className="brand-header-group">
+            <div className="brand-title-bold">Horizon</div>
+            <div className="brand-subtitle-text">Admin Dashboard</div>
+          </div>
         </div>
       </div>
 
