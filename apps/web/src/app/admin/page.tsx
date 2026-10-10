@@ -77,18 +77,59 @@ export default function AdminPage() {
     router.push('/');
   };
 
+  // Restore cached dashboard data immediately on mount for zero-latency instant rendering
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('horizon_admin_dashboard_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.tasks) && parsed.tasks.length > 0) setTasks(parsed.tasks);
+          if (parsed.stats) setStats(parsed.stats);
+          if (Array.isArray(parsed.reviewQueue) && parsed.reviewQueue.length > 0) setReviewQueue(parsed.reviewQueue);
+        }
+      } catch {
+        // ignore cache parse error
+      }
+    }
+  }, []);
+
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const healthRes = await fetch(`${API_ROOT_URL}/health`).catch(() => null);
-      setApiConnected(!!(healthRes && healthRes.ok));
+      const token = typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null;
+      const authHeaders: Record<string, string> = {};
+      if (token) authHeaders['Authorization'] = `Bearer ${token}`;
 
-      // 1. Fetch real tasks from database
-      const res = await fetch(`${API_BASE_URL}/tasks?page_size=50`).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.tasks) {
-          const mappedTasks: AdminTaskItem[] = data.tasks.map((t: any) => ({
+      // Parallel concurrent execution with 7-second timeout protection
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+      const [healthSettled, tasksSettled, statsSettled, subsSettled] = await Promise.allSettled([
+        fetch(`${API_ROOT_URL}/health`, { signal: controller.signal }),
+        fetch(`${API_BASE_URL}/tasks?page_size=50`, { signal: controller.signal }),
+        fetch(`${API_BASE_URL}/admin/stats`, { signal: controller.signal }),
+        fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers: authHeaders, signal: controller.signal }),
+      ]);
+
+      clearTimeout(timeoutId);
+
+      // Process health
+      if (healthSettled.status === 'fulfilled' && healthSettled.value.ok) {
+        setApiConnected(true);
+      } else {
+        setApiConnected(false);
+      }
+
+      let freshTasks: AdminTaskItem[] = [];
+      let freshStats: SystemStats | null = null;
+      let freshQueue: ReviewQueueItem[] = [];
+
+      // Process tasks in parallel
+      if (tasksSettled.status === 'fulfilled' && tasksSettled.value.ok) {
+        const tData = await tasksSettled.value.json().catch(() => null);
+        if (tData && Array.isArray(tData.tasks)) {
+          freshTasks = tData.tasks.map((t: any) => ({
             id: t.id,
             title: t.title,
             description: t.description || '',
@@ -104,27 +145,24 @@ export default function AdminPage() {
             requirements: t.requirements || ['Geotagged ground observation'],
             created_at: t.created_at || new Date().toISOString(),
           }));
-          setTasks(mappedTasks);
+          setTasks(freshTasks);
         }
       }
 
-      // 2. Fetch real live system operational stats from database
-      const statsRes = await fetch(`${API_BASE_URL}/admin/stats`).catch(() => null);
-      if (statsRes && statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
+      // Process stats in parallel
+      if (statsSettled.status === 'fulfilled' && statsSettled.value.ok) {
+        const sData = await statsSettled.value.json().catch(() => null);
+        if (sData) {
+          freshStats = sData;
+          setStats(sData);
+        }
       }
 
-      // 3. Fetch real review queue submissions from database
-      const subHeaders: Record<string, string> = {};
-      const token = typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null;
-      if (token) subHeaders['Authorization'] = `Bearer ${token}`;
-
-      const subRes = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers: subHeaders }).catch(() => null);
-      if (subRes && subRes.ok) {
-        const subData = await subRes.json();
-        if (subData.submissions) {
-          const queue: ReviewQueueItem[] = subData.submissions.map((s: any) => {
+      // Process submissions in parallel
+      if (subsSettled.status === 'fulfilled' && subsSettled.value.ok) {
+        const subData = await subsSettled.value.json().catch(() => null);
+        if (subData && Array.isArray(subData.submissions)) {
+          freshQueue = subData.submissions.map((s: any) => {
             const contributorName = s.contributor_email ? s.contributor_email.split('@')[0] : (s.user_id ? s.user_id.slice(0, 8) : 'contributor');
             const timeAgo = s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently';
             const isFlagged = s.status === 'flagged';
@@ -140,7 +178,23 @@ export default function AdminPage() {
               status: isFlagged ? 'flagged' : 'awaiting_review',
             };
           });
-          setReviewQueue(queue);
+          setReviewQueue(freshQueue);
+        }
+      }
+
+      // Persist to session cache for ultra-fast subsequent visits
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem(
+            'horizon_admin_dashboard_cache',
+            JSON.stringify({
+              tasks: freshTasks.length > 0 ? freshTasks : undefined,
+              stats: freshStats || undefined,
+              reviewQueue: freshQueue.length > 0 ? freshQueue : undefined,
+            })
+          );
+        } catch {
+          // ignore cache write error
         }
       }
     } catch {

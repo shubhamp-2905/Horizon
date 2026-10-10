@@ -20,6 +20,25 @@ import { SyncStatusBadge } from '../components/ui/SyncStatusBadge';
 import { syncEngine, type SyncEngineState } from '../offline/syncEngine';
 import { taskRepo, claimRepo } from '../offline/repositories';
 
+function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 interface HomeScreenProps {
   onNavigate: (tab: 'discover' | 'tasks' | 'wallet') => void;
   onSelectTask?: (task: TaskResponseDTO) => void;
@@ -31,12 +50,14 @@ interface HomeScreenProps {
     locked_tokens?: number;
     reputation_score?: number;
   } | null;
+  userCoords?: { latitude: number; longitude: number };
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigate,
   onSelectTask,
   user,
+  userCoords = { latitude: 18.5204, longitude: 73.8567 },
 }) => {
   const { theme } = useTheme();
 
@@ -135,7 +156,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       const [walletRes, myTasksRes, discoverRes] = await Promise.allSettled([
         apiClient.getWallet(),
         apiClient.getMyTasks(),
-        apiClient.discoverTasks({ radius: 10000, page_size: 2 }),
+        apiClient.discoverTasks({
+          lat: userCoords.latitude,
+          lng: userCoords.longitude,
+          radius: 50000, // Maximum 50km discovery boundary
+          page_size: 6,
+        }),
       ]);
 
       if (walletRes.status === 'fulfilled') {
@@ -176,8 +202,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       }
 
       if (discoverRes.status === 'fulfilled') {
-        setNearbyTasks(discoverRes.value.tasks || []);
-        taskRepo.cacheTasks(discoverRes.value.tasks || []).catch(() => {});
+        let tasks = discoverRes.value.tasks || [];
+        // Dynamically compute real distance for every task from user's coordinates
+        tasks = tasks.map((t) => {
+          let dist = t.distance_meters;
+          if ((dist === null || dist === undefined) && t.latitude && t.longitude) {
+            dist = calculateDistanceMeters(
+              userCoords.latitude,
+              userCoords.longitude,
+              t.latitude,
+              t.longitude
+            );
+          }
+          return { ...t, distance_meters: dist };
+        });
+
+        // Strictly enforce 50km discovery boundary: no tasks farther than 50km
+        tasks = tasks.filter(
+          (t) => t.distance_meters === null || t.distance_meters === undefined || t.distance_meters <= 50000
+        );
+
+        // Sort closest first
+        tasks.sort((a, b) => (a.distance_meters ?? 0) - (b.distance_meters ?? 0));
+
+        setNearbyTasks(tasks.slice(0, 3));
+        taskRepo.cacheTasks(tasks).catch(() => {});
       } else {
         const cached = await taskRepo.getAllCachedTasks();
         if (cached.length > 0) {
@@ -205,7 +254,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userCoords.latitude, userCoords.longitude]);
 
   useEffect(() => {
     loadDashboardData();
@@ -372,7 +421,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {/* Nearby Tasks Section */}
           <SectionHeader
-            title="Nearby Open Tasks"
+            title="Nearby Open Tasks (within 50km)"
             count={nearbyTasks.length}
             actionText="Discover More"
             onAction={() => onNavigate('discover')}

@@ -31,11 +31,13 @@ const ARTIFACT_CATEGORIES = [
   { label: 'Telecom', value: 'telecom_tower' },
 ];
 
+export const MAX_DISCOVERY_RADIUS_METERS = 50000; // 50 km strict upper bound for geospatial task discovery
+
 const RADII = [
-  { label: '1 km', value: 1000 },
   { label: '5 km', value: 5000 },
-  { label: '10 km', value: 10000 },
-  { label: '25 km', value: 25000 },
+  { label: '15 km', value: 15000 },
+  { label: '30 km', value: 30000 },
+  { label: '50 km (Max)', value: 50000 },
 ];
 
 const DIFFICULTIES = [
@@ -94,7 +96,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   const [tasks, setTasks] = useState<TaskResponseDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [radiusMeters, setRadiusMeters] = useState(10000);
+  const [radiusMeters, setRadiusMeters] = useState(15000);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [selectedDifficultyIdx, setSelectedDifficultyIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
@@ -113,10 +115,12 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           setLoading(true);
         }
         setError(null);
+        // Cap query radius strictly to 50km
+        const effectiveRadius = Math.min(radiusMeters, MAX_DISCOVERY_RADIUS_METERS);
         const res = await apiClient.discoverTasks({
           lat,
           lng,
-          radius: radiusMeters,
+          radius: effectiveRadius,
           artifact_type: selectedCategory,
         });
 
@@ -130,6 +134,17 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           }
           return { ...t, distance_meters: dist };
         });
+
+        // Strictly enforce 50km boundary: user should only see tasks under our range (max 50km)
+        results = results.filter((t) => {
+          if (t.distance_meters !== null && t.distance_meters !== undefined) {
+            return t.distance_meters <= effectiveRadius;
+          }
+          return true;
+        });
+
+        // Proximity sort: nearest tasks appear first
+        results.sort((a, b) => (a.distance_meters ?? 0) - (b.distance_meters ?? 0));
 
         // Filter by difficulty if set
         const diffFilter = DIFFICULTIES[selectedDifficultyIdx];

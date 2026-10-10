@@ -23,6 +23,7 @@ export const RootNavigator: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<Tab>('home');
   const [selectedTask, setSelectedTask] = useState<TaskResponseDTO | null>(null);
   const [availableTokens, setAvailableTokens] = useState<number>(100);
+  const [userCoords] = useState({ latitude: 18.5204, longitude: 73.8567 });
 
   // Restore cached session if available on startup
   useEffect(() => {
@@ -153,9 +154,13 @@ export const RootNavigator: React.FC = () => {
             onNavigate={(tab) => setCurrentTab(tab)}
             onSelectTask={(task) => setSelectedTask(task)}
             user={auth.user}
+            userCoords={userCoords}
           />
         ) : currentTab === 'discover' ? (
-          <DiscoverScreen onSelectTask={(task) => setSelectedTask(task)} />
+          <DiscoverScreen
+            onSelectTask={(task) => setSelectedTask(task)}
+            userCoords={userCoords}
+          />
         ) : currentTab === 'tasks' ? (
           <MyTasksScreen
             onSelectClaimedTask={(task) => setSelectedTask(task)}

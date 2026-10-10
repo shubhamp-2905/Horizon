@@ -57,16 +57,6 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="top-header">
       <div className="header-left">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <img
-              src="/logo.png"
-              alt="Horizon Logo"
-              style={{ width: '16px', height: '16px', borderRadius: '4px', objectFit: 'cover' }}
-            />
-            <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.6px', color: '#15803D', textTransform: 'uppercase' }}>
-              Horizon Protocol
-            </span>
-          </div>
           <h1 className="header-title">{getTabTitle()}</h1>
           <p className="header-subtitle">{getTabSubtitle()}</p>
         </div>

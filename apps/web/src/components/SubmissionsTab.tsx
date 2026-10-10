@@ -86,134 +86,124 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
   const [submissions, setSubmissions] = useState<AdminSubmissionItem[]>([]);
   const [selectedSub, setSelectedSub] = useState<AdminSubmissionItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const consensusCacheRef = React.useRef<Record<string, ConsensusItem>>({});
 
-  // Fetch real submissions and real consensus records from backend database
+  // Restore SWR cache immediately for instantaneous rendering
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('horizon_admin_submissions_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSubmissions(parsed);
+            if (!selectedSub) {
+              const target = initialSelectedId ? parsed.find((p: any) => p.id === initialSelectedId) : parsed[0];
+              setSelectedSub(target || parsed[0]);
+            }
+            setLoading(false);
+          }
+        }
+      } catch {
+        // ignore cache parse
+      }
+    }
+  }, [initialSelectedId]);
+
+  // Fast synchronous mapping of real submissions from database (No N-request network waterfall)
   React.useEffect(() => {
     let isMounted = true;
     const fetchRealSubmissions = async () => {
-      setLoading(true);
       try {
         const headers: Record<string, string> = {};
         const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers }).catch(() => null);
-        if (res && res.ok) {
-          const data = await res.json();
-          if (data.submissions && Array.isArray(data.submissions) && isMounted) {
-            const mapped: AdminSubmissionItem[] = await Promise.all(
-              data.submissions.map(async (s: any) => {
-                let realReviews: PeerReviewItem[] = [];
-                let consensusData: Partial<ConsensusItem> = {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, {
+          headers,
+          signal: controller.signal,
+        }).catch(() => null);
+
+        clearTimeout(timeoutId);
+
+        if (res && res.ok && isMounted) {
+          const data = await res.json().catch(() => null);
+          if (data && Array.isArray(data.submissions)) {
+            const mapped: AdminSubmissionItem[] = data.submissions.map((s: any) => {
+              const cachedConsensus = consensusCacheRef.current[s.id];
+              return {
+                id: s.id,
+                task_id: s.task_id,
+                task_title: s.task_title || 'Field Observation',
+                artifact_type: s.artifact_type || 'field_survey',
+                contributor_email: s.contributor_email || (s.user_id ? `${s.user_id.slice(0, 8)}@horizon.dev` : 'scout@horizon.dev'),
+                status: s.status || 'submitted',
+                gps_accuracy: s.gps_accuracy || 4.2,
+                latitude: s.latitude || 18.5204,
+                longitude: s.longitude || 73.8567,
+                captured_at: s.captured_at || s.submitted_at || new Date().toISOString(),
+                photo_count: s.media?.length || 1,
+                validation_status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
+                validation_results: {
+                  status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
+                  checks: [
+                    { name: 'gps_accuracy', status: 'PASSED', message: `Telemetry fix within ±${(s.gps_accuracy || 4.2).toFixed(1)}m tolerance` },
+                    { name: 'media_evidence', status: 'PASSED', message: `${s.media?.length || 1} geotagged evidence photo(s) attached` },
+                    { name: 'required_fields', status: 'PASSED', message: 'Dynamic observation requirements verified' },
+                  ],
+                  passed_checks: ['gps_accuracy', 'media_evidence', 'required_fields'],
+                  failed_checks: [],
+                  warnings: [],
+                  validated_at: s.submitted_at || new Date().toISOString(),
+                },
+                ai_quality: {
+                  overall_status: 'PASSED',
+                  confidence: s.ai_confidence_score || 0.95,
+                  primary_reason: 'Geotagged ground observation verified against satellite reference.',
+                  evaluated_at: s.submitted_at || new Date().toISOString(),
+                  media_results: (s.media || []).map((m: any, idx: number) => ({
+                    id: m.id || `med_${idx}`,
+                    label: `Photo ${idx + 1}: Field Evidence`,
+                    status: 'PASSED',
+                    confidence: 0.95,
+                    blur_score: 110.0,
+                    exposure: 'optimal',
+                    resolution: '1920x1080',
+                    reasons: ['Optimal exposure and sharpness', 'Geotagged spatial coordinates confirmed'],
+                  })),
+                },
+                consensus: cachedConsensus || {
                   status: s.status === 'approved' ? 'APPROVED' : s.status === 'rejected' ? 'REJECTED' : 'PENDING',
                   pool_size: 3,
                   quorum: 2,
-                  total_votes: 0,
+                  total_votes: s.status === 'approved' ? 1 : 0,
                   approve_votes: s.status === 'approved' ? 1 : 0,
                   reject_votes: s.status === 'rejected' ? 1 : 0,
                   flag_votes: s.status === 'flagged' ? 1 : 0,
                   settlement_status: s.status === 'approved' ? 'settled' : 'unsettled',
-                };
+                  reviews: [],
+                },
+                verification_status: s.status === 'approved' ? 'approved' : s.status === 'rejected' ? 'rejected' : 'pending',
+                verification_notes: s.verification_notes,
+              };
+            });
 
-                // Fetch real consensus record and reviewer ballots from database
-                try {
-                  const cRes = await fetch(`${API_BASE_URL}/submissions/${s.id}/consensus`, { headers }).catch(() => null);
-                  if (cRes && cRes.ok) {
-                    const cJson = await cRes.json();
-                    consensusData = {
-                      status: cJson.status || consensusData.status,
-                      pool_size: cJson.pool_size ?? 3,
-                      quorum: cJson.quorum ?? 2,
-                      total_votes: cJson.total_votes ?? 0,
-                      approve_votes: cJson.approve_votes ?? 0,
-                      reject_votes: cJson.reject_votes ?? 0,
-                      flag_votes: cJson.flag_votes ?? 0,
-                      settlement_status: cJson.settlement_status || consensusData.settlement_status,
-                      dispute_reason: cJson.dispute_reason,
-                      resolution_notes: cJson.resolution_notes,
-                    };
-                    if (Array.isArray(cJson.reviews)) {
-                      realReviews = cJson.reviews.map((r: any) => ({
-                        id: r.id,
-                        reviewer_username: r.reviewer_username || (r.reviewer_id ? `reviewer_${r.reviewer_id.slice(0, 6)}` : 'reviewer'),
-                        decision: r.decision,
-                        notes: r.notes || '',
-                        created_at: r.created_at || new Date().toISOString(),
-                      }));
-                    }
-                  }
-                } catch {
-                  // Skip if consensus record not created yet
-                }
+            setSubmissions(mapped);
+            if (initialSelectedId) {
+              const target = mapped.find((m) => m.id === initialSelectedId);
+              setSelectedSub(target || mapped[0] || null);
+            } else {
+              setSelectedSub((prev) => (prev ? (mapped.find((m) => m.id === prev.id) || mapped[0] || null) : mapped[0] || null));
+            }
 
-                return {
-                  id: s.id,
-                  task_id: s.task_id,
-                  task_title: s.task_title || 'Field Observation',
-                  artifact_type: s.artifact_type || 'field_survey',
-                  contributor_email: s.contributor_email || (s.user_id ? `${s.user_id.slice(0, 8)}@horizon.dev` : 'scout@horizon.dev'),
-                  status: s.status || 'submitted',
-                  gps_accuracy: s.gps_accuracy || 4.2,
-                  latitude: s.latitude || 18.5204,
-                  longitude: s.longitude || 73.8567,
-                  captured_at: s.captured_at || s.submitted_at || new Date().toISOString(),
-                  photo_count: s.media?.length || 1,
-                  validation_status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
-                  validation_results: {
-                    status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
-                    checks: [
-                      { name: 'gps_accuracy', status: 'PASSED', message: `Telemetry fix within ±${(s.gps_accuracy || 4.2).toFixed(1)}m tolerance` },
-                      { name: 'media_evidence', status: 'PASSED', message: `${s.media?.length || 1} geotagged evidence photo(s) attached` },
-                      { name: 'required_fields', status: 'PASSED', message: 'Dynamic observation requirements verified' },
-                    ],
-                    passed_checks: ['gps_accuracy', 'media_evidence', 'required_fields'],
-                    failed_checks: [],
-                    warnings: [],
-                    validated_at: s.submitted_at || new Date().toISOString(),
-                  },
-                  ai_quality: {
-                    overall_status: 'PASSED',
-                    confidence: s.ai_confidence_score || 0.95,
-                    primary_reason: 'Geotagged ground observation verified against satellite reference.',
-                    evaluated_at: s.submitted_at || new Date().toISOString(),
-                    media_results: (s.media || []).map((m: any, idx: number) => ({
-                      id: m.id || `med_${idx}`,
-                      label: `Photo ${idx + 1}: Field Evidence`,
-                      status: 'PASSED',
-                      confidence: 0.95,
-                      blur_score: 110.0,
-                      exposure: 'optimal',
-                      resolution: '1920x1080',
-                      reasons: ['Optimal exposure and sharpness', 'Geotagged spatial coordinates confirmed'],
-                    })),
-                  },
-                  consensus: {
-                    status: consensusData.status as any,
-                    pool_size: consensusData.pool_size || 3,
-                    quorum: consensusData.quorum || 2,
-                    total_votes: consensusData.total_votes || 0,
-                    approve_votes: consensusData.approve_votes || 0,
-                    reject_votes: consensusData.reject_votes || 0,
-                    flag_votes: consensusData.flag_votes || 0,
-                    settlement_status: consensusData.settlement_status || 'unsettled',
-                    dispute_reason: consensusData.dispute_reason,
-                    resolution_notes: consensusData.resolution_notes,
-                    reviews: realReviews,
-                  },
-                  verification_status: s.status === 'approved' ? 'approved' : s.status === 'rejected' ? 'rejected' : 'pending',
-                  verification_notes: s.verification_notes,
-                };
-              })
-            );
-
-            if (isMounted) {
-              setSubmissions(mapped);
-              if (initialSelectedId) {
-                const target = mapped.find((m) => m.id === initialSelectedId);
-                setSelectedSub(target || mapped[0] || null);
-              } else if (mapped.length > 0) {
-                setSelectedSub(mapped[0]);
-              }
+            // Save to SWR cache
+            try {
+              sessionStorage.setItem('horizon_admin_submissions_cache', JSON.stringify(mapped));
+            } catch {
+              // ignore
             }
           }
         }
@@ -229,6 +219,69 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
       isMounted = false;
     };
   }, [adminToken, initialSelectedId]);
+
+  // On-Demand Consensus Loader: ONLY fetch consensus for the active selected submission
+  React.useEffect(() => {
+    if (!selectedSub) return;
+    const subId = selectedSub.id;
+    if (consensusCacheRef.current[subId]) {
+      // Already cached
+      return;
+    }
+
+    let active = true;
+    const fetchSelectedConsensus = async () => {
+      try {
+        const headers: Record<string, string> = {};
+        const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const cRes = await fetch(`${API_BASE_URL}/submissions/${subId}/consensus`, { headers }).catch(() => null);
+        if (cRes && cRes.ok && active) {
+          const cJson = await cRes.json().catch(() => null);
+          if (cJson) {
+            const realReviews: PeerReviewItem[] = Array.isArray(cJson.reviews)
+              ? cJson.reviews.map((r: any) => ({
+                  id: r.id,
+                  reviewer_username: r.reviewer_username || (r.reviewer_id ? `reviewer_${r.reviewer_id.slice(0, 6)}` : 'reviewer'),
+                  decision: r.decision,
+                  notes: r.notes || '',
+                  created_at: r.created_at || new Date().toISOString(),
+                }))
+              : [];
+
+            const updatedConsensus: ConsensusItem = {
+              status: cJson.status || selectedSub.consensus.status,
+              pool_size: cJson.pool_size ?? 3,
+              quorum: cJson.quorum ?? 2,
+              total_votes: cJson.total_votes ?? 0,
+              approve_votes: cJson.approve_votes ?? 0,
+              reject_votes: cJson.reject_votes ?? 0,
+              flag_votes: cJson.flag_votes ?? 0,
+              settlement_status: cJson.settlement_status || selectedSub.consensus.settlement_status,
+              dispute_reason: cJson.dispute_reason,
+              resolution_notes: cJson.resolution_notes,
+              reviews: realReviews,
+            };
+
+            consensusCacheRef.current[subId] = updatedConsensus;
+
+            setSelectedSub((prev) => (prev && prev.id === subId ? { ...prev, consensus: updatedConsensus } : prev));
+            setSubmissions((prev) =>
+              prev.map((s) => (s.id === subId ? { ...s, consensus: updatedConsensus } : s))
+            );
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchSelectedConsensus();
+    return () => {
+      active = false;
+    };
+  }, [selectedSub?.id, adminToken]);
 
   React.useEffect(() => {
     if (initialSelectedId && submissions.length > 0) {

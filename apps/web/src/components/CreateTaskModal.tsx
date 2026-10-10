@@ -1,7 +1,29 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { AdminTaskItem } from './OverviewTab';
+
+const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div
+      style={{
+        height: '240px',
+        background: '#F8F9FA',
+        borderRadius: '10px',
+        border: '1px solid #EAECF0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#667085',
+        fontSize: '13px',
+      }}
+    >
+      🗺️ Loading Interactive Spatial Map...
+    </div>
+  ),
+});
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -21,6 +43,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [artifactType, setArtifactType] = useState('water_source');
   const [latitude, setLatitude] = useState('18.5204');
   const [longitude, setLongitude] = useState('73.8567');
+  const [showManualCoords, setShowManualCoords] = useState(false);
   const [geographicScope, setGeographicScope] = useState('Point Observation (Radius 50m)');
   const [requiredEvidence, setRequiredEvidence] = useState('2 geotagged high-resolution photographs\nPhysical condition confirmation');
   const [requiredFields, setRequiredFields] = useState('Operating condition, Water flow rate');
@@ -193,36 +216,77 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>2</span>
                     <span>Location &amp; Spatial Scope (WGS84)</span>
                   </div>
-                  <div className="form-grid" style={{ marginBottom: '14px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Latitude</label>
-                      <input
-                        type="text"
-                        className="form-input-text"
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
-                        placeholder="18.5204"
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Longitude</label>
-                      <input
-                        type="text"
-                        className="form-input-text"
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
-                        placeholder="73.8567"
-                      />
-                    </div>
+
+                  {/* Interactive Map Pin Selector & Address Search */}
+                  <div style={{ marginBottom: '14px' }}>
+                    <LocationPickerMap
+                      latitude={parseFloat(latitude) || 18.5204}
+                      longitude={parseFloat(longitude) || 73.8567}
+                      onChange={(newLat, newLng) => {
+                        setLatitude(newLat.toFixed(6));
+                        setLongitude(newLng.toFixed(6));
+                        setValidationError(null);
+                      }}
+                      radiusMeters={50}
+                    />
                   </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
+
+                  <div className="form-group" style={{ marginBottom: '10px' }}>
                     <label className="form-label">Geographic Scope</label>
                     <input
                       type="text"
                       className="form-input-text"
                       value={geographicScope}
                       onChange={(e) => setGeographicScope(e.target.value)}
+                      placeholder="Point Observation (Radius 50m)"
                     />
+                  </div>
+
+                  {/* Collapsible Manual Coordinates Override */}
+                  <div style={{ paddingTop: '2px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualCoords(!showManualCoords)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#667085',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        padding: '2px 0',
+                        textDecoration: 'underline',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {showManualCoords ? '▲ Hide manual coordinates' : '▼ Fine-tune coordinates manually'}
+                    </button>
+
+                    {showManualCoords && (
+                      <div className="form-grid" style={{ marginTop: '8px', marginBottom: 0 }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Latitude (°N)</label>
+                          <input
+                            type="text"
+                            className="form-input-text"
+                            value={latitude}
+                            onChange={(e) => setLatitude(e.target.value)}
+                            placeholder="18.5204"
+                            style={{ fontSize: '12px', height: '34px' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Longitude (°E)</label>
+                          <input
+                            type="text"
+                            className="form-input-text"
+                            value={longitude}
+                            onChange={(e) => setLongitude(e.target.value)}
+                            placeholder="73.8567"
+                            style={{ fontSize: '12px', height: '34px' }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
