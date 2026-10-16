@@ -79,3 +79,37 @@ class DisputeCreateRequest(BaseModel):
 class DisputeResolveRequest(BaseModel):
     resolve_action: str = Field(..., description="Action: 'approve', 'reject_refund', or 'reject_slash'")
     notes: str = Field(..., min_length=5, description="Administrative audit findings justifying the resolution")
+
+
+class AdminReviewItemResponse(BaseModel):
+    id: str
+    submission_id: str
+    task_id: str
+    task_title: str
+    artifact_type: str
+    base_reward: float
+    commitment_stake: float
+    contributor_email: Optional[str] = None
+    contributor_username: Optional[str] = None
+    submission_status: str
+    submitted_at: Optional[str] = None
+    captured_at: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    gps_accuracy: float
+    media: List[Dict[str, Any]] = []
+    form_data: Dict[str, Any] = {}
+    verification_status: Optional[str] = None
+    verification_notes: Optional[str] = None
+    validation_status: Optional[str] = None
+    validation_results: Optional[Dict[str, Any]] = None
+    ai_status: Optional[str] = None
+    ai_confidence_score: Optional[float] = None
+    ai_results: Optional[Dict[str, Any]] = None
+    consensus: ConsensusStatusResponse
+
+
+class AdminReviewListResponse(BaseModel):
+    reviews: List[AdminReviewItemResponse]
+    total: int
+

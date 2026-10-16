@@ -26,11 +26,11 @@ export const Header: React.FC<HeaderProps> = ({
       case 'tasks':
         return 'Task Management';
       case 'submissions':
-        return 'Field Submissions';
+        return 'Field Data Intake & Verification';
       case 'members':
         return 'Members & Contributors';
       case 'review':
-        return 'Consensus & Verification Queue';
+        return 'Peer Consensus & Decision Management';
       case 'pipeline':
         return 'Verified Geospatial Data';
       case 'settings':
@@ -45,11 +45,11 @@ export const Header: React.FC<HeaderProps> = ({
       case 'tasks':
         return 'Manage and monitor all active PostGIS ground-truth waypoints';
       case 'submissions':
-        return 'Review real-time geospatial submissions from field scouts';
+        return 'Inspect incoming field observations, telemetry validation checks, and AI quality assessment';
       case 'members':
         return 'Directory of registered platform contributors, activity records, and token balances';
       case 'review':
-        return 'Multi-layer consensus verification queue and dispute resolution';
+        return 'Multi-reviewer consensus queue, voting quorum, dispute resolution, and admin decisions';
       case 'pipeline':
         return 'Loupe analytics dataset packaging and ETL export feeds';
       case 'settings':

@@ -570,3 +570,49 @@ def test_reviewer_workflow_my_assigned_reviews(client: TestClient, db_session: S
     assert len(my_subs) >= 1
     assert any(s["id"] == str(sub.id) for s in my_subs)
 
+
+def test_admin_list_reviews_endpoint(client: TestClient, db_session: Session):
+    """Verify that an administrator can query the review queue with consensus and ballots."""
+    contributor = _create_user(db_session, "admin_rev_c@test.com", "admin_rev_c", role="contributor")
+    reviewer = _create_user(db_session, "admin_rev_r@test.com", "admin_rev_r", role="reviewer")
+    admin = _create_user(db_session, "admin_rev_a@test.com", "admin_rev_a", role="admin")
+
+    task = _create_task(db_session, "Admin Review Queue Task")
+    sub, claim = _create_claimed_submission(db_session, contributor, task)
+
+    admin_token = create_access_token(str(admin.id), role="admin")
+    rev_token = create_access_token(str(reviewer.id), role="reviewer")
+
+    # Assign reviewer
+    client.post(
+        f"/api/v1/submissions/{sub.id}/assign-reviewers",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"pool_size": 2, "quorum": 2, "reviewer_ids": [str(reviewer.id), str(admin.id)]},
+    )
+
+    # Cast a ballot
+    client.post(
+        f"/api/v1/submissions/{sub.id}/peer-reviews",
+        headers={"Authorization": f"Bearer {rev_token}"},
+        json={"decision": "APPROVE", "notes": "Observation coordinates and photos validated."},
+    )
+
+    # Query admin reviews queue
+    res = client.get(
+        "/api/v1/admin/reviews",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "reviews" in data
+    assert "total" in data
+    assert data["total"] >= 1
+    target = next((r for r in data["reviews"] if r["submission_id"] == str(sub.id)), None)
+    assert target is not None
+    assert target["task_title"] == "Admin Review Queue Task"
+    assert target["consensus"]["total_votes"] == 1
+    assert target["consensus"]["approve_votes"] == 1
+    assert len(target["consensus"]["reviews"]) == 1
+    assert target["consensus"]["reviews"][0]["decision"] == "APPROVE"
+
+

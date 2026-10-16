@@ -10,12 +10,71 @@ import { CreateTaskModal } from '../../components/CreateTaskModal';
 import { TaskDetailModal } from '../../components/TaskDetailModal';
 import { ConfirmationDialog } from '../../components/ConfirmationDialog';
 import { SubmissionsTab } from '../../components/SubmissionsTab';
+import { ReviewsTab } from '../../components/ReviewsTab';
 import { PipelineTab } from '../../components/PipelineTab';
 import { MembersTab } from '../../components/MembersTab';
 import { CheckCircle2Icon, ShieldCheckIcon, AlertTriangleIcon } from '../../components/Icons';
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1').replace(/\/+$/, '');
 const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+class AdminErrorBoundary extends React.Component<
+  { children: React.ReactNode; tabName: string },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; tabName: string }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error(`Admin Tab (${this.props.tabName}) error:`, error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="table-container" style={{ padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <AlertTriangleIcon size={24} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '8px' }}>
+            Unable to display {this.props.tabName}
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '460px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+            {this.state.error?.message || 'A client-side error occurred while rendering this section.'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.clear();
+                  window.location.reload();
+                }
+              }}
+            >
+              Clear Cache &amp; Reload
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => this.setState({ hasError: false, error: null })}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -31,6 +90,8 @@ export default function AdminPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<AdminTaskItem | null>(null);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -79,6 +140,10 @@ export default function AdminPage() {
       if (tabParam && validTabs.includes(tabParam)) {
         setCurrentTab(tabParam);
       }
+      const subId = params.get('submissionId');
+      if (subId) setSelectedSubmissionId(subId);
+      const revId = params.get('reviewId');
+      if (revId) setSelectedReviewId(revId);
     }
   }, []);
 
@@ -87,6 +152,32 @@ export default function AdminPage() {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', tab);
+      if (tab !== 'submissions') url.searchParams.delete('submissionId');
+      if (tab !== 'review') url.searchParams.delete('reviewId');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const handleNavigateToSubmission = (subId: string) => {
+    setSelectedSubmissionId(subId);
+    setCurrentTab('submissions');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'submissions');
+      url.searchParams.set('submissionId', subId);
+      url.searchParams.delete('reviewId');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const handleNavigateToReview = (reviewId: string) => {
+    setSelectedReviewId(reviewId);
+    setCurrentTab('review');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'review');
+      url.searchParams.set('reviewId', reviewId);
+      url.searchParams.delete('submissionId');
       window.history.replaceState({}, '', url.toString());
     }
   };
@@ -180,26 +271,29 @@ export default function AdminPage() {
         }
       }
 
-      // Process submissions in parallel
+      // Process submissions in parallel for the overview queue
       if (subsSettled.status === 'fulfilled' && subsSettled.value.ok) {
         const subData = await subsSettled.value.json().catch(() => null);
         if (subData && Array.isArray(subData.submissions)) {
-          freshQueue = subData.submissions.map((s: any) => {
-            const contributorName = s.contributor_email ? s.contributor_email.split('@')[0] : (s.user_id ? s.user_id.slice(0, 8) : 'contributor');
-            const timeAgo = s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently';
-            const isFlagged = s.status === 'flagged';
-            return {
-              id: s.id,
-              task_title: s.task_title || 'Field Observation',
-              contributor: contributorName,
-              location: s.latitude != null && s.longitude != null ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : 'Pune, Maharashtra',
-              gps_accuracy: `±${(s.gps_accuracy != null ? Number(s.gps_accuracy) : 4.2).toFixed(1)}m`,
-              submitted: timeAgo,
-              community_result: isFlagged ? 'Flagged (Telemetry Anomaly)' : 'Awaiting Review (Quorum Pending)',
-              community_votes: { approve: 1, reject: 0, flag: isFlagged ? 1 : 0, quorum: 2 },
-              status: isFlagged ? 'flagged' : 'awaiting_review',
-            };
-          });
+          // Filter to items needing review/attention for the overview review queue
+          freshQueue = subData.submissions
+            .filter((s: any) => ['submitted', 'under_review', 'flagged'].includes(s.status))
+            .map((s: any) => {
+              const contributorName = s.contributor_email ? s.contributor_email.split('@')[0] : (s.user_id ? s.user_id.slice(0, 8) : 'contributor');
+              const timeAgo = s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently';
+              const isFlagged = s.status === 'flagged';
+              return {
+                id: s.id,
+                task_title: s.task_title || 'Field Observation',
+                contributor: contributorName,
+                location: s.latitude != null && s.longitude != null ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : 'Pune, Maharashtra',
+                gps_accuracy: `±${(s.gps_accuracy != null ? Number(s.gps_accuracy) : 4.2).toFixed(1)}m`,
+                submitted: timeAgo,
+                community_result: isFlagged ? 'Flagged (Telemetry Anomaly)' : 'Awaiting Review (Quorum Pending)',
+                community_votes: { approve: 0, reject: 0, flag: isFlagged ? 1 : 0, quorum: 2 },
+                status: isFlagged ? 'flagged' : 'awaiting_review',
+              };
+            });
           setReviewQueue(freshQueue);
         }
       }
@@ -369,57 +463,79 @@ export default function AdminPage() {
         <div className="page-container">
           {/* OVERVIEW: What requires my attention right now? */}
           {currentTab === 'overview' && (
-            <OverviewTab
-              tasks={tasks}
-              stats={stats}
-              loading={loading}
-              reviewQueue={reviewQueue}
-              onNavigateToTasks={() => handleSelectTab('tasks')}
-              onNavigateToSubmissions={() => handleSelectTab('submissions')}
-              onOpenCreateTask={() => setIsCreateModalOpen(true)}
-              onToggleStatus={handleToggleStatus}
-              onViewTask={(task) => setSelectedTaskForDetail(task)}
-              onInspectSubmission={(subId) => {
-                setSelectedSubmissionId(subId);
-                handleSelectTab('submissions');
-              }}
-            />
+            <AdminErrorBoundary tabName="Dashboard Overview">
+              <OverviewTab
+                tasks={tasks}
+                stats={stats}
+                loading={loading}
+                reviewQueue={reviewQueue}
+                onNavigateToTasks={() => handleSelectTab('tasks')}
+                onNavigateToSubmissions={() => handleSelectTab('submissions')}
+                onNavigateToReviews={() => handleSelectTab('review')}
+                onOpenCreateTask={() => setIsCreateModalOpen(true)}
+                onToggleStatus={handleToggleStatus}
+                onViewTask={(task) => setSelectedTaskForDetail(task)}
+                onInspectSubmission={handleNavigateToSubmission}
+                onInspectReview={handleNavigateToReview}
+              />
+            </AdminErrorBoundary>
           )}
 
           {/* OPERATIONS: Tasks */}
           {currentTab === 'tasks' && (
-            <TasksTab
-              tasks={tasks}
-              onOpenCreateTask={() => setIsCreateModalOpen(true)}
-              onToggleStatusWithConfirm={handleToggleStatusWithConfirm}
-              onViewTask={(task) => setSelectedTaskForDetail(task)}
-            />
+            <AdminErrorBoundary tabName="Task Management">
+              <TasksTab
+                tasks={tasks}
+                onOpenCreateTask={() => setIsCreateModalOpen(true)}
+                onToggleStatusWithConfirm={handleToggleStatusWithConfirm}
+                onViewTask={(task) => setSelectedTaskForDetail(task)}
+              />
+            </AdminErrorBoundary>
           )}
 
-          {/* OPERATIONS: Submissions & Reviews */}
-          {(currentTab === 'submissions' || currentTab === 'review') && (
-            <SubmissionsTab
-              initialSelectedId={selectedSubmissionId}
-              adminToken={adminToken}
-              onSubmissionReviewed={fetchDashboardData}
-            />
+          {/* OPERATIONS: Submissions - Field Data Intake & Deterministic Verification */}
+          {currentTab === 'submissions' && (
+            <AdminErrorBoundary tabName="Field Submissions Intake">
+              <SubmissionsTab
+                initialSelectedId={selectedSubmissionId}
+                adminToken={adminToken}
+                onSubmissionReviewed={fetchDashboardData}
+                onNavigateToReview={handleNavigateToReview}
+              />
+            </AdminErrorBoundary>
+          )}
+
+          {/* OPERATIONS: Reviews - Peer Consensus & Decision Management */}
+          {currentTab === 'review' && (
+            <AdminErrorBoundary tabName="Consensus & Peer Reviews">
+              <ReviewsTab
+                initialSelectedId={selectedReviewId}
+                adminToken={adminToken}
+                onReviewResolved={fetchDashboardData}
+                onNavigateToSubmissions={handleNavigateToSubmission}
+              />
+            </AdminErrorBoundary>
           )}
 
           {/* OPERATIONS: Members Management */}
           {currentTab === 'members' && (
-            <MembersTab
-              apiBaseUrl={API_BASE_URL}
-              adminToken={adminToken}
-            />
+            <AdminErrorBoundary tabName="Members & Contributors">
+              <MembersTab
+                apiBaseUrl={API_BASE_URL}
+                adminToken={adminToken}
+              />
+            </AdminErrorBoundary>
           )}
 
           {/* VERIFIED: Verified Data */}
           {currentTab === 'pipeline' && (
-            <PipelineTab
-              apiBaseUrl={API_BASE_URL}
-              adminToken={adminToken}
-              onShowToast={showToast}
-            />
+            <AdminErrorBoundary tabName="Verified Geospatial Data">
+              <PipelineTab
+                apiBaseUrl={API_BASE_URL}
+                adminToken={adminToken}
+                onShowToast={showToast}
+              />
+            </AdminErrorBoundary>
           )}
 
           {/* SYSTEM: Settings & Change Password */}

@@ -64,10 +64,12 @@ interface OverviewTabProps {
   reviewQueue?: ReviewQueueItem[];
   onNavigateToTasks: () => void;
   onNavigateToSubmissions: () => void;
+  onNavigateToReviews?: () => void;
   onOpenCreateTask: () => void;
   onToggleStatus: (task: AdminTaskItem) => void;
   onViewTask: (task: AdminTaskItem) => void;
   onInspectSubmission?: (submissionId: string) => void;
+  onInspectReview?: (reviewId: string) => void;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -77,10 +79,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   reviewQueue,
   onNavigateToTasks,
   onNavigateToSubmissions,
+  onNavigateToReviews,
   onOpenCreateTask,
   onToggleStatus,
   onViewTask,
   onInspectSubmission,
+  onInspectReview,
 }) => {
   const activeTasks = tasks.filter((t) => t.status === 'published');
   const activeTasksCount = stats?.active_tasks ?? activeTasks.length;
@@ -188,14 +192,24 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               Field submissions with community consensus awaiting final administrator acceptance or rejection
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onNavigateToSubmissions}
-          >
-            <span>All Submissions</span>
-            <ArrowRightIcon size={14} />
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onNavigateToReviews || onNavigateToSubmissions}
+            >
+              <span>Reviews Queue</span>
+              <ArrowRightIcon size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onNavigateToSubmissions}
+            >
+              <span>All Submissions</span>
+              <ArrowRightIcon size={14} />
+            </button>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -259,8 +273,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         type="button"
                         className="btn-table-action"
                         onClick={() => {
-                          if (onInspectSubmission) {
+                          if (onInspectReview) {
+                            onInspectReview(item.id);
+                          } else if (onInspectSubmission) {
                             onInspectSubmission(item.id);
+                          } else if (onNavigateToReviews) {
+                            onNavigateToReviews();
                           } else {
                             onNavigateToSubmissions();
                           }

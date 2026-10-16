@@ -17,11 +17,14 @@ from app.modules.consensus.schemas import (
     ConsensusStatusResponse,
     DisputeCreateRequest,
     DisputeResolveRequest,
+    AdminReviewItemResponse,
+    AdminReviewListResponse,
 )
 from app.modules.consensus.service import (
     assign_reviewers_to_submission,
     submit_peer_review,
     get_or_create_consensus_record,
+    initialize_submission_consensus,
     raise_submission_dispute,
     resolve_submission_dispute,
     list_peer_reviews_for_submission,
@@ -249,3 +252,105 @@ def resolve_dispute(
         notes=payload.notes,
     )
     return _consensus_to_response(consensus, db)
+
+
+@router.get(
+    "/admin/reviews",
+    response_model=AdminReviewListResponse,
+    summary="Admin review queue with peer consensus records, reviewer votes, and settlement tracking",
+    dependencies=[Depends(require_role(["admin", "reviewer"]))],
+)
+def admin_list_reviews(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by consensus status: PENDING, APPROVED, REJECTED, DISPUTED"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    List review records with full peer-review ballots, quorum status,
+    and consensus states for administrative decision management.
+    """
+    from app.database.models.consensus import ConsensusRecord
+    from app.database.models.submission import Submission
+    from app.modules.submissions.service import _extract_coordinates
+
+    # Ensure any submitted/under_review/flagged submissions have consensus records initialized
+    uninitialized = (
+        db.query(Submission)
+        .outerjoin(ConsensusRecord, Submission.id == ConsensusRecord.submission_id)
+        .filter(
+            Submission.status.in_(["submitted", "validating", "under_review", "flagged"]),
+            ConsensusRecord.id.is_(None),
+        )
+        .all()
+    )
+    if uninitialized:
+        for sub_uninit in uninitialized:
+            initialize_submission_consensus(db, sub_uninit)
+        db.commit()
+
+    query = (
+        db.query(ConsensusRecord)
+        .join(Submission, ConsensusRecord.submission_id == Submission.id)
+    )
+
+    if status_filter:
+        query = query.filter(ConsensusRecord.status == status_filter.upper())
+
+    query = query.order_by(ConsensusRecord.updated_at.desc())
+    total = query.count()
+    records = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    items = []
+    for c in records:
+        sub = c.submission
+        task = sub.task if sub else None
+        user = sub.user if sub else None
+        ver = sub.verification if sub else None
+
+        lat, lng = _extract_coordinates(sub.location) if sub else (None, None)
+        media_list = []
+        if sub and sub.media:
+            for m in sub.media:
+                media_list.append({
+                    "id": str(m.id),
+                    "storage_key": m.storage_key,
+                    "media_type": m.media_type,
+                    "metadata": m.media_metadata or {},
+                    "created_at": m.created_at.isoformat() if m.created_at else "",
+                })
+
+        item = AdminReviewItemResponse(
+            id=str(c.id),
+            submission_id=str(c.submission_id),
+            task_id=str(sub.task_id) if sub else "",
+            task_title=task.title if task else "Field Observation",
+            artifact_type=task.artifact_type if task else "field_survey",
+            base_reward=float(task.base_reward) if task and task.base_reward is not None else 50.0,
+            commitment_stake=float(task.commitment_stake) if task and task.commitment_stake is not None else 10.0,
+            contributor_email=user.email if user else None,
+            contributor_username=user.username if user else None,
+            submission_status=sub.status if sub else "submitted",
+            submitted_at=sub.submitted_at.isoformat() if sub and sub.submitted_at else None,
+            captured_at=sub.captured_at.isoformat() if sub and sub.captured_at else None,
+            latitude=lat,
+            longitude=lng,
+            gps_accuracy=sub.gps_accuracy if sub else 5.0,
+            media=media_list,
+            form_data=sub.form_data if sub and sub.form_data else {},
+            verification_status=ver.status if ver else None,
+            verification_notes=ver.notes if ver else None,
+            validation_status=ver.validation_status if ver else None,
+            validation_results=ver.validation_results if ver else None,
+            ai_status=ver.ai_status if ver else None,
+            ai_confidence_score=ver.ai_confidence_score if ver else None,
+            ai_results=ver.ai_results if ver else None,
+            consensus=_consensus_to_response(c, db),
+        )
+        items.append(item)
+
+    return AdminReviewListResponse(
+        reviews=items,
+        total=total,
+    )
+
