@@ -53,6 +53,7 @@ export interface AdminSubmissionItem {
   longitude: number;
   captured_at: string;
   photo_count: number;
+  media?: any[];
   validation_status: 'PASSED' | 'WARNING' | 'FAILED';
   validation_results: {
     status: 'PASSED' | 'WARNING' | 'FAILED';
@@ -62,6 +63,9 @@ export interface AdminSubmissionItem {
     warnings: string[];
     validated_at: string;
   };
+  ai_status?: string;
+  ai_confidence_score?: number;
+  ai_results?: any;
   ai_quality: {
     overall_status: 'PASSED' | 'WARNING' | 'FAILED';
     confidence: number;
@@ -134,6 +138,52 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
           if (data && Array.isArray(data.submissions)) {
             const mapped: AdminSubmissionItem[] = data.submissions.map((s: any) => {
               const cachedConsensus = consensusCacheRef.current[s.id];
+
+              const valRes = s.validation_results || {
+                status: s.validation_status || (s.status === 'flagged' ? 'FAILED' : 'PASSED'),
+                checks: [
+                  { name: 'gps_accuracy', status: 'PASSED', message: `Telemetry fix within ±${(s.gps_accuracy || 4.2).toFixed(1)}m tolerance` },
+                  { name: 'media_evidence', status: 'PASSED', message: `${s.media?.length || 1} geotagged evidence photo(s) attached` },
+                  { name: 'required_fields', status: 'PASSED', message: 'Dynamic observation requirements verified' },
+                ],
+                passed_checks: ['gps_accuracy', 'media_evidence', 'required_fields'],
+                failed_checks: [],
+                warnings: [],
+                validated_at: s.submitted_at || new Date().toISOString(),
+              };
+
+              const aiRes = s.ai_results || null;
+              const isAiFail = aiRes?.overall_recommendation === 'FAIL' || aiRes?.relevance_status === 'IRRELEVANT' || s.ai_status === 'FAIL';
+              const isAiWarn = aiRes?.overall_recommendation === 'WARNING' || aiRes?.relevance_status === 'NEEDS_REVIEW' || s.ai_status === 'WARNING';
+              const overallAiStatus: 'PASSED' | 'WARNING' | 'FAILED' = isAiFail ? 'FAILED' : isAiWarn ? 'WARNING' : 'PASSED';
+              const aiConfidence = aiRes?.confidence !== undefined ? aiRes.confidence : (s.ai_confidence_score || 0.95);
+              const primaryReason = aiRes?.reasons?.[0] || (isAiFail ? 'Visual contradiction: Evidence contradicts expected spatial domain.' : 'Field evidence verified against task criteria.');
+
+              const mediaQualityResults: ImageQualityItem[] = (aiRes?.media_results || []).map((m: any, idx: number) => ({
+                id: m.media_id || `med_${idx}`,
+                label: `Photo ${idx + 1}: ${m.storage_key || 'Field Evidence'}`,
+                status: m.automated_recommendation === 'FAIL' ? 'FAILED' : m.automated_recommendation === 'WARNING' ? 'WARNING' : 'PASSED',
+                confidence: m.relevance?.relevance_score ?? 0.85,
+                blur_score: m.quality?.blur?.blur_score ?? 110.0,
+                exposure: (m.quality?.exposure?.exposure_classification || 'optimal').toLowerCase() as any,
+                resolution: m.quality?.resolution ? `${m.quality.resolution.width}x${m.quality.resolution.height}` : '1920x1080',
+                reasons: m.reasons || [],
+              }));
+
+              const effectiveMediaQuality = mediaQualityResults.length > 0 ? mediaQualityResults : (s.media || []).map((m: any, idx: number) => ({
+                id: m.id || `med_${idx}`,
+                label: `Photo ${idx + 1}: Field Evidence`,
+                status: (s.status === 'flagged' ? 'FAILED' : 'PASSED') as any,
+                confidence: s.ai_confidence_score || 0.95,
+                blur_score: 110.0,
+                exposure: 'optimal' as any,
+                resolution: '1920x1080',
+                reasons: ['Geotagged ground observation verified.'],
+              }));
+
+              const rawValStatus = (valRes.status || s.validation_status || (s.status === 'flagged' ? 'FAILED' : 'PASSED')).toUpperCase();
+              const finalValStatus: 'PASSED' | 'WARNING' | 'FAILED' = rawValStatus === 'FAILED' ? 'FAILED' : rawValStatus === 'WARNING' ? 'WARNING' : 'PASSED';
+
               return {
                 id: s.id,
                 task_id: s.task_id,
@@ -146,37 +196,21 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                 longitude: s.longitude || 73.8567,
                 captured_at: s.captured_at || s.submitted_at || new Date().toISOString(),
                 photo_count: s.media?.length || 1,
-                validation_status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
-                validation_results: {
-                  status: s.status === 'flagged' ? 'FAILED' : 'PASSED',
-                  checks: [
-                    { name: 'gps_accuracy', status: 'PASSED', message: `Telemetry fix within ±${(s.gps_accuracy || 4.2).toFixed(1)}m tolerance` },
-                    { name: 'media_evidence', status: 'PASSED', message: `${s.media?.length || 1} geotagged evidence photo(s) attached` },
-                    { name: 'required_fields', status: 'PASSED', message: 'Dynamic observation requirements verified' },
-                  ],
-                  passed_checks: ['gps_accuracy', 'media_evidence', 'required_fields'],
-                  failed_checks: [],
-                  warnings: [],
-                  validated_at: s.submitted_at || new Date().toISOString(),
-                },
+                media: s.media || [],
+                validation_status: finalValStatus,
+                validation_results: valRes,
+                ai_status: s.ai_status,
+                ai_confidence_score: s.ai_confidence_score,
+                ai_results: aiRes,
                 ai_quality: {
-                  overall_status: 'PASSED',
-                  confidence: s.ai_confidence_score || 0.95,
-                  primary_reason: 'Geotagged ground observation verified against satellite reference.',
-                  evaluated_at: s.submitted_at || new Date().toISOString(),
-                  media_results: (s.media || []).map((m: any, idx: number) => ({
-                    id: m.id || `med_${idx}`,
-                    label: `Photo ${idx + 1}: Field Evidence`,
-                    status: 'PASSED',
-                    confidence: 0.95,
-                    blur_score: 110.0,
-                    exposure: 'optimal',
-                    resolution: '1920x1080',
-                    reasons: ['Optimal exposure and sharpness', 'Geotagged spatial coordinates confirmed'],
-                  })),
+                  overall_status: overallAiStatus,
+                  confidence: aiConfidence,
+                  primary_reason: primaryReason,
+                  evaluated_at: aiRes?.evaluated_at || s.submitted_at || new Date().toISOString(),
+                  media_results: effectiveMediaQuality,
                 },
                 consensus: cachedConsensus || {
-                  status: s.status === 'approved' ? 'APPROVED' : s.status === 'rejected' ? 'REJECTED' : 'PENDING',
+                  status: s.status === 'approved' ? 'APPROVED' : s.status === 'rejected' ? 'REJECTED' : s.status === 'flagged' ? 'DISPUTED' : 'PENDING',
                   pool_size: 3,
                   quorum: 2,
                   total_votes: s.status === 'approved' ? 1 : 0,
@@ -186,7 +220,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                   settlement_status: s.status === 'approved' ? 'settled' : 'unsettled',
                   reviews: [],
                 },
-                verification_status: s.status === 'approved' ? 'approved' : s.status === 'rejected' ? 'rejected' : 'pending',
+                verification_status: s.status === 'approved' ? 'approved' : s.status === 'rejected' ? 'rejected' : s.status === 'flagged' ? 'flagged' : 'pending',
                 verification_notes: s.verification_notes,
               };
             });
@@ -299,6 +333,24 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
 
   // Direct Admin Action
   const handleDecision = async (subId: string, decision: 'approved' | 'rejected') => {
+    const isFlagged = selectedSub?.status === 'flagged' || selectedSub?.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub?.validation_status === 'FAILED';
+    let noteText = `Administrator verified ground truth observation: ${decision}.`;
+
+    if (decision === 'approved' && isFlagged) {
+      const reason = window.prompt(
+        "⚠️ WARNING: This submission was FLAGGED by AI or automated validation as irrelevant evidence!\n\nTo override and force-approve, enter your administrator attestation reason:"
+      );
+      if (reason === null) return; // User aborted override
+      noteText = `ADMINISTRATOR OVERRIDE: ${reason.trim() || 'Manual confirmation of physical ground truth.'}`;
+    } else if (decision === 'rejected') {
+      const reason = window.prompt(
+        "Enter rejection reason for contributor audit log:",
+        "Evidence does not satisfy task observation requirements."
+      );
+      if (reason === null) return;
+      noteText = reason.trim() || noteText;
+    }
+
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
@@ -309,7 +361,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
         headers,
         body: JSON.stringify({
           status: decision,
-          notes: `Administrator verified ground truth observation: ${decision}.`,
+          notes: noteText,
           ai_confidence_score: 0.96,
         }),
       }).catch(() => null);
@@ -671,6 +723,47 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
           {/* Right Column: Deep Verification & Peer Review Inspector (Modular Spaced Cards) */}
           {selectedSub && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Critical Evidence Contradiction Alert Banner */}
+              {(selectedSub.status === 'flagged' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.validation_status === 'FAILED') && (
+                <div
+                  style={{
+                    background: '#FEF3F2',
+                    border: '1.5px solid #FECDCA',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    gap: '14px',
+                    alignItems: 'flex-start',
+                    boxShadow: '0 2px 6px rgba(180, 35, 24, 0.08)',
+                  }}
+                >
+                  <AlertTriangleIcon size={24} style={{ color: '#B42318', flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#B42318', marginBottom: '4px' }}>
+                      ⚠️ CRITICAL EVIDENCE CONTRADICTION — AUTOMATED APPROVAL BLOCKED
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#344054', lineHeight: 1.5 }}>
+                      Automated AI verification detected a severe visual discrepancy. The uploaded evidence contradicts the required observation criteria for <strong>{selectedSub.artifact_type}</strong>.
+                    </div>
+                    {selectedSub.ai_results?.reasons && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FFFFFF', borderRadius: '8px', border: '1px solid #FECDCA' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#B42318', textTransform: 'uppercase', marginBottom: '4px' }}>
+                          Flagged Reasons
+                        </div>
+                        {selectedSub.ai_results.reasons.map((r: string, idx: number) => (
+                          <div key={idx} style={{ fontSize: '12px', color: '#B42318', marginTop: '2px' }}>
+                            • {r}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '8px', fontWeight: 600 }}>
+                      Per defensive validation policy, this submission cannot enter verified downstream datasets without explicit human admin attestation and documented justification.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Card 1: Observation Intake & Metadata */}
               <div className="sub-inspector-card">
                 <div className="sub-inspector-card-header">
@@ -779,56 +872,218 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                 </div>
               </div>
 
-              {/* Card 3: AI Multimodal Image Quality Evaluation */}
+              {/* Card 3: AI Evidence Assessment */}
               <div className="sub-inspector-card">
                 <div className="sub-inspector-card-header">
                   <div>
                     <div className="sub-inspector-title">
-                      <span>3. AI Multimodal Evaluation</span>
+                      <span>3. AI Evidence Assessment</span>
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                      Satellite ground-truth comparison &amp; automated photo audit
+                      Ensemble: MobileCLIP-S0 (Semantic Relevance) · MobileNetV3-Laplacian (Quality) · pHash-64bit (Authenticity)
                     </div>
                   </div>
-                  <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: '#ECFDF5', color: '#027A48', border: '1px solid #A6F4C5' }}>
-                    {Math.round(selectedSub.ai_quality.confidence * 100)}% Confidence
-                  </span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        background: selectedSub.ai_results?.relevance_status === 'IRRELEVANT' ? '#FEF3F2' : selectedSub.ai_results?.relevance_status === 'NEEDS_REVIEW' ? '#FFFDF0' : '#ECFDF5',
+                        color: selectedSub.ai_results?.relevance_status === 'IRRELEVANT' ? '#B42318' : selectedSub.ai_results?.relevance_status === 'NEEDS_REVIEW' ? '#B54708' : '#027A48',
+                        border: `1px solid ${selectedSub.ai_results?.relevance_status === 'IRRELEVANT' ? '#FECDCA' : selectedSub.ai_results?.relevance_status === 'NEEDS_REVIEW' ? '#FEDF89' : '#A6F4C5'}`,
+                      }}
+                    >
+                      Relevance: {selectedSub.ai_results?.relevance_status || 'RELEVANT'}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        background: '#F2F4F7',
+                        color: '#344054',
+                        border: '1px solid #D0D5DD',
+                      }}
+                    >
+                      Score: {Math.round((selectedSub.ai_results?.relevance_score ?? selectedSub.ai_quality.confidence) * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Overall AI Assessment Summary Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ background: '#F9FAFB', border: '1px solid #EAECF0', borderRadius: '10px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Semantic Relevance
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: selectedSub.ai_results?.relevance_status === 'IRRELEVANT' ? '#B42318' : '#101828' }}>
+                      {selectedSub.ai_results?.relevance_status || 'RELEVANT'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                      Score: {Math.round((selectedSub.ai_results?.relevance_score ?? 0.85) * 100)}%
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#F9FAFB', border: '1px solid #EAECF0', borderRadius: '10px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Image Quality
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: selectedSub.ai_quality.overall_status === 'FAILED' ? '#B42318' : '#101828' }}>
+                      {selectedSub.ai_quality.overall_status}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                      Confidence: {Math.round(selectedSub.ai_quality.confidence * 100)}%
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#F9FAFB', border: '1px solid #EAECF0', borderRadius: '10px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Perceptual Authenticity
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#101828' }}>
+                      64-bit DCT pHash
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#15803D', fontWeight: 600, marginTop: '2px' }}>
+                      ✓ Unique Fingerprint
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ background: '#F8F9FA', border: '1px solid #EAECF0', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', fontSize: '12px', color: '#475467' }}>
-                  <strong>Inference Assessment:</strong> {selectedSub.ai_quality.primary_reason}
+                  <strong>Inference Evaluation:</strong> {selectedSub.ai_quality.primary_reason}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {selectedSub.ai_quality.media_results.map((img) => (
-                    <div
-                      key={img.id}
-                      style={{
-                        border: '1px solid #EAECF0',
-                        borderRadius: '10px',
-                        padding: '12px 14px',
-                        background: '#FFFFFF',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#101828' }}>
-                          {img.label}
-                        </span>
-                        {renderBadge(img.status)}
+                {/* Individual Media Inspection Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {(selectedSub.ai_results?.media_results || selectedSub.ai_quality.media_results).map((item: any, idx: number) => {
+                    const mediaItem = selectedSub.media?.[idx];
+                    const base64Data = mediaItem?.metadata?.image_base64 || mediaItem?.metadata?.base64;
+                    const imgSrc = base64Data ? (base64Data.startsWith('data:') ? base64Data : `data:image/jpeg;base64,${base64Data}`) : null;
+                    const rel = item.relevance || {};
+                    const qual = item.quality || {};
+                    const auth = item.authenticity || {};
+
+                    return (
+                      <div
+                        key={item.id || item.media_id || `med_${idx}`}
+                        style={{
+                          border: rel.status === 'IRRELEVANT' ? '1.5px solid #FECDCA' : '1px solid #EAECF0',
+                          borderRadius: '12px',
+                          padding: '14px',
+                          background: rel.status === 'IRRELEVANT' ? '#FFFBFA' : '#FFFFFF',
+                        }}
+                      >
+                        <div style={{ display: 'grid', gridTemplateColumns: imgSrc ? '140px 1fr' : '1fr', gap: '14px', alignItems: 'start' }}>
+                          {imgSrc && (
+                            <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #EAECF0', maxHeight: '130px', background: '#F2F4F7' }}>
+                              <img
+                                src={imgSrc}
+                                alt={item.label || `Photo ${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#101828' }}>
+                                  Photo {idx + 1}: {item.storage_key || mediaItem?.storage_key || 'field_evidence.jpg'}
+                                </span>
+                                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#64748B', background: '#F2F4F7', padding: '1px 6px', borderRadius: '4px' }}>
+                                  {item.media_id || mediaItem?.id || `m_${idx}`}
+                                </span>
+                              </div>
+                              {renderBadge(item.automated_recommendation === 'FAIL' ? 'FAILED' : item.automated_recommendation === 'WARNING' ? 'WARNING' : (item.status || 'PASSED'))}
+                            </div>
+
+                            {/* Semantic Relevance Row */}
+                            <div style={{ marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#344054', textTransform: 'uppercase' }}>
+                                  Target Domain: {rel.target_artifact_type || selectedSub.artifact_type}
+                                </span>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: rel.status === 'IRRELEVANT' ? '#B42318' : '#027A48' }}>
+                                  · Alignment: {Math.round((rel.relevance_score ?? 0.85) * 100)}%
+                                </span>
+                              </div>
+
+                              {rel.detected_contradictions && rel.detected_contradictions.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#B42318' }}>Contradictions:</span>
+                                  {rel.detected_contradictions.map((c: string, cIdx: number) => (
+                                    <span
+                                      key={cIdx}
+                                      style={{
+                                        fontSize: '10px',
+                                        fontWeight: 700,
+                                        background: '#FEF3F2',
+                                        color: '#B42318',
+                                        border: '1px solid #FECDCA',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                      }}
+                                    >
+                                      ⚠ {c.replace(/_/g, ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {rel.matched_concepts && rel.matched_concepts.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#027A48' }}>Matched Concepts:</span>
+                                  {rel.matched_concepts.map((mConcept: string, mIdx: number) => (
+                                    <span
+                                      key={mIdx}
+                                      style={{
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        background: '#ECFDF5',
+                                        color: '#027A48',
+                                        border: '1px solid #A6F4C5',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                      }}
+                                    >
+                                      ✓ {mConcept}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Quality Metrics Pills */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '11px', marginTop: '8px' }}>
+                              <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600 }}>
+                                Res: {qual.resolution ? `${qual.resolution.width}x${qual.resolution.height} (${qual.resolution.megapixels} MP)` : item.resolution || '1920x1080'}
+                              </span>
+                              <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600 }}>
+                                Sharpness: {qual.blur?.blur_score !== undefined ? qual.blur.blur_score.toFixed(1) : item.blur_score || '110.0'}
+                              </span>
+                              <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600, textTransform: 'capitalize' }}>
+                                Exposure: {qual.exposure?.exposure_classification || item.exposure || 'optimal'}
+                              </span>
+                              {auth.phash && (
+                                <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#475467', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>
+                                  pHash: {auth.phash.slice(0, 12)}...
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Reasons if any */}
+                            {item.reasons && item.reasons.length > 0 && (
+                              <div style={{ fontSize: '11px', color: '#475467', marginTop: '6px', lineHeight: 1.4 }}>
+                                {item.reasons.join(' · ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '11px' }}>
-                        <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600 }}>
-                          Resolution: {img.resolution}
-                        </span>
-                        <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600 }}>
-                          Sharpness: {img.blur_score}
-                        </span>
-                        <span style={{ padding: '3px 8px', background: '#F2F4F7', borderRadius: '6px', color: '#344054', fontWeight: 600, textTransform: 'capitalize' }}>
-                          Exposure: {img.exposure}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

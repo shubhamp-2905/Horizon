@@ -21,13 +21,16 @@ def _create_synthetic_image_b64(
 ) -> str:
     """Generate deterministic synthetic test images and return base64 string."""
     if pattern == "sharp":
-        arr = np.zeros((height, width), dtype=np.uint8)
-        arr[::30, :] = 255
-        arr[:, ::30] = 255
-        for i in range(0, min(width, height), 25):
-            arr[i, :min(width, height)] = 255
-        arr = np.clip((arr.astype(np.float32) * 0.7) + 60.0, 0, 255).astype(np.uint8)
-        img = Image.fromarray(arr, mode="L").convert("RGB")
+        arr = np.zeros((height, width, 3), dtype=np.uint8)
+        # Silicon panel spectrum
+        arr[:, :, 0] = 35
+        arr[:, :, 1] = 60
+        arr[:, :, 2] = 140
+        # High contrast grid busbars
+        arr[::25, :, :] = 225
+        arr[:, ::25, :] = 225
+        img = Image.fromarray(arr, mode="RGB")
+
     elif pattern == "blurry":
         arr = np.zeros((height, width), dtype=np.float32)
         arr[::20, :] = 255.0
@@ -101,7 +104,11 @@ def _setup_task_and_draft(client: TestClient, admin_headers: dict, contributor_p
             "latitude": 18.52044,
             "longitude": 73.85675,
             "gps_accuracy": 5.0,
-            "form_data": {"panel_condition": "clean", "inverter_reading": 4.5},
+            "form_data": {
+                "panel_condition": "intact",
+                "shading_obstructions": "none",
+                "inverter_reading": 4.5,
+            },
         },
     )
     assert d_res.status_code == 201
@@ -316,15 +323,25 @@ def test_ai_unauthorized_access(client: TestClient, admin_headers: dict):
 def test_ai_integrated_into_submission_finalize(client: TestClient, admin_headers: dict):
     task_id, sub_id, user_headers = _setup_task_and_draft(client, admin_headers, "ai_contributor_finalize")
 
-    # Attach clear sharp photo
-    sharp_b64 = _create_synthetic_image_b64(pattern="sharp")
+    # Attach clear sharp photos (meeting minimum_photos requirement)
+    sharp_b64_1 = _create_synthetic_image_b64(pattern="sharp")
     client.post(
         f"/api/v1/submissions/{sub_id}/media",
         headers=user_headers,
         json={
-            "storage_key": "evidence/sharp_evidence.jpg",
+            "storage_key": "evidence/sharp_evidence_1.jpg",
             "media_type": "image/jpeg",
-            "metadata": {"image_base64": sharp_b64, "width": 1200, "height": 900},
+            "metadata": {"image_base64": sharp_b64_1, "width": 1200, "height": 900},
+        },
+    )
+    sharp_b64_2 = _create_synthetic_image_b64(width=1280, height=960, pattern="sharp")
+    client.post(
+        f"/api/v1/submissions/{sub_id}/media",
+        headers=user_headers,
+        json={
+            "storage_key": "evidence/sharp_evidence_2.jpg",
+            "media_type": "image/jpeg",
+            "metadata": {"image_base64": sharp_b64_2, "width": 1280, "height": 960},
         },
     )
 

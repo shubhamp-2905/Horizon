@@ -405,6 +405,9 @@ class AutomatedValidationService:
             if result.status == CheckStatus.FAILED and verification.status != "approved":
                 verification.status = "flagged"
 
+        if result.status == CheckStatus.FAILED and submission.status not in ["approved", "verified"]:
+            submission.status = "flagged"
+
         db.commit()
         db.refresh(verification)
         return verification

@@ -115,7 +115,12 @@ def extract_approved_submissions(
     )
 
     # Base approval gate: Submission must be approved or verified
-    query = query.filter(Submission.status.in_(["approved", "verified"]))
+    query = query.filter(
+        Submission.status.in_(["approved", "verified"]),
+        Verification.status.in_(["approved", "verified"]),
+        or_(Verification.validation_status.is_(None), Verification.validation_status != "FAILED"),
+        or_(Verification.ai_status.is_(None), Verification.ai_status != "FAIL"),
+    )
 
     # Consensus gate: Must be APPROVED if consensus record exists; never REJECTED or DISPUTED
     query = query.filter(

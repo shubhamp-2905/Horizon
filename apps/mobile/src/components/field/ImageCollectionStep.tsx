@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../theme/ThemeContext';
@@ -54,7 +55,9 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
       if (!permission.granted) {
         if (!permission.canAskAgain) {
           setErrorMessage(
-            'Camera permission permanently denied. Please allow Camera access in your Android device Settings > Apps > Horizon.'
+            Platform.OS === 'ios'
+              ? 'Camera permission denied. Please allow Camera access in Settings > Horizon.'
+              : 'Camera permission denied. Please allow Camera access in device Settings > Apps > Horizon.'
           );
         } else {
           setErrorMessage('Camera access is required to capture ground-truth field evidence.');

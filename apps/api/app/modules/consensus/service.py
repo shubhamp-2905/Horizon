@@ -357,6 +357,49 @@ def evaluate_and_update_consensus(db: Session, submission_id: uuid.UUID) -> Cons
     # Synchronize submission and verification status
     verification = db.query(Verification).filter(Verification.submission_id == submission_id).first()
 
+    # -------------------------------------------------------------------------
+    # DEFENSIVE FINAL VALIDATION POLICY ENFORCEMENT:
+    # A peer review quorum or automated consensus MUST NEVER override a failed
+    # deterministic validation, irrelevant AI evidence, or unverified AI status!
+    # -------------------------------------------------------------------------
+    validation_failed = verification and (
+        verification.validation_status == "FAILED"
+        or verification.status == "flagged"
+    )
+    ai_failed_or_irrelevant = verification and (
+        verification.ai_status == "FAIL"
+        or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
+    )
+    ai_unverified = verification and (
+        verification.ai_status in ["WARNING", "PENDING"]
+        or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+    )
+
+    if (validation_failed or ai_failed_or_irrelevant) and consensus.status == "APPROVED":
+        # Hard block: Submission cannot be automatically approved by peer quorum!
+        consensus.status = "DISPUTED"
+        if submission and submission.status not in ["approved", "verified"]:
+            submission.status = "flagged"
+        if verification and verification.status != "approved":
+            verification.status = "flagged"
+            verification.notes = (
+                f"Consensus quorum approval blocked by defensive policy: "
+                f"{'Deterministic validation failed. ' if validation_failed else ''}"
+                f"{'AI detected irrelevant evidence or quality failure. ' if ai_failed_or_irrelevant else ''}"
+                f"Manual admin decision required."
+            )
+        return consensus
+
+    if ai_unverified and consensus.status == "APPROVED":
+        # Missing or unverified AI output cannot automatically pass into verified data
+        consensus.status = "PENDING"
+        if submission and submission.status == "submitted":
+            submission.status = "under_review"
+        if verification and verification.status != "approved":
+            verification.status = "under_review"
+            verification.notes = "Peer votes favorable, but AI verification is unavailable or requires review."
+        return consensus
+
     if consensus.status == "APPROVED":
         if submission:
             submission.status = "approved"

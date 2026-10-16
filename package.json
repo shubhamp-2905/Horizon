@@ -12,6 +12,9 @@
     "dev:web": "npm run dev --workspace=@horizon/web",
     "dev:mobile": "npm run start --workspace=@horizon/mobile",
     "build:web": "npm run build --workspace=@horizon/web",
+    "build:mobile:apk": "npm run build:apk --workspace=@horizon/mobile",
+    "build:mobile:ipa": "npm run build:ipa --workspace=@horizon/mobile",
+    "build:mobile:ipa:simulator": "npm run build:ipa:simulator --workspace=@horizon/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },

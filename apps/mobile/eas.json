@@ -28,6 +28,15 @@
         "EXPO_PUBLIC_API_URL": "https://horizon-backend-api.onrender.com/api/v1"
       }
     },
+    "preview-simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://horizon-backend-api.onrender.com/api/v1"
+      }
+    },
     "staging": {
       "distribution": "internal",
       "channel": "staging",

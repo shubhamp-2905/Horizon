@@ -7,7 +7,14 @@ from app.schemas.quality import (
     SubmissionQualityEvaluationResponse,
     ImageQualityResult,
 )
+from app.schemas.verification import (
+    SubmissionEvidenceEvaluationRequest,
+    SubmissionEvidenceEvaluationResponse,
+    ComprehensiveEvidenceResult,
+)
 from app.services.quality_evaluator import ImageQualityEvaluator
+from app.services.evidence_evaluator import EvidenceEvaluator
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -69,6 +76,50 @@ async def evaluate_single_file(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unable to process image file: {str(e)}",
+        )
+
+
+@app.post(
+    "/evidence/evaluate",
+    response_model=SubmissionEvidenceEvaluationResponse,
+    tags=["Evidence Verification"],
+)
+@app.post(
+    "/api/v1/evidence/evaluate",
+    response_model=SubmissionEvidenceEvaluationResponse,
+    tags=["Evidence Verification"],
+)
+def evaluate_submission_evidence(
+    payload: SubmissionEvidenceEvaluationRequest,
+) -> SubmissionEvidenceEvaluationResponse:
+    """Evaluate task-aware semantic relevance, image quality, and authenticity across evidence media."""
+    return EvidenceEvaluator.evaluate_submission(payload)
+
+
+@app.post(
+    "/evidence/evaluate-file",
+    response_model=ComprehensiveEvidenceResult,
+    tags=["Evidence Verification"],
+)
+async def evaluate_single_evidence_file(
+    file: UploadFile = File(...),
+    artifact_type: Optional[str] = Form("water_source"),
+    task_title: Optional[str] = Form("Geospatial Field Survey"),
+    media_id: Optional[str] = Form(None),
+) -> ComprehensiveEvidenceResult:
+    """Upload and evaluate a single image file for both image quality and semantic task relevance."""
+    try:
+        content = await file.read()
+        return EvidenceEvaluator.evaluate_image_bytes(
+            content,
+            task_context={"artifact_type": artifact_type, "task_title": task_title},
+            media_id=media_id,
+            storage_key=file.filename,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unable to process evidence image: {str(e)}",
         )
 
 

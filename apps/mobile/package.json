@@ -12,7 +12,11 @@
     "lint": "node -e \"console.log('@horizon/mobile lint passed')\"",
     "typecheck": "tsc --noEmit",
     "build:apk": "eas build --platform android --profile preview",
-    "build:apk:local": "eas build --platform android --profile preview --local"
+    "build:apk:local": "eas build --platform android --profile preview --local",
+    "build:ipa": "eas build --platform ios --profile preview",
+    "build:ipa:simulator": "eas build --platform ios --profile preview-simulator",
+    "build:ipa:staging": "eas build --platform ios --profile staging",
+    "build:ipa:production": "eas build --platform ios --profile production"
   },
   "dependencies": {
     "@horizon/types": "*",

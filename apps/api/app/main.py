@@ -67,7 +67,7 @@ def root_health() -> HealthResponse:
     db_connected = check_db_connectivity()
     return HealthResponse(
         status="ok" if db_connected else "degraded",
-        service="horizon-backend-api",
+        service="horizon-api",
         environment=settings.ENVIRONMENT,
         version="0.1.0",
         database="connected" if db_connected else "disconnected",
