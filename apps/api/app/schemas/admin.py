@@ -102,6 +102,7 @@ class MemberDetailResponse(BaseModel):
     tkn_balance: int = 0
     available_balance: int = 0
     locked_balance: int = 0
+    total_awarded_tkn: int = 0
     tasks_claimed_count: int = 0
     tasks_completed_count: int = 0
     submissions_count: int = 0

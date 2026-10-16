@@ -17,11 +17,14 @@ import {
 } from './Icons';
 
 export interface MemberLocationInfo {
-  source: 'profile' | 'field_submission' | 'unavailable';
-  display_text: string;
+  type?: string;
+  source?: 'profile' | 'field_submission' | 'unavailable' | string;
+  display_text?: string;
   latitude?: number | null;
   longitude?: number | null;
+  updated_at?: string | null;
   recorded_at?: string | null;
+  context?: string | null;
   context_note?: string | null;
 }
 
@@ -29,21 +32,25 @@ export interface MemberSummary {
   id: string;
   email: string;
   username: string;
+  display_name?: string | null;
   full_name?: string | null;
   avatar_url?: string | null;
   role: string;
   status: string;
-  is_verified: boolean;
-  created_at: string;
+  is_verified?: boolean;
+  joined_at?: string;
+  created_at?: string;
   last_active_at?: string | null;
-  location: MemberLocationInfo;
-  tkn_balance: number;
-  available_balance: number;
-  locked_balance: number;
-  total_awarded_tkn: number;
-  tasks_claimed_count: number;
-  tasks_completed_count: number;
-  submissions_count: number;
+  last_active_source?: string | null;
+  location?: MemberLocationInfo | null;
+  tkn_balance?: number;
+  available_balance?: number;
+  locked_balance?: number;
+  total_awarded_tkn?: number;
+  tasks_claimed_count?: number;
+  tasks_completed_count?: number;
+  submissions_count?: number;
+  approved_submissions_count?: number;
 }
 
 export interface MemberOverviewStats {
@@ -58,10 +65,13 @@ export interface MemberTransaction {
   id: string;
   transaction_type: string;
   amount: number;
-  direction: 'credit' | 'debit';
-  status: string;
+  direction: 'in' | 'out' | 'credit' | 'debit' | string;
+  status?: string;
   reference?: string | null;
-  created_at: string;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  description?: string | null;
+  created_at?: string | null;
   related_task_title?: string | null;
 }
 
@@ -71,6 +81,7 @@ export interface MemberClaim {
   task_title: string;
   status: string;
   claimed_at: string;
+  completed_at?: string | null;
   expires_at?: string | null;
   stake_amount: number;
 }
@@ -80,9 +91,12 @@ export interface MemberSubmission {
   task_id: string;
   task_title: string;
   status: string;
-  submitted_at: string;
+  submitted_at?: string | null;
+  captured_at?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  gps_accuracy?: number | null;
+  verification_status?: string | null;
   reward_amount?: number | null;
 }
 
@@ -165,7 +179,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
         sort_order: sortOrder,
       });
       if (searchQuery.trim()) {
-        params.set('query', searchQuery.trim());
+        params.set('q', searchQuery.trim());
       }
       if (statusFilter !== 'all') {
         params.set('status', statusFilter);
@@ -178,7 +192,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
         throw new Error(`Failed to fetch members list (HTTP ${res.status})`);
       }
       const data = await res.json();
-      setMembers(data.members || data.items || []);
+      setMembers(Array.isArray(data.members) ? data.members : (Array.isArray(data.items) ? data.items : []));
       setTotalCount(data.total || 0);
     } catch (err: any) {
       setListError(err.message || 'Error fetching members');
@@ -287,7 +301,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
           <div className="kpi-content">
             <div className="stat-label">Registered Members</div>
             <div className="stat-value">
-              {statsLoading ? '...' : stats ? stats.total_registered_members.toLocaleString() : '—'}
+              {statsLoading ? '...' : stats?.total_registered_members != null ? stats.total_registered_members.toLocaleString() : '—'}
             </div>
             <div className="stat-sub">Excludes system administrators</div>
           </div>
@@ -301,7 +315,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
           <div className="kpi-content">
             <div className="stat-label">Active Recently</div>
             <div className="stat-value">
-              {statsLoading ? '...' : stats ? stats.active_recently_count.toLocaleString() : '—'}
+              {statsLoading ? '...' : stats?.active_recently_count != null ? stats.active_recently_count.toLocaleString() : '—'}
             </div>
             <div className="stat-sub">
               {stats ? `Activity in last ${stats.recent_activity_window_days} days` : 'Last 30-day window'}
@@ -317,7 +331,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
           <div className="kpi-content">
             <div className="stat-label">Rewarded Members</div>
             <div className="stat-value">
-              {statsLoading ? '...' : stats ? stats.members_awarded_tkn_count.toLocaleString() : '—'}
+              {statsLoading ? '...' : stats?.members_awarded_tkn_count != null ? stats.members_awarded_tkn_count.toLocaleString() : '—'}
             </div>
             <div className="stat-sub">Received completed TKN awards</div>
           </div>
@@ -519,7 +533,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             )}
                             <div>
                               <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>
-                                {m.full_name || m.username}
+                                {m.display_name || m.full_name || m.username}
                               </div>
                               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                 @{m.username}
@@ -531,32 +545,32 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                           {m.email}
                         </td>
                         <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          {formatDateOnly(m.created_at)}
+                          {formatDateOnly(m.joined_at || (m as any).created_at)}
                         </td>
                         <td style={{ fontSize: '12px', color: m.last_active_at ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                           {formatDateTime(m.last_active_at)}
                         </td>
                         <td style={{ fontSize: '12px', maxWidth: '240px' }}>
                           <span
-                            title={m.location.context_note || m.location.display_text}
+                            title={m.location?.context || (m.location as any)?.context_note || m.location?.display_text || 'Not available'}
                             style={{
-                              color: m.location.source === 'unavailable' ? 'var(--text-muted)' : 'var(--text-primary)',
+                              color: (!m.location || m.location.type === 'none' || (m.location as any).source === 'unavailable') ? 'var(--text-muted)' : 'var(--text-primary)',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                             }}
                           >
-                            <MapPinIcon size={13} color={m.location.source === 'unavailable' ? '#94A3B8' : '#15803D'} />
+                            <MapPinIcon size={13} color={(!m.location || m.location.type === 'none' || (m.location as any).source === 'unavailable') ? '#94A3B8' : '#15803D'} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                              {m.location.display_text}
+                              {m.location?.display_text || 'Not available'}
                             </span>
                           </span>
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, color: '#15803D', fontFamily: 'JetBrains Mono, monospace', fontSize: '13px' }}>
-                            {m.tkn_balance.toLocaleString()} TKN
+                            {(m.tkn_balance ?? 0).toLocaleString()} TKN
                           </div>
-                          {m.locked_balance > 0 && (
+                          {(m.locked_balance ?? 0) > 0 && (
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                               ({m.locked_balance} locked)
                             </div>
@@ -564,10 +578,10 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                         </td>
                         <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                           <div>
-                            <strong>{m.tasks_claimed_count}</strong> claimed
+                            <strong>{m.tasks_claimed_count ?? 0}</strong> claimed
                           </div>
                           <div style={{ fontSize: '11px', color: '#15803D' }}>
-                            <strong>{m.tasks_completed_count}</strong> verified
+                            <strong>{m.tasks_completed_count ?? 0}</strong> verified
                           </div>
                         </td>
                         <td>
@@ -776,7 +790,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             Available Balance
                           </div>
                           <div style={{ fontSize: '18px', fontWeight: 800, color: '#15803D', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
-                            {detailData.available_balance.toLocaleString()} TKN
+                            {(detailData.available_balance ?? 0).toLocaleString()} TKN
                           </div>
                         </div>
 
@@ -785,7 +799,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             Locked In Commitments
                           </div>
                           <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
-                            {detailData.locked_balance.toLocaleString()} TKN
+                            {(detailData.locked_balance ?? 0).toLocaleString()} TKN
                           </div>
                         </div>
 
@@ -794,7 +808,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             Cumulative Awarded
                           </div>
                           <div style={{ fontSize: '18px', fontWeight: 800, color: '#15803D', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
-                            {detailData.total_awarded_tkn.toLocaleString()} TKN
+                            {((detailData as any).total_awarded_tkn ?? ((detailData.available_balance ?? 0) + (detailData.locked_balance ?? 0))).toLocaleString()} TKN
                           </div>
                         </div>
                       </div>
@@ -816,14 +830,14 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                         </div>
 
                         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                          {detailData.location.display_text}
+                          {detailData.location?.display_text || 'Not available'}
                         </div>
 
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                          {detailData.location.context_note}
+                          {detailData.location?.context || (detailData.location as any)?.context_note || ''}
                         </div>
 
-                        {detailData.location.latitude && detailData.location.longitude && (
+                        {detailData.location?.latitude != null && detailData.location?.longitude != null && (
                           <div
                             style={{
                               marginTop: '10px',
@@ -836,7 +850,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             }}
                           >
                             Coordinates: {detailData.location.latitude.toFixed(6)}, {detailData.location.longitude.toFixed(6)} · Captured:{' '}
-                            {formatDateTime(detailData.location.recorded_at)}
+                            {formatDateTime(detailData.location.updated_at || (detailData.location as any).recorded_at)}
                           </div>
                         )}
                       </div>
@@ -857,7 +871,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                           <div>
                             <span style={{ color: 'var(--text-muted)' }}>Registered: </span>
                             <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                              {formatDateTime(detailData.created_at)}
+                              {formatDateTime(detailData.joined_at || (detailData as any).created_at)}
                             </span>
                           </div>
                           <div>
@@ -885,7 +899,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
 
                   {detailTab === 'ledger' && (
                     <div>
-                      {detailData.transactions.length === 0 ? (
+                      {(!detailData.transactions || detailData.transactions.length === 0) ? (
                         <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                           No token transactions recorded for this member.
                         </div>
@@ -902,7 +916,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                             </tr>
                           </thead>
                           <tbody>
-                            {detailData.transactions.map((tx) => (
+                            {(detailData.transactions || []).map((tx) => (
                               <tr key={tx.id}>
                                 <td style={{ fontWeight: 600, textTransform: 'capitalize' }}>
                                   {tx.transaction_type.replace(/_/g, ' ')}
@@ -914,26 +928,26 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                                       borderRadius: '4px',
                                       fontSize: '11px',
                                       fontWeight: 700,
-                                      background: tx.direction === 'credit' ? '#DCFCE7' : '#FEE2E2',
-                                      color: tx.direction === 'credit' ? '#15803D' : '#DC2626',
+                                      background: tx.direction === 'credit' || tx.direction === 'in' ? '#DCFCE7' : '#FEE2E2',
+                                      color: tx.direction === 'credit' || tx.direction === 'in' ? '#15803D' : '#DC2626',
                                     }}
                                   >
-                                    {tx.direction.toUpperCase()}
+                                    {(tx.direction || 'in').toUpperCase()}
                                   </span>
                                 </td>
                                 <td style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-                                  {tx.direction === 'credit' ? '+' : '-'}
-                                  {tx.amount.toLocaleString()} TKN
+                                  {tx.direction === 'credit' || tx.direction === 'in' ? '+' : '-'}
+                                  {(tx.amount ?? 0).toLocaleString()} TKN
                                 </td>
                                 <td style={{ color: 'var(--text-secondary)' }}>
-                                  {tx.related_task_title || tx.reference || '—'}
+                                  {tx.description || (tx as any).related_task_title || (tx as any).reference || '—'}
                                 </td>
                                 <td style={{ color: 'var(--text-muted)' }}>
                                   {formatDateTime(tx.created_at)}
                                 </td>
                                 <td>
                                   <span style={{ textTransform: 'capitalize', fontSize: '11px', color: '#15803D', fontWeight: 600 }}>
-                                    {tx.status}
+                                    {tx.status || 'completed'}
                                   </span>
                                 </td>
                               </tr>
@@ -948,9 +962,9 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                       <div>
                         <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
-                          Task Claims ({detailData.claims.length})
+                          Task Claims ({detailData.claims?.length ?? 0})
                         </h4>
-                        {detailData.claims.length === 0 ? (
+                        {(!detailData.claims || detailData.claims.length === 0) ? (
                           <div style={{ padding: '16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '12px' }}>
                             No task claims recorded.
                           </div>
@@ -965,7 +979,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                               </tr>
                             </thead>
                             <tbody>
-                              {detailData.claims.map((c) => (
+                              {(detailData.claims || []).map((c) => (
                                 <tr key={c.id}>
                                   <td style={{ fontWeight: 600 }}>{c.task_title}</td>
                                   <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{c.stake_amount} TKN</td>
@@ -980,9 +994,9 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
 
                       <div>
                         <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
-                          Submissions History ({detailData.submissions.length})
+                          Submissions History ({detailData.submissions?.length ?? 0})
                         </h4>
-                        {detailData.submissions.length === 0 ? (
+                        {(!detailData.submissions || detailData.submissions.length === 0) ? (
                           <div style={{ padding: '16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '12px' }}>
                             No submissions submitted by this member.
                           </div>
@@ -997,14 +1011,14 @@ export const MembersTab: React.FC<MembersTabProps> = ({ apiBaseUrl, adminToken }
                               </tr>
                             </thead>
                             <tbody>
-                              {detailData.submissions.map((s) => (
+                              {(detailData.submissions || []).map((s) => (
                                 <tr key={s.id}>
                                   <td style={{ fontWeight: 600 }}>{s.task_title}</td>
                                   <td style={{ textTransform: 'capitalize' }}>{s.status}</td>
                                   <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                                    {s.latitude && s.longitude ? `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}` : '—'}
+                                    {s.latitude != null && s.longitude != null ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : '—'}
                                   </td>
-                                  <td style={{ color: 'var(--text-muted)' }}>{formatDateTime(s.submitted_at)}</td>
+                                  <td style={{ color: 'var(--text-muted)' }}>{formatDateTime(s.submitted_at || (s as any).captured_at)}</td>
                                 </tr>
                               ))}
                             </tbody>

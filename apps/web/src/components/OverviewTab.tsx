@@ -83,13 +83,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onInspectSubmission,
 }) => {
   const activeTasks = tasks.filter((t) => t.status === 'published');
-  const activeTasksCount = stats ? stats.active_tasks : activeTasks.length;
+  const activeTasksCount = stats?.active_tasks ?? activeTasks.length;
 
   // Real operational metrics directly from Supabase / API
-  const awaitingFinalReview = stats ? stats.awaiting_review : (reviewQueue ? reviewQueue.filter((r) => r.status === 'awaiting_review').length : 0);
-  const approvedCount = stats ? stats.approved_count : 0;
-  const rejectedCount = stats ? stats.rejected_count : 0;
-  const flaggedCount = stats ? stats.flagged_count : 0;
+  const awaitingFinalReview = stats?.awaiting_review ?? (reviewQueue ? reviewQueue.filter((r) => r.status === 'awaiting_review').length : 0);
+  const approvedCount = stats?.approved_count ?? 0;
+  const rejectedCount = stats?.rejected_count ?? 0;
+  const flaggedCount = stats?.flagged_count ?? 0;
 
   const currentQueue = reviewQueue || [];
 
@@ -105,14 +105,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="kpi-content">
             <div className="stat-label">TKN Distributed</div>
             <div className="stat-value">
-              {stats?.total_tkn_distributed !== undefined
+              {stats?.total_tkn_distributed != null
                 ? `${stats.total_tkn_distributed.toLocaleString()} TKN`
                 : loading
                 ? '...'
                 : '—'}
             </div>
             <div className="stat-sub">
-              {stats?.members_awarded_count !== undefined
+              {stats?.members_awarded_count != null
                 ? `${stats.members_awarded_count.toLocaleString()} members awarded`
                 : 'Total tokens awarded to members'}
             </div>
@@ -335,7 +335,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </span>
                   </td>
                   <td className="font-mono" style={{ fontSize: '12px' }}>
-                    {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
+                    {task.latitude != null && task.longitude != null ? `${task.latitude.toFixed(4)}, ${task.longitude.toFixed(4)}` : '—'}
                   </td>
                   <td>
                     <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>

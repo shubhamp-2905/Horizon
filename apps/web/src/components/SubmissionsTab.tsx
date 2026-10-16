@@ -827,7 +827,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({ initialSelectedI
                       Spatial Coordinates
                     </div>
                     <div style={{ fontSize: '12px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: '#101828' }}>
-                      {selectedSub.latitude.toFixed(6)}, {selectedSub.longitude.toFixed(6)}
+                      {selectedSub.latitude != null && selectedSub.longitude != null ? `${selectedSub.latitude.toFixed(6)}, ${selectedSub.longitude.toFixed(6)}` : '—'}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
                       GPS Accuracy: ±{selectedSub.gps_accuracy}m

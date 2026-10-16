@@ -131,7 +131,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
                     </span>
                   </td>
                   <td className="font-mono" style={{ fontSize: '12px' }}>
-                    {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
+                    {task.latitude != null && task.longitude != null ? `${task.latitude.toFixed(4)}, ${task.longitude.toFixed(4)}` : '—'}
                   </td>
                   <td>
                     <span style={{ fontWeight: 700, color: 'var(--cyan-glow)', fontFamily: 'JetBrains Mono, monospace' }}>

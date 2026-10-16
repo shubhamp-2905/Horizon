@@ -367,6 +367,8 @@ def get_admin_member_detail(db: Session, member_id: uuid.UUID) -> MemberDetailRe
     total_balance = avail + locked
 
     transactions_list: List[MemberTransactionItem] = []
+    txs = []
+    total_awarded = 0
     if acc:
         txs = (
             db.query(TokenTransaction)
@@ -374,6 +376,7 @@ def get_admin_member_detail(db: Session, member_id: uuid.UUID) -> MemberDetailRe
             .order_by(TokenTransaction.created_at.desc())
             .all()
         )
+        total_awarded = sum([t.amount for t in txs if t.transaction_type in AWARD_TRANSACTION_TYPES and t.amount > 0])
         for t in txs:
             direction = "in" if t.amount > 0 else "out"
             transactions_list.append(
@@ -500,6 +503,7 @@ def get_admin_member_detail(db: Session, member_id: uuid.UUID) -> MemberDetailRe
         tkn_balance=total_balance,
         available_balance=avail,
         locked_balance=locked,
+        total_awarded_tkn=total_awarded,
         tasks_claimed_count=len(claims),
         tasks_completed_count=completed_claims_count,
         submissions_count=len(subs),
