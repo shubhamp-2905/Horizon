@@ -11,6 +11,7 @@ import { TaskDetailModal } from '../../components/TaskDetailModal';
 import { ConfirmationDialog } from '../../components/ConfirmationDialog';
 import { SubmissionsTab } from '../../components/SubmissionsTab';
 import { PipelineTab } from '../../components/PipelineTab';
+import { MembersTab } from '../../components/MembersTab';
 import { CheckCircle2Icon, ShieldCheckIcon, AlertTriangleIcon } from '../../components/Icons';
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1').replace(/\/+$/, '');
@@ -68,6 +69,27 @@ export default function AdminPage() {
       }
     }
   }, [router]);
+
+  // Synchronize active tab with URL query parameter on direct navigation or refresh
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as AdminTab | null;
+      const validTabs: AdminTab[] = ['overview', 'tasks', 'submissions', 'members', 'review', 'pipeline', 'settings'];
+      if (tabParam && validTabs.includes(tabParam)) {
+        setCurrentTab(tabParam);
+      }
+    }
+  }, []);
+
+  const handleSelectTab = (tab: AdminTab) => {
+    setCurrentTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   const handleSignOut = () => {
     if (typeof window !== 'undefined') {
@@ -328,7 +350,7 @@ export default function AdminPage() {
       {/* Streamlined Minimal Sidebar */}
       <Sidebar
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={handleSelectTab}
         taskCount={tasks.length}
         apiConnected={apiConnected}
         onSignOut={handleSignOut}
@@ -350,15 +372,16 @@ export default function AdminPage() {
             <OverviewTab
               tasks={tasks}
               stats={stats}
+              loading={loading}
               reviewQueue={reviewQueue}
-              onNavigateToTasks={() => setCurrentTab('tasks')}
-              onNavigateToSubmissions={() => setCurrentTab('submissions')}
+              onNavigateToTasks={() => handleSelectTab('tasks')}
+              onNavigateToSubmissions={() => handleSelectTab('submissions')}
               onOpenCreateTask={() => setIsCreateModalOpen(true)}
               onToggleStatus={handleToggleStatus}
               onViewTask={(task) => setSelectedTaskForDetail(task)}
               onInspectSubmission={(subId) => {
                 setSelectedSubmissionId(subId);
-                setCurrentTab('submissions');
+                handleSelectTab('submissions');
               }}
             />
           )}
@@ -379,6 +402,14 @@ export default function AdminPage() {
               initialSelectedId={selectedSubmissionId}
               adminToken={adminToken}
               onSubmissionReviewed={fetchDashboardData}
+            />
+          )}
+
+          {/* OPERATIONS: Members Management */}
+          {currentTab === 'members' && (
+            <MembersTab
+              apiBaseUrl={API_BASE_URL}
+              adminToken={adminToken}
             />
           )}
 

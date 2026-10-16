@@ -10,6 +10,7 @@ import {
   ArrowRightIcon,
   EyeIcon,
   PlusIcon,
+  CoinsIcon,
 } from './Icons';
 
 export interface AdminTaskItem {
@@ -45,18 +46,21 @@ export interface SystemStats {
   total_tasks: number;
   active_tasks: number;
   total_submissions: number;
-  pending_submissions: number;
+  pending_submissions?: number;
   awaiting_review: number;
   approved_count: number;
   rejected_count: number;
   flagged_count: number;
   total_contributors: number;
   total_tokens_circulating: number;
+  total_tkn_distributed?: number;
+  members_awarded_count?: number;
 }
 
 interface OverviewTabProps {
   tasks: AdminTaskItem[];
   stats?: SystemStats | null;
+  loading?: boolean;
   reviewQueue?: ReviewQueueItem[];
   onNavigateToTasks: () => void;
   onNavigateToSubmissions: () => void;
@@ -69,6 +73,7 @@ interface OverviewTabProps {
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   tasks,
   stats,
+  loading = false,
   reviewQueue,
   onNavigateToTasks,
   onNavigateToSubmissions,
@@ -81,7 +86,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const activeTasksCount = stats ? stats.active_tasks : activeTasks.length;
 
   // Real operational metrics directly from Supabase / API
-  const pendingSubmissions = stats ? stats.pending_submissions : (reviewQueue ? reviewQueue.length : 0);
   const awaitingFinalReview = stats ? stats.awaiting_review : (reviewQueue ? reviewQueue.filter((r) => r.status === 'awaiting_review').length : 0);
   const approvedCount = stats ? stats.approved_count : 0;
   const rejectedCount = stats ? stats.rejected_count : 0;
@@ -93,19 +97,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <div>
       {/* 6 Essential Operational Metric Cards */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-        <div className="kpi-card">
+        {/* 1. TKN Distributed (Authoritative token awards ledger) */}
+        <div className="kpi-card" id="kpi-tkn-distributed">
           <div className="kpi-icon-wrap kpi-icon-emerald">
-            <ClockIcon size={18} />
+            <CoinsIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Pending Submissions</div>
-            <div className="stat-value">{pendingSubmissions}</div>
+            <div className="stat-label">TKN Distributed</div>
+            <div className="stat-value">
+              {stats?.total_tkn_distributed !== undefined
+                ? `${stats.total_tkn_distributed.toLocaleString()} TKN`
+                : loading
+                ? '...'
+                : '—'}
+            </div>
             <div className="stat-sub">
-              <span className="stat-trend-tag">↑ In intake &amp; review</span>
+              {stats?.members_awarded_count !== undefined
+                ? `${stats.members_awarded_count.toLocaleString()} members awarded`
+                : 'Total tokens awarded to members'}
             </div>
           </div>
         </div>
 
+        {/* 2. Awaiting Review */}
         <div className="kpi-card">
           <div className="kpi-icon-wrap kpi-icon-blue">
             <EyeIcon size={18} />

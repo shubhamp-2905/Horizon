@@ -9,12 +9,14 @@ import {
   SlidersIcon,
   EyeIcon,
   LogOutIcon,
+  UsersIcon,
 } from './Icons';
 
 export type AdminTab =
   | 'overview'
   | 'tasks'
   | 'submissions'
+  | 'members'
   | 'review'
   | 'pipeline'
   | 'settings';
@@ -96,6 +98,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <EyeIcon size={18} />
             </span>
             <span>Submissions</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={`nav-link ${currentTab === 'members' ? 'active' : ''}`}
+          onClick={() => onSelectTab('members')}
+        >
+          <span className="nav-link-left">
+            <span className="nav-icon">
+              <UsersIcon size={18} />
+            </span>
+            <span>Members</span>
           </span>
         </button>
 

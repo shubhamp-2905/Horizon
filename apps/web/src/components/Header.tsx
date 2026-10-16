@@ -27,6 +27,8 @@ export const Header: React.FC<HeaderProps> = ({
         return 'Task Management';
       case 'submissions':
         return 'Field Submissions';
+      case 'members':
+        return 'Members & Contributors';
       case 'review':
         return 'Consensus & Verification Queue';
       case 'pipeline':
@@ -44,6 +46,8 @@ export const Header: React.FC<HeaderProps> = ({
         return 'Manage and monitor all active PostGIS ground-truth waypoints';
       case 'submissions':
         return 'Review real-time geospatial submissions from field scouts';
+      case 'members':
+        return 'Directory of registered platform contributors, activity records, and token balances';
       case 'review':
         return 'Multi-layer consensus verification queue and dispute resolution';
       case 'pipeline':

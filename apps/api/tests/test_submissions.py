@@ -77,8 +77,9 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
         "/api/v1/admin/tasks",
         headers={"Authorization": f"Bearer {admin_token}"},
         json={
-            "title": "Substation Transformer Check",
-            "artifact_type": "telecom_tower",
+            "title": "Solar Quality Audit Lifecycle",
+            "description": "Inspect canopy and panel clarity.",
+            "artifact_type": "solar_installation",
             "latitude": 18.5200,
             "longitude": 73.8600,
             "difficulty": 1.5,
@@ -106,7 +107,7 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
             "latitude": 18.5202,
             "longitude": 73.8601,
             "gps_accuracy": 3.8,
-            "form_data": {"site_condition": "satisfactory"},
+            "form_data": {"panel_condition": "intact", "shading_obstructions": "none"},
         },
     )
     assert draft_res.status_code == 201
@@ -114,7 +115,7 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
     submission_id = draft_data["id"]
     assert draft_data["status"] == "draft"
     assert draft_data["latitude"] is not None
-    assert draft_data["form_data"]["site_condition"] == "satisfactory"
+    assert draft_data["form_data"]["panel_condition"] == "intact"
 
     # 4. Contributor updates ongoing draft
     update_res = client.put(
@@ -122,7 +123,7 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
         headers={"Authorization": f"Bearer {contributor_token}"},
         json={
             "gps_accuracy": 2.5,
-            "form_data": {"site_condition": "satisfactory", "safety_labels": "verified_visible"},
+            "form_data": {"panel_condition": "intact", "shading_obstructions": "none", "safety_labels": "verified_visible"},
         },
     )
     assert update_res.status_code == 200
@@ -130,18 +131,42 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
     assert updated_data["gps_accuracy"] == 2.5
     assert updated_data["form_data"]["safety_labels"] == "verified_visible"
 
-    # 5. Attach evidence media
-    media_res = client.post(
+    from tests.test_ai_validation import _create_synthetic_image_b64
+    synthetic_b64_1 = _create_synthetic_image_b64(pattern="sharp")
+    synthetic_b64_2 = _create_synthetic_image_b64(width=1280, height=960, pattern="sharp")
+
+    # 5. Attach evidence media (2 photos to meet minimum_photos requirement)
+    media_res1 = client.post(
         f"/api/v1/submissions/{submission_id}/media",
         headers={"Authorization": f"Bearer {contributor_token}"},
         json={
-            "storage_key": "evidence/2026/10/substation_front.jpg",
+            "storage_key": "evidence/sharp_canopy_1.jpg",
             "media_type": "image/jpeg",
-            "metadata": {"width": 4032, "height": 3024, "hash": "sha256_mock_hash_123"},
+            "metadata": {
+                "width": 1200,
+                "height": 900,
+                "hash": "sha256_mock_hash_1",
+                "image_base64": synthetic_b64_1,
+            },
         },
     )
-    assert media_res.status_code == 201
-    assert media_res.json()["storage_key"] == "evidence/2026/10/substation_front.jpg"
+    assert media_res1.status_code == 201
+
+    media_res2 = client.post(
+        f"/api/v1/submissions/{submission_id}/media",
+        headers={"Authorization": f"Bearer {contributor_token}"},
+        json={
+            "storage_key": "evidence/sharp_canopy_2.jpg",
+            "media_type": "image/jpeg",
+            "metadata": {
+                "width": 1280,
+                "height": 960,
+                "hash": "sha256_mock_hash_2",
+                "image_base64": synthetic_b64_2,
+            },
+        },
+    )
+    assert media_res2.status_code == 201
 
     # 6. Finalize submission
     submit_res = client.post(
@@ -152,7 +177,7 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
     final_data = submit_res.json()
     assert final_data["status"] == "submitted"
     assert final_data["submitted_at"] is not None
-    assert len(final_data["media"]) == 1
+    assert len(final_data["media"]) == 2
 
     # 7. Attempting to edit after submission must fail
     re_edit = client.put(

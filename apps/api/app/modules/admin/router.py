@@ -6,12 +6,25 @@ from app.database.session import get_db
 from app.database.models.user import User
 from app.core.security import require_role
 from app.schemas.tasks import TaskCreateRequest, TaskUpdateRequest, TaskResponse, TaskListResponse
+from app.schemas.admin import (
+    MemberOverviewStatsResponse,
+    MemberListResponse,
+    MemberDetailResponse,
+)
 from app.modules.tasks.service import (
     create_task_record,
     update_task_record,
     discover_tasks,
     get_task_details,
 )
+from app.modules.admin.service import (
+    AWARD_TRANSACTION_TYPES,
+    get_admin_member_stats,
+    list_admin_members,
+    get_admin_member_detail,
+)
+from app.database.models.token import TokenAccount, TokenTransaction
+from sqlalchemy import func
 
 router = APIRouter(prefix="/admin/tasks", tags=["Admin Tasks"])
 
@@ -103,6 +116,33 @@ def admin_get_system_stats(
     total_contributors = db.query(User).filter(User.role == "contributor").count()
     total_tokens = db.query(func.coalesce(func.sum(TokenAccount.available_balance + TokenAccount.locked_balance), 0)).scalar() or 0
 
+    # Calculate authoritative cumulative TKN distributed to non-admin members
+    tkn_distributed_val = (
+        db.query(func.coalesce(func.sum(TokenTransaction.amount), 0))
+        .select_from(TokenTransaction)
+        .join(TokenAccount, TokenTransaction.token_account_id == TokenAccount.id)
+        .join(User, TokenAccount.user_id == User.id)
+        .filter(
+            User.role != "admin",
+            TokenTransaction.transaction_type.in_(AWARD_TRANSACTION_TYPES),
+            TokenTransaction.amount > 0,
+        )
+        .scalar()
+    ) or 0
+
+    members_awarded_val = (
+        db.query(func.count(func.distinct(TokenAccount.user_id)))
+        .select_from(TokenTransaction)
+        .join(TokenAccount, TokenTransaction.token_account_id == TokenAccount.id)
+        .join(User, TokenAccount.user_id == User.id)
+        .filter(
+            User.role != "admin",
+            TokenTransaction.transaction_type.in_(AWARD_TRANSACTION_TYPES),
+            TokenTransaction.amount > 0,
+        )
+        .scalar()
+    ) or 0
+
     return {
         "total_tasks": total_tasks,
         "active_tasks": active_tasks,
@@ -114,4 +154,56 @@ def admin_get_system_stats(
         "flagged_count": flagged_count,
         "total_contributors": total_contributors,
         "total_tokens_circulating": float(total_tokens),
+        "total_tkn_distributed": int(tkn_distributed_val),
+        "members_awarded_count": int(members_awarded_val),
     }
+
+
+# -------------------------------------------------------------------------
+# Admin Members Management Endpoints (Admin Authorization Enforced)
+# -------------------------------------------------------------------------
+
+
+@stats_router.get("/members/stats", response_model=MemberOverviewStatsResponse)
+def admin_get_members_overview_stats(
+    admin: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Aggregate statistics for the admin Members management overview."""
+    return get_admin_member_stats(db)
+
+
+@stats_router.get("/members", response_model=MemberListResponse)
+def admin_get_members_directory(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: Optional[str] = Query(None, description="Search by username, email, or display name"),
+    query: Optional[str] = Query(None, description="Alias for q"),
+    status: Optional[str] = Query(None, description="Filter by account status (e.g. active)"),
+    sort_by: str = Query("created_at", description="Sort field: created_at, username, email"),
+    sort_order: str = Query("desc", description="Sort order: asc, desc"),
+    admin: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """List registered Horizon community members with server-side pagination, search, and pre-aggregated activity."""
+    search_term = q or query
+    return list_admin_members(
+        db,
+        page=page,
+        page_size=page_size,
+        q=search_term,
+        status=status,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@stats_router.get("/members/{member_id}", response_model=MemberDetailResponse)
+def admin_get_member_profile_detail(
+    member_id: uuid.UUID = Path(..., description="Target member UUID"),
+    admin: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Inspect full member profile, authoritative TKN ledger history, task claims, and ground observations."""
+    return get_admin_member_detail(db, member_id)
+
