@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_, and_
 
 logger = logging.getLogger(__name__)
 
@@ -480,12 +480,20 @@ def settle_consensus(
         return {"status": "error", "message": "Submission not found"}
 
     task = db.query(Task).filter(Task.id == submission.task_id).first()
-    claim = (
-        db.query(TaskClaim)
-        .filter(TaskClaim.task_id == submission.task_id, TaskClaim.user_id == submission.user_id)
-        .with_for_update()
-        .first()
+    claim_query = db.query(TaskClaim).filter(
+        TaskClaim.task_id == submission.task_id,
+        TaskClaim.user_id == submission.user_id,
     )
+    if submission.submitted_at:
+        claim = (
+            claim_query.filter(TaskClaim.claimed_at <= submission.submitted_at)
+            .order_by(TaskClaim.claimed_at.desc())
+            .with_for_update()
+            .first()
+        )
+    else:
+        claim = claim_query.order_by(TaskClaim.claimed_at.desc()).with_for_update().first()
+
     token_account = (
         db.query(TokenAccount)
         .filter(TokenAccount.user_id == submission.user_id)
@@ -522,57 +530,83 @@ def settle_consensus(
                     "message": "Token reward payout blocked: Mandatory evidence verification failed or is unavailable.",
                 }
 
-        # 1. Unlock commitment stake from escrow back to available balance
-        if claim and claim.status in ["claimed", "in_progress", "submitted"]:
-            stake_to_unlock = claim.stake_amount
-            token_account.locked_balance = max(0, token_account.locked_balance - stake_to_unlock)
-            token_account.available_balance += stake_to_unlock
-
-            tx_stake = TokenTransaction(
-                token_account_id=token_account.id,
-                transaction_type="stake_return",
-                amount=stake_to_unlock,
-                reference_type="task_claim",
-                reference_id=str(claim.id),
+        # 1. Unlock commitment stake from escrow back to available balance (exactly once)
+        if claim:
+            existing_stake_tx = (
+                db.query(TokenTransaction)
+                .filter(
+                    TokenTransaction.token_account_id == token_account.id,
+                    TokenTransaction.transaction_type.in_(["stake_return", "stake_slashing"]),
+                    TokenTransaction.reference_type == "task_claim",
+                    or_(
+                        TokenTransaction.reference_id == str(claim.id),
+                        TokenTransaction.reference_id == str(claim.task_id),
+                    ),
+                )
+                .first()
             )
-            db.add(tx_stake)
-            claim.status = "released"
-            claim.completed_at = now_time
+            if not existing_stake_tx:
+                stake_to_unlock = claim.stake_amount
+                token_account.locked_balance = max(0, token_account.locked_balance - stake_to_unlock)
+                token_account.available_balance += stake_to_unlock
 
-        # 2. Mint dynamic reward
-        base = task.base_reward if task else 50
-        diff = task.difficulty if task else 1.0
-        scarcity = task.scarcity if task else 1.0
-        quality = 1.0
-        calculated_reward = int(round(base * diff * scarcity * quality))
+                tx_stake = TokenTransaction(
+                    token_account_id=token_account.id,
+                    transaction_type="stake_return",
+                    amount=stake_to_unlock,
+                    reference_type="task_claim",
+                    reference_id=str(claim.id),
+                )
+                db.add(tx_stake)
+                claim.status = "released"
+                claim.completed_at = now_time
+
+        # 2. Award exactly the configured reward for the completed task
+        configured_reward = int(task.base_reward) if task and task.base_reward is not None else 50
 
         reward = db.query(Reward).filter(Reward.submission_id == submission.id).first()
         if not reward:
             reward = Reward(
                 submission_id=submission.id,
-                base_value=base,
-                difficulty_factor=diff,
-                scarcity_factor=scarcity,
-                quality_factor=quality,
-                calculated_reward=calculated_reward,
+                base_value=float(configured_reward),
+                difficulty_factor=1.0,
+                scarcity_factor=1.0,
+                quality_factor=1.0,
+                calculated_reward=configured_reward,
                 status="granted",
             )
             db.add(reward)
         else:
             reward.status = "granted"
-            reward.calculated_reward = calculated_reward
+            reward.base_value = float(configured_reward)
+            reward.difficulty_factor = 1.0
+            reward.scarcity_factor = 1.0
+            reward.quality_factor = 1.0
+            reward.calculated_reward = configured_reward
 
-        token_account.available_balance += calculated_reward
-        tx_reward = TokenTransaction(
-            token_account_id=token_account.id,
-            transaction_type="reward_payout",
-            amount=calculated_reward,
-            reference_type="submission",
-            reference_id=str(submission.id),
+        # Check for existing reward payout to prevent duplicates on repeat approval
+        existing_reward_tx = (
+            db.query(TokenTransaction)
+            .filter(
+                TokenTransaction.token_account_id == token_account.id,
+                TokenTransaction.transaction_type == "reward_payout",
+                TokenTransaction.reference_type == "submission",
+                TokenTransaction.reference_id == str(submission.id),
+            )
+            .first()
         )
-        db.add(tx_reward)
+        if not existing_reward_tx:
+            token_account.available_balance += configured_reward
+            tx_reward = TokenTransaction(
+                token_account_id=token_account.id,
+                transaction_type="reward_payout",
+                amount=configured_reward,
+                reference_type="submission",
+                reference_id=str(submission.id),
+            )
+            db.add(tx_reward)
 
-        # 3. Disburse reviewer bounties to majority approving reviewers
+        # 3. Disburse reviewer bounties to majority approving reviewers (idempotent)
         bounty = settings.CONSENSUS_REVIEWER_BOUNTY
         approving_reviews = (
             db.query(PeerReview)
@@ -587,15 +621,26 @@ def settle_consensus(
                 .first()
             )
             if rev_account:
-                rev_account.available_balance += bounty
-                tx_rev = TokenTransaction(
-                    token_account_id=rev_account.id,
-                    transaction_type="reviewer_reward",
-                    amount=bounty,
-                    reference_type="peer_review",
-                    reference_id=str(r.id),
+                existing_rev_tx = (
+                    db.query(TokenTransaction)
+                    .filter(
+                        TokenTransaction.token_account_id == rev_account.id,
+                        TokenTransaction.transaction_type == "reviewer_reward",
+                        TokenTransaction.reference_type == "peer_review",
+                        TokenTransaction.reference_id == str(r.id),
+                    )
+                    .first()
                 )
-                db.add(tx_rev)
+                if not existing_rev_tx:
+                    rev_account.available_balance += bounty
+                    tx_rev = TokenTransaction(
+                        token_account_id=rev_account.id,
+                        transaction_type="reviewer_reward",
+                        amount=bounty,
+                        reference_type="peer_review",
+                        reference_id=str(r.id),
+                    )
+                    db.add(tx_rev)
 
         # 4. Improve contributor reputation
         rep = db.query(Reputation).filter(Reputation.user_id == submission.user_id).first()
@@ -610,20 +655,39 @@ def settle_consensus(
     elif consensus.status == "REJECTED":
         if slashing_confirmed or stake_action == "slash":
             # CONFIRMED FRAUDULENT SLASHING
-            if claim and claim.status in ["claimed", "in_progress", "submitted"]:
-                slash_amount = claim.stake_amount
-                token_account.locked_balance = max(0, token_account.locked_balance - slash_amount)
-                
-                tx_slash = TokenTransaction(
-                    token_account_id=token_account.id,
-                    transaction_type="stake_slashing",
-                    amount=-slash_amount,
-                    reference_type="submission",
-                    reference_id=str(submission.id),
+            if claim:
+                existing_slash = (
+                    db.query(TokenTransaction)
+                    .filter(
+                        TokenTransaction.token_account_id == token_account.id,
+                        TokenTransaction.transaction_type == "stake_slashing",
+                        or_(
+                            and_(
+                                TokenTransaction.reference_type == "submission",
+                                TokenTransaction.reference_id == str(submission.id),
+                            ),
+                            and_(
+                                TokenTransaction.reference_type == "task_claim",
+                                TokenTransaction.reference_id.in_([str(claim.id), str(claim.task_id)]),
+                            ),
+                        ),
+                    )
+                    .first()
                 )
-                db.add(tx_slash)
-                claim.status = "forfeited"
-                claim.completed_at = now_time
+                if not existing_slash:
+                    slash_amount = claim.stake_amount
+                    token_account.locked_balance = max(0, token_account.locked_balance - slash_amount)
+                    
+                    tx_slash = TokenTransaction(
+                        token_account_id=token_account.id,
+                        transaction_type="stake_slashing",
+                        amount=-slash_amount,
+                        reference_type="submission",
+                        reference_id=str(submission.id),
+                    )
+                    db.add(tx_slash)
+                    claim.status = "forfeited"
+                    claim.completed_at = now_time
 
             # Penalize reputation
             rep = db.query(Reputation).filter(Reputation.user_id == submission.user_id).first()
@@ -631,23 +695,37 @@ def settle_consensus(
                 rep.score = max(0.0, rep.score - settings.CONSENSUS_SLASH_PENALTY_SCORE)
         else:
             # STANDARD QUALITY REJECTION: Refund commitment stake in good faith
-            if claim and claim.status in ["claimed", "in_progress", "submitted"]:
-                stake_to_refund = claim.stake_amount
-                token_account.locked_balance = max(0, token_account.locked_balance - stake_to_refund)
-                token_account.available_balance += stake_to_refund
-
-                tx_stake = TokenTransaction(
-                    token_account_id=token_account.id,
-                    transaction_type="stake_return",
-                    amount=stake_to_refund,
-                    reference_type="task_claim",
-                    reference_id=str(claim.id),
+            if claim:
+                existing_stake_tx = (
+                    db.query(TokenTransaction)
+                    .filter(
+                        TokenTransaction.token_account_id == token_account.id,
+                        TokenTransaction.transaction_type.in_(["stake_return", "stake_slashing"]),
+                        TokenTransaction.reference_type == "task_claim",
+                        or_(
+                            TokenTransaction.reference_id == str(claim.id),
+                            TokenTransaction.reference_id == str(claim.task_id),
+                        ),
+                    )
+                    .first()
                 )
-                db.add(tx_stake)
-                claim.status = "released"
-                claim.completed_at = now_time
+                if not existing_stake_tx:
+                    stake_to_refund = claim.stake_amount
+                    token_account.locked_balance = max(0, token_account.locked_balance - stake_to_refund)
+                    token_account.available_balance += stake_to_refund
 
-        # Disburse reviewer bounties to majority rejecting reviewers
+                    tx_stake = TokenTransaction(
+                        token_account_id=token_account.id,
+                        transaction_type="stake_return",
+                        amount=stake_to_refund,
+                        reference_type="task_claim",
+                        reference_id=str(claim.id),
+                    )
+                    db.add(tx_stake)
+                    claim.status = "released"
+                    claim.completed_at = now_time
+
+        # Disburse reviewer bounties to majority rejecting reviewers (idempotent)
         bounty = settings.CONSENSUS_REVIEWER_BOUNTY
         rejecting_reviews = (
             db.query(PeerReview)
@@ -662,15 +740,26 @@ def settle_consensus(
                 .first()
             )
             if rev_account:
-                rev_account.available_balance += bounty
-                tx_rev = TokenTransaction(
-                    token_account_id=rev_account.id,
-                    transaction_type="reviewer_reward",
-                    amount=bounty,
-                    reference_type="peer_review",
-                    reference_id=str(r.id),
+                existing_rev_tx = (
+                    db.query(TokenTransaction)
+                    .filter(
+                        TokenTransaction.token_account_id == rev_account.id,
+                        TokenTransaction.transaction_type == "reviewer_reward",
+                        TokenTransaction.reference_type == "peer_review",
+                        TokenTransaction.reference_id == str(r.id),
+                    )
+                    .first()
                 )
-                db.add(tx_rev)
+                if not existing_rev_tx:
+                    rev_account.available_balance += bounty
+                    tx_rev = TokenTransaction(
+                        token_account_id=rev_account.id,
+                        transaction_type="reviewer_reward",
+                        amount=bounty,
+                        reference_type="peer_review",
+                        reference_id=str(r.id),
+                    )
+                    db.add(tx_rev)
 
         consensus.settlement_status = "settled"
         consensus.settled_at = now_time

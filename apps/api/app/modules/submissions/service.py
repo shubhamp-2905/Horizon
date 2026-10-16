@@ -1,6 +1,9 @@
+import logging
 import uuid
 from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -566,24 +569,15 @@ def review_submission_record(
 
     submission.status = payload.status
 
-    claim = (
-        db.query(TaskClaim)
-        .filter(TaskClaim.task_id == submission.task_id, TaskClaim.user_id == submission.user_id)
-        .first()
-    )
-    if claim:
-        if payload.status in ["approved", "verified"]:
-            claim.status = "released"
-            claim.completed_at = datetime.now(timezone.utc)
-        elif payload.status == "rejected":
-            claim.status = "forfeited"
-            claim.completed_at = datetime.now(timezone.utc)
-
-    # Sync consensus and settle tokens if consensus record exists
+    # Sync consensus and settle tokens authoritatively via settle_consensus
     try:
         from app.database.models.consensus import ConsensusRecord
-        from app.modules.consensus.service import settle_consensus
+        from app.modules.consensus.service import get_or_create_consensus_record, settle_consensus
+
         consensus = db.query(ConsensusRecord).filter(ConsensusRecord.submission_id == submission_id).first()
+        if not consensus:
+            consensus = get_or_create_consensus_record(db, submission_id=submission.id)
+
         if consensus:
             if payload.status in ["approved", "verified"]:
                 consensus.status = "APPROVED"
@@ -597,8 +591,8 @@ def review_submission_record(
                 consensus.resolved_by = reviewer_id
                 consensus.resolved_at = datetime.now(timezone.utc)
                 settle_consensus(db, consensus, stake_action="forfeit")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Error settling consensus during submission review: {e}")
 
     db.commit()
     db.refresh(verification)

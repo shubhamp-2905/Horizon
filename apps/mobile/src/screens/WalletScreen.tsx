@@ -53,9 +53,12 @@ export const WalletScreen: React.FC = () => {
         return 'Task Stake';
       case 'task_stake_unlock':
       case 'stake_unlock':
+      case 'stake_return':
         return 'Stake Return';
       case 'reward_payout':
         return 'Task Reward';
+      case 'reward_adjustment':
+        return 'Reward Adjustment';
       default:
         return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     }

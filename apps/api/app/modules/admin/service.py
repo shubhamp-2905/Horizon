@@ -25,7 +25,7 @@ from app.schemas.admin import (
 from geoalchemy2.shape import to_shape
 from shapely.geometry import Point
 
-AWARD_TRANSACTION_TYPES = ["reward_payout", "reward", "reviewer_reward", "starter_grant"]
+AWARD_TRANSACTION_TYPES = ["reward_payout", "reward", "reviewer_reward", "starter_grant", "reward_adjustment"]
 
 
 def _extract_coordinates(location_point) -> Tuple[Optional[float], Optional[float]]:
@@ -376,7 +376,7 @@ def get_admin_member_detail(db: Session, member_id: uuid.UUID) -> MemberDetailRe
             .order_by(TokenTransaction.created_at.desc())
             .all()
         )
-        total_awarded = sum([t.amount for t in txs if t.transaction_type in AWARD_TRANSACTION_TYPES and t.amount > 0])
+        total_awarded = max(0, sum([t.amount for t in txs if t.transaction_type in AWARD_TRANSACTION_TYPES]))
         for t in txs:
             direction = "in" if t.amount > 0 else "out"
             transactions_list.append(
