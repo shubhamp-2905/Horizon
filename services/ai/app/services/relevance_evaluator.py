@@ -251,9 +251,9 @@ class TaskRelevanceEvaluator:
         laplace = scipy.ndimage.laplace(gray)
         edge_variance = float(np.var(laplace))
 
-        is_dark_ide = (dark_ratio > 0.45) and (syntax_ratio > 0.015 or periodicity_score > 0.40)
-        is_light_ide = (bright_ratio > 0.45) and (periodicity_score > 0.50)
-        is_screen_border = (dark_ratio > 0.35 and periodicity_score > 0.35 and edge_variance > 100.0)
+        is_dark_ide = (dark_ratio > 0.30) and (syntax_ratio > 0.010 or periodicity_score > 0.30)
+        is_light_ide = (bright_ratio > 0.35) and (periodicity_score > 0.40)
+        is_screen_border = (dark_ratio > 0.25 and periodicity_score > 0.25 and edge_variance > 60.0)
 
         reasons = []
         confidence = 0.0
@@ -305,39 +305,42 @@ class TaskRelevanceEvaluator:
 
 
         features = []
-        compatibility = 0.50
+        compatibility = 0.20
 
         if artifact_type == "water_source":
             # Water sources: outdoor earth/concrete textures, metallic pump components
             if earth_tones or greenery_tones:
                 features.append("outdoor_ground_and_earth_context")
-                compatibility += 0.20
+                compatibility += 0.25
             if mean_gradient > 18.0:
                 features.append("mechanical_structural_contours")
-                compatibility += 0.15
+                compatibility += 0.25
+            elif not is_indoor_domestic and mean_gradient > 10.0:
+                features.append("outdoor_concrete_surface")
+                compatibility += 0.25
             if not is_indoor_domestic and std_gray > 35.0:
                 features.append("natural_continuous_environmental_illumination")
-                compatibility += 0.10
+                compatibility += 0.15
 
         elif artifact_type == "solar_installation":
             # Solar panels: dark blue/silicon cell grid, geometric edges
             if sky_blue_tones or (mean_b > mean_g and mean_b > mean_r):
                 features.append("silicon_cell_blue_spectrum")
-                compatibility += 0.20
+                compatibility += 0.35
             if mean_gradient > 22.0:
                 features.append("geometric_array_grid_patterns")
-                compatibility += 0.20
+                compatibility += 0.35
 
         elif artifact_type == "traffic_flow":
             # Asphalt, roadway gray
             if abs(mean_r - mean_g) < 15.0 and abs(mean_g - mean_b) < 15.0 and mean_gradient > 16.0:
                 features.append("asphalt_corridor_surface_tones")
-                compatibility += 0.30
+                compatibility += 0.50
 
         else:
             if not is_indoor_domestic and mean_gradient > 15.0:
                 features.append("civil_infrastructure_surface_tones")
-                compatibility += 0.25
+                compatibility += 0.45
 
         return {
             "domain_compatibility": min(0.95, max(0.05, compatibility)),

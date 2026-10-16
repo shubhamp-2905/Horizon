@@ -421,17 +421,24 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
       const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await fetch(`${API_BASE_URL}/admin/submissions/${subId}/review`, {
+      const res = await fetch(`${API_BASE_URL}/admin/submissions/${subId}/review`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           status: decision,
           notes: noteText,
-          ai_confidence_score: 0.95,
         }),
-      }).catch(() => null);
-    } catch {
-      // offline fallback
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson?.detail?.message || (typeof errJson?.detail === 'string' ? errJson.detail : null) || 'Submission approval was blocked by evidence verification rules.';
+        alert(`Action Blocked: ${msg}`);
+        return;
+      }
+    } catch (err: any) {
+      alert(`Network error during review: ${err.message}`);
+      return;
     }
 
     const newConsensusStatus = decision === 'approved' ? 'APPROVED' : 'REJECTED';
@@ -549,16 +556,24 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
       const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await fetch(`${API_BASE_URL}/submissions/${selectedReview.submission_id}/dispute/resolve`, {
+      const res = await fetch(`${API_BASE_URL}/submissions/${selectedReview.submission_id}/dispute/resolve`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           resolve_action: disputeAction,
           notes: disputeNotes.trim(),
         }),
-      }).catch(() => null);
-    } catch {
-      // offline fallback
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson?.detail?.message || (typeof errJson?.detail === 'string' ? errJson.detail : null) || 'Dispute resolution failed.';
+        alert(`Dispute Action Blocked: ${msg}`);
+        return;
+      }
+    } catch (err: any) {
+      alert(`Network error resolving dispute: ${err.message}`);
+      return;
     } finally {
       setIsResolving(false);
       setShowDisputeModal(false);

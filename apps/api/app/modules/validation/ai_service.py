@@ -58,15 +58,34 @@ class AIValidationService:
         requirements = task.requirements if task and task.requirements else []
 
         # Build image payload for AI service
+        import os
         images_payload: List[Dict[str, Any]] = []
         for m in submission.media:
             meta = m.media_metadata or {}
+            f_path = meta.get("file_path")
+            if not f_path and m.storage_key:
+                try:
+                    from app.core.storage import get_safe_local_path
+                    local_p = get_safe_local_path(m.storage_key)
+                    if local_p.exists():
+                        f_path = str(local_p)
+                except Exception:
+                    pass
+            img_b64 = meta.get("image_base64") or meta.get("base64")
+            if not img_b64 and f_path and os.path.exists(f_path):
+                try:
+                    import base64
+                    with open(f_path, "rb") as f:
+                        img_b64 = base64.b64encode(f.read()).decode("utf-8")
+                except Exception:
+                    pass
+
             images_payload.append(
                 {
                     "media_id": str(m.id),
                     "storage_key": m.storage_key,
-                    "image_base64": meta.get("image_base64") or meta.get("base64"),
-                    "file_path": meta.get("file_path"),
+                    "image_base64": img_b64,
+                    "file_path": f_path,
                     "metadata": meta,
                 }
             )
@@ -122,8 +141,9 @@ class AIValidationService:
         try:
             import sys
             from pathlib import Path
-            repo_root = str(Path(__file__).resolve().parents[5])
-            if repo_root not in sys.path:
+            p = Path(__file__).resolve()
+            repo_root = next((str(parent) for parent in p.parents if (parent / "services" / "ai").exists()), None)
+            if repo_root and repo_root not in sys.path:
                 sys.path.insert(0, repo_root)
 
             from services.ai.app.schemas.verification import SubmissionEvidenceEvaluationRequest
@@ -154,10 +174,10 @@ class AIValidationService:
             "overall_status": "WARNING",
             "overall_recommendation": "WARNING",
             "status": "WARNING",
-            "relevance_status": "NEEDS_REVIEW",
-            "quality_status": "PASS",
+            "relevance_status": "UNAVAILABLE",
+            "quality_status": "UNAVAILABLE",
             "confidence": 0.0,
-            "relevance_score": 0.50,
+            "relevance_score": 0.0,
             "media_results": [],
             "reasons": [reason],
             "service_unavailable": True,
@@ -182,15 +202,26 @@ class AIValidationService:
         )
         confidence = float(ai_data.get("confidence", 0.0))
         relevance_status = ai_data.get("relevance_status")
+        service_unavailable = bool(ai_data.get("service_unavailable", False)) or (overall_status in ["UNAVAILABLE", "verification_unavailable"])
 
-        # Defensive rule: Irrelevant evidence or failed evaluation forces FLAGGED
-        is_blocked = (overall_status == "FAIL") or (relevance_status == "IRRELEVANT")
+        # Fail-safe and relevance enforcement
+        if overall_status == "FAIL" or relevance_status == "IRRELEVANT":
+            is_blocked = True
+            target_status = "flagged"
+        elif service_unavailable:
+            is_blocked = True
+            target_status = "verification_unavailable"
+        elif overall_status == "WARNING" or relevance_status == "NEEDS_REVIEW":
+            is_blocked = False
+            target_status = "under_review"
+        else:
+            is_blocked = False
+            target_status = "pending"
 
         if not verification:
-            initial_status = "flagged" if is_blocked else ("under_review" if overall_status == "WARNING" else "pending")
             verification = Verification(
                 submission_id=submission.id,
-                status=initial_status,
+                status=target_status,
                 ai_status=overall_status,
                 ai_confidence_score=confidence,
                 ai_results=ai_data,
@@ -200,12 +231,20 @@ class AIValidationService:
             verification.ai_status = overall_status
             verification.ai_confidence_score = confidence
             verification.ai_results = ai_data
-            if is_blocked and verification.status != "approved":
-                verification.status = "flagged"
+            if is_blocked and verification.status not in ["approved", "verified"]:
+                verification.status = target_status
+            elif not is_blocked and verification.status in ["verification_unavailable", "flagged"]:
+                verification.status = target_status
+            elif verification.status == "pending" and target_status == "under_review":
+                verification.status = "under_review"
 
         # Reflect blocking status on submission model if not previously finalized
         if is_blocked and submission.status not in ["approved", "verified"]:
-            submission.status = "flagged"
+            submission.status = target_status
+        elif not is_blocked and submission.status in ["verification_unavailable", "flagged"]:
+            submission.status = "under_review" if target_status == "under_review" else "submitted"
+        elif submission.status == "submitted" and target_status == "under_review":
+            submission.status = "under_review"
 
         db.commit()
         db.refresh(verification)

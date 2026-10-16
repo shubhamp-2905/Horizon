@@ -278,7 +278,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
       } else if (statusFilter === 'rejected') {
         if (sub.status !== 'rejected' && sub.verification_status !== 'rejected') return false;
       } else if (statusFilter === 'flagged') {
-        if (sub.status !== 'flagged') return false;
+        if (sub.status !== 'flagged' && sub.status !== 'verification_unavailable') return false;
       }
 
       // 2. Validation Status Filter
@@ -345,6 +345,8 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
         return <span className="status-pill status-pill-failed">✕ Rejected</span>;
       case 'flagged':
         return <span className="status-pill status-pill-warning">⚠ Flagged</span>;
+      case 'verification_unavailable':
+        return <span className="status-pill status-pill-warning" style={{ background: '#FEF3C7', color: '#B45309', borderColor: '#FCD34D' }}>⚠ AI Unavailable</span>;
       case 'under_review':
         return <span className="status-pill status-pill-pending">Awaiting Review</span>;
       case 'validating':
@@ -547,12 +549,12 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
           {/* Right Column: Submission Intake & Evidence Details */}
           {selectedSub && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Contradiction / Anomaly Banner */}
-              {(selectedSub.status === 'flagged' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.validation_status === 'FAILED') && (
+              {/* Contradiction / Anomaly / Unavailability Banner */}
+              {(selectedSub.status === 'flagged' || selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.ai_results?.service_unavailable || selectedSub.validation_status === 'FAILED') && (
                 <div
                   style={{
-                    background: '#FEF2F2',
-                    border: '1.5px solid #FCA5A5',
+                    background: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#FFFBEB' : '#FEF2F2',
+                    border: `1.5px solid ${selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#FCD34D' : '#FCA5A5'}`,
                     borderRadius: '10px',
                     padding: '16px 20px',
                     display: 'flex',
@@ -560,13 +562,17 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     alignItems: 'flex-start',
                   }}
                 >
-                  <AlertTriangleIcon size={22} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <AlertTriangleIcon size={22} color={selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#D97706' : '#DC2626'} style={{ flexShrink: 0, marginTop: '2px' }} />
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
-                      Automated Validation / Quality Anomaly Flagged
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#92400E' : '#991B1B', marginBottom: '4px' }}>
+                      {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
+                        ? 'AI Evidence Verification Unavailable — Approval Blocked'
+                        : 'Evidence Contradiction / Quality Anomaly Flagged — Approval Blocked'}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#7F1D1D', lineHeight: 1.4 }}>
-                      Automated checks detected a discrepancy with this ground observation. Review deterministic validation details and AI quality findings below.
+                    <div style={{ fontSize: '12px', color: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#78350F' : '#7F1D1D', lineHeight: 1.4 }}>
+                      {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
+                        ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, peer quorum approval, and token settlement are strictly blocked until verification succeeds.'
+                        : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
                     </div>
                   </div>
                 </div>

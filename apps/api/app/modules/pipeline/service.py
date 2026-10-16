@@ -119,7 +119,7 @@ def extract_approved_submissions(
         Submission.status.in_(["approved", "verified"]),
         Verification.status.in_(["approved", "verified"]),
         or_(Verification.validation_status.is_(None), Verification.validation_status != "FAILED"),
-        or_(Verification.ai_status.is_(None), Verification.ai_status != "FAIL"),
+        or_(Verification.ai_status.is_(None), Verification.ai_status.notin_(["FAIL", "UNAVAILABLE", "verification_unavailable"])),
     )
 
     # Consensus gate: Must be APPROVED if consensus record exists; never REJECTED or DISPUTED
@@ -146,6 +146,21 @@ def extract_approved_submissions(
 
     query = query.order_by(Submission.captured_at.asc())
     candidates = query.all()
+
+    # Defensive gate: strictly filter out any candidate blocked by failed relevance or unavailable AI
+    clean_candidates = []
+    for sub in candidates:
+        v = sub.verification
+        if v:
+            if v.validation_status == "FAILED" or v.status in ["flagged", "verification_unavailable"]:
+                continue
+            if v.ai_status in ["FAIL", "UNAVAILABLE", "verification_unavailable"]:
+                continue
+            ai_res = v.ai_results or {}
+            if ai_res.get("relevance_status") == "IRRELEVANT" or ai_res.get("service_unavailable") is True:
+                continue
+        clean_candidates.append(sub)
+    candidates = clean_candidates
 
     # Create Bronze records for auditability & raw snapshot preservation
     for sub in candidates:

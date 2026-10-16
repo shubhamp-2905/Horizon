@@ -34,6 +34,7 @@ from app.modules.submissions.service import (
     list_user_submissions,
     list_all_submissions,
     review_submission_record,
+    retry_submission_verification,
     _submission_to_response,
 )
 
@@ -289,5 +290,38 @@ def admin_review_submission(
         reviewer_id=str(v.reviewer_id) if v.reviewer_id else None,
         notes=v.notes,
         ai_confidence_score=v.ai_confidence_score,
+        created_at=v.created_at.isoformat() if v.created_at else "",
+    )
+
+
+@router.post(
+    "/admin/submissions/{submission_id}/verify",
+    response_model=VerificationResponse,
+    summary="Trigger or retry verification for a submission",
+    dependencies=[Depends(require_role(["admin", "reviewer"]))],
+)
+@router.post(
+    "/submissions/{submission_id}/verify",
+    response_model=VerificationResponse,
+    summary="Trigger or retry verification for a submission",
+)
+def retry_verification(
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Trigger or retry automated validation and AI evidence verification for a submission."""
+    v = retry_submission_verification(db, submission_id=submission_id)
+    return VerificationResponse(
+        id=str(v.id),
+        submission_id=str(v.submission_id),
+        status=v.status,
+        reviewer_id=str(v.reviewer_id) if v.reviewer_id else None,
+        notes=v.notes,
+        ai_confidence_score=v.ai_confidence_score,
+        validation_status=v.validation_status,
+        validation_results=v.validation_results,
+        ai_status=v.ai_status,
+        ai_results=v.ai_results,
         created_at=v.created_at.isoformat() if v.created_at else "",
     )

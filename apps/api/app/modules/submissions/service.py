@@ -508,6 +508,46 @@ def review_submission_record(
         )
 
     verification = db.query(Verification).filter(Verification.submission_id == submission_id).first()
+
+    if payload.status in ["approved", "verified"]:
+        # Mandatory evidence verification policy enforcement:
+        if verification:
+            relevance_failed = (
+                verification.ai_status == "FAIL"
+                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
+            )
+            verification_unavailable = (
+                verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
+                or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+                or verification.status == "verification_unavailable"
+            )
+            validation_failed = (verification.validation_status == "FAILED")
+
+            if relevance_failed:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "EVIDENCE_RELEVANCE_FAILED",
+                        "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved.",
+                    },
+                )
+            if verification_unavailable:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "VERIFICATION_UNAVAILABLE",
+                        "message": "Cannot approve submission: AI evidence verification is unavailable. Required checks must succeed before approval.",
+                    },
+                )
+            if validation_failed:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "DETERMINISTIC_VALIDATION_FAILED",
+                        "message": "Cannot approve submission: Deterministic validation failed.",
+                    },
+                )
+
     if not verification:
         verification = Verification(
             submission_id=submission_id,
@@ -521,7 +561,8 @@ def review_submission_record(
         verification.reviewer_id = reviewer_id
         verification.status = payload.status
         verification.notes = payload.notes
-        verification.ai_confidence_score = payload.ai_confidence_score
+        if verification.ai_confidence_score is None and payload.ai_confidence_score is not None:
+            verification.ai_confidence_score = payload.ai_confidence_score
 
     submission.status = payload.status
 
@@ -561,4 +602,36 @@ def review_submission_record(
 
     db.commit()
     db.refresh(verification)
+    return verification
+
+
+def retry_submission_verification(
+    db: Session,
+    submission_id: uuid.UUID,
+) -> Verification:
+    """Re-run automated deterministic validation and AI evidence verification for a submission."""
+    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SUBMISSION_NOT_FOUND", "message": "Submission not found"},
+        )
+
+    from app.modules.validation.service import AutomatedValidationService
+    from app.modules.validation.ai_service import AIValidationService
+
+    val_result = AutomatedValidationService.validate_submission(db, submission)
+    AutomatedValidationService.record_validation_result(db, submission, val_result)
+
+    ai_result = AIValidationService.evaluate_submission_media(db, submission)
+    verification = AIValidationService.record_ai_result(db, submission, ai_result)
+
+    # Re-evaluate consensus quorum if exists
+    try:
+        from app.modules.consensus.service import evaluate_consensus_quorum
+        evaluate_consensus_quorum(db, submission_id)
+    except Exception:
+        pass
+
+    db.refresh(submission)
     return verification

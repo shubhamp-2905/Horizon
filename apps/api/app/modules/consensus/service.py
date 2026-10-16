@@ -1,9 +1,12 @@
+import logging
 import uuid
 from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.database.models.user import User
@@ -371,8 +374,9 @@ def evaluate_and_update_consensus(db: Session, submission_id: uuid.UUID) -> Cons
         or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
     )
     ai_unverified = verification and (
-        verification.ai_status in ["WARNING", "PENDING"]
+        verification.ai_status in ["WARNING", "PENDING", "UNAVAILABLE", "verification_unavailable"]
         or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+        or (verification.status == "verification_unavailable")
     )
 
     if (validation_failed or ai_failed_or_irrelevant) and consensus.status == "APPROVED":
@@ -393,10 +397,12 @@ def evaluate_and_update_consensus(db: Session, submission_id: uuid.UUID) -> Cons
     if ai_unverified and consensus.status == "APPROVED":
         # Missing or unverified AI output cannot automatically pass into verified data
         consensus.status = "PENDING"
-        if submission and submission.status == "submitted":
-            submission.status = "under_review"
+        is_unavail = (verification.status == "verification_unavailable") or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+        if submission and submission.status in ["submitted", "verification_unavailable"]:
+            submission.status = "verification_unavailable" if is_unavail else "under_review"
         if verification and verification.status != "approved":
-            verification.status = "under_review"
+            if not is_unavail:
+                verification.status = "under_review"
             verification.notes = "Peer votes favorable, but AI verification is unavailable or requires review."
         return consensus
 
@@ -449,6 +455,10 @@ def evaluate_and_update_consensus(db: Session, submission_id: uuid.UUID) -> Cons
     return consensus
 
 
+# Alias for backwards compatibility and clarity
+evaluate_consensus_quorum = evaluate_and_update_consensus
+
+
 def settle_consensus(
     db: Session,
     consensus: ConsensusRecord,
@@ -489,6 +499,29 @@ def settle_consensus(
     now_time = datetime.now(timezone.utc)
 
     if consensus.status == "APPROVED":
+        # Defensive enforcement: ensure mandatory evidence verification succeeded!
+        verification = db.query(Verification).filter(Verification.submission_id == submission.id).first()
+        if verification:
+            relevance_failed = (
+                verification.ai_status == "FAIL"
+                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
+            )
+            verification_unavailable = (
+                verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
+                or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+                or verification.status == "verification_unavailable"
+            )
+            validation_failed = (verification.validation_status == "FAILED")
+            if relevance_failed or verification_unavailable or validation_failed:
+                logger.warning(
+                    f"Consensus settlement blocked for submission {submission.id}: "
+                    f"relevance_failed={relevance_failed}, verification_unavailable={verification_unavailable}, validation_failed={validation_failed}"
+                )
+                return {
+                    "status": "blocked",
+                    "message": "Token reward payout blocked: Mandatory evidence verification failed or is unavailable.",
+                }
+
         # 1. Unlock commitment stake from escrow back to available balance
         if claim and claim.status in ["claimed", "in_progress", "submitted"]:
             stake_to_unlock = claim.stake_amount
@@ -768,6 +801,44 @@ def resolve_submission_dispute(
     verification = db.query(Verification).filter(Verification.submission_id == submission_id).first()
 
     if action == "approve":
+        # Check mandatory evidence verification before dispute approval!
+        if verification:
+            relevance_failed = (
+                verification.ai_status == "FAIL"
+                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
+            )
+            verification_unavailable = (
+                verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
+                or (verification.ai_results and verification.ai_results.get("service_unavailable"))
+                or verification.status == "verification_unavailable"
+            )
+            validation_failed = (verification.validation_status == "FAILED")
+
+            if relevance_failed:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "EVIDENCE_RELEVANCE_FAILED",
+                        "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved.",
+                    },
+                )
+            if verification_unavailable:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "VERIFICATION_UNAVAILABLE",
+                        "message": "Cannot approve submission: AI evidence verification is unavailable. Required checks must succeed before approval.",
+                    },
+                )
+            if validation_failed:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "DETERMINISTIC_VALIDATION_FAILED",
+                        "message": "Cannot approve submission: Deterministic validation failed.",
+                    },
+                )
+
         consensus.status = "APPROVED"
         submission.status = "approved"
         if verification:
