@@ -98,6 +98,9 @@ declare module 'react-native' {
     pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto';
     accessibilityLabel?: string;
     accessibilityRole?: string;
+    accessibilityState?: { selected?: boolean; disabled?: boolean; busy?: boolean; expanded?: boolean; [key: string]: any };
+    hitSlop?: { top?: number; bottom?: number; left?: number; right?: number } | number;
+    ref?: any;
   }
 
   export interface TextProps {
@@ -138,6 +141,8 @@ declare module 'react-native' {
     textAlignVertical?: 'auto' | 'top' | 'bottom' | 'center';
     editable?: boolean;
     style?: StyleProp<TextStyle>;
+    textContentType?: string;
+    autoComplete?: string;
   }
 
   export interface ScrollViewProps extends ViewProps {

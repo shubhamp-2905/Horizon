@@ -19,15 +19,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
     return `${Math.round(meters)} m`;
   };
 
-  const getDifficultyLabel = (diff: number) => {
-    if (diff <= 1.5) return 'Easy';
-    if (diff <= 2.5) return 'Moderate';
-    return 'Complex';
-  };
-
   const formattedType = task.artifact_type.replace(/_/g, ' ');
   const effortMinutes = task.estimated_effort_minutes || 25;
-  const difficultyText = getDifficultyLabel(task.difficulty);
 
   return (
     <TouchableOpacity
@@ -73,20 +66,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress }) => {
         </Text>
       ) : null}
 
-      {/* Bottom Economics Row: Reward & Difficulty */}
+      {/* Bottom Economics Row: Reward & Stake */}
       <View style={[styles.footer, { borderTopColor: theme.divider }]}>
         <View style={styles.economicsGroup}>
           <TokenBadge amount={task.base_reward} type="reward" size="sm" />
           <TokenBadge amount={task.commitment_stake} type="stake" size="sm" />
-        </View>
-
-        <View
-          style={[
-            styles.difficultyBadge,
-            { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.difficultyLabel, { color: theme.textMuted }]}>{difficultyText}</Text>
         </View>
       </View>
     </TouchableOpacity>

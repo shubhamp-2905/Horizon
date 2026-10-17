@@ -316,12 +316,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     requiredObservationsCount: requiredFields.length,
   };
 
-  const getDifficultyLabel = (diff: number) => {
-    if (diff <= 1.5) return 'Easy';
-    if (diff <= 2.5) return 'Medium';
-    return 'Hard';
-  };
-
   const isOffline = syncState.networkState === 'OFFLINE';
 
   return (
@@ -628,7 +622,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 </View>
               </View>
 
-              {/* Effort & Difficulty Meta */}
+              {/* Effort Meta */}
               <View style={styles.metaPillsRow}>
                 <View
                   style={[
@@ -644,22 +638,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   </Text>
                   <Text style={[styles.metaPillValue, { color: theme.textPrimary }]}>
                     ~{task.estimated_effort_minutes || 25} min
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.metaPill,
-                    {
-                      backgroundColor: theme.surfaceElevated,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.metaPillLabel, { color: theme.textMuted }]}>
-                    Difficulty:{' '}
-                  </Text>
-                  <Text style={[styles.metaPillValue, { color: theme.textPrimary }]}>
-                    {getDifficultyLabel(task.difficulty)} ({task.difficulty.toFixed(1)})
                   </Text>
                 </View>
               </View>

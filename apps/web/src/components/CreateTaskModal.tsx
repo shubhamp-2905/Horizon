@@ -74,6 +74,131 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id)
   );
 
+  // Task Economics Field Info Popover State
+  const [activeInfoField, setActiveInfoField] = useState<string | null>(null);
+
+  const FIELD_EXPLANATIONS: Record<string, { title: string; text: string }> = {
+    baseReward: {
+      title: 'Base Reward',
+      text: 'The starting token reward for successfully completing the task. The final reward may depend on the existing reward calculation rules.',
+    },
+    commitmentStake: {
+      title: 'Commitment Stake',
+      text: 'Tokens temporarily locked when reserving a task. The stake is handled according to the existing verification, settlement, and refund rules.',
+    },
+    difficultyFactor: {
+      title: 'Difficulty Factor',
+      text: 'An internal multiplier used to account for task difficulty when calculating rewards.',
+    },
+    scarcityMultiplier: {
+      title: 'Scarcity Multiplier',
+      text: 'Adjusts rewards according to the availability of suitable contribution data.',
+    },
+    estimatedEffort: {
+      title: 'Estimated Effort',
+      text: 'The approximate time a contributor may need to complete the task.',
+    },
+  };
+
+  const renderInfoIcon = (fieldKey: string) => {
+    const isActive = activeInfoField === fieldKey;
+    const info = FIELD_EXPLANATIONS[fieldKey];
+    if (!info) return null;
+
+    return (
+      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: '6px' }}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveInfoField(isActive ? null : fieldKey);
+          }}
+          aria-label={`Info for ${info.title}`}
+          style={{
+            background: isActive ? '#7C3AED' : 'rgba(124, 58, 237, 0.08)',
+            color: isActive ? '#FFFFFF' : '#7C3AED',
+            border: isActive ? '1px solid #7C3AED' : '1px solid rgba(124, 58, 237, 0.25)',
+            borderRadius: '50%',
+            width: '16px',
+            height: '16px',
+            fontSize: '11px',
+            lineHeight: '14px',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: 0,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          ⓘ
+        </button>
+
+        {isActive && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              bottom: 'calc(100% + 8px)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '260px',
+              maxWidth: 'calc(100vw - 40px)',
+              backgroundColor: '#1E1B4B',
+              color: '#FFFFFF',
+              borderRadius: '8px',
+              padding: '10px 12px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.25)',
+              zIndex: 1000,
+              fontSize: '12px',
+              lineHeight: 1.45,
+              border: '1px solid rgba(167, 139, 250, 0.35)',
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontWeight: 700, color: '#C4B5FD', fontSize: '12px' }}>
+                {info.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveInfoField(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#9CA3AF',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  padding: '0 2px',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ color: '#E0E7FF', fontSize: '11.5px', fontWeight: 400 }}>
+              {info.text}
+            </div>
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '6px solid #1E1B4B',
+              }}
+            />
+          </div>
+        )}
+      </span>
+    );
+  };
+
   if (!isOpen) return null;
 
   const currentProjectType = SPREADSHEET_PROJECT_TYPES[artifactType] || SPREADSHEET_PROJECT_TYPES['Real Estate Development'];
@@ -159,7 +284,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '960px', width: '95%' }}>
+      <div className="modal-card" onClick={(e) => { e.stopPropagation(); if (activeInfoField) setActiveInfoField(null); }} style={{ maxWidth: '960px', width: '95%' }}>
         <div className="modal-header">
           <div>
             <h2 className="modal-title">Create Spreadsheet-Driven Task</h2>
@@ -468,15 +593,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Economics & Escrow Stake */}
+                {/* 4. Task Economics */}
                 <div className="form-section">
                   <div className="form-section-title">
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>4</span>
-                    <span>Economics &amp; Escrow Stake</span>
+                    <span>Task Economics</span>
                   </div>
                   <div className="form-grid" style={{ marginBottom: '14px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Base Reward (Tokens)</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                        Base Reward (Tokens)
+                        {renderInfoIcon('baseReward')}
+                      </label>
                       <input
                         type="number"
                         className="form-input-text"
@@ -485,7 +613,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Commitment Stake (Tokens)</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                        Commitment Stake (Tokens)
+                        {renderInfoIcon('commitmentStake')}
+                      </label>
                       <input
                         type="number"
                         className="form-input-text"
@@ -496,7 +627,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
                   <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Difficulty Factor</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                        Difficulty Factor
+                        {renderInfoIcon('difficultyFactor')}
+                      </label>
                       <input
                         type="text"
                         className="form-input-text"
@@ -505,7 +639,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Scarcity Multiplier</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                        Scarcity Multiplier
+                        {renderInfoIcon('scarcityMultiplier')}
+                      </label>
                       <input
                         type="text"
                         className="form-input-text"
@@ -514,7 +651,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Estimated Effort (min)</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                        Estimated Effort (min)
+                        {renderInfoIcon('estimatedEffort')}
+                      </label>
                       <input
                         type="number"
                         className="form-input-text"
@@ -595,9 +735,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 </div>
               </div>
 
-              {/* Right Column: Live Mobile Preview Card */}
+              {/* Right Column: User Preview */}
               <div className="preview-card-wrap">
-                <div className="preview-tag">LIVE CONTRIBUTOR MOBILE PREVIEW</div>
+                <div className="preview-tag">User Preview</div>
                 <div className="preview-box">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span className="badge-artifact">
@@ -625,9 +765,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         {commitmentStake || 20} STAKE
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
-                      Diff · {parseFloat(difficulty) <= 1.5 ? 'Easy' : parseFloat(difficulty) <= 2.5 ? 'Medium' : 'Hard'}
-                    </span>
                   </div>
                 </div>
 

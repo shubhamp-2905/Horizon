@@ -182,12 +182,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     fetchTasks(false);
   };
 
-  const getDifficultyLabel = (diff: number) => {
-    if (diff <= 1.5) return 'Easy';
-    if (diff <= 2.5) return 'Medium';
-    return 'Hard';
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Location Bar with Human-Readable Location Name & Accuracy */}
@@ -509,7 +503,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   ]}
                 >
                   <Text style={[styles.previewDiffText, { color: theme.textMuted }]}>
-                    Difficulty · {getDifficultyLabel(selectedTaskOnMap.difficulty)}
+                    ~{selectedTaskOnMap.estimated_effort_minutes || 25} min effort
                   </Text>
                 </View>
               </View>

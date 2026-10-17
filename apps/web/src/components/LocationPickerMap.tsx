@@ -14,8 +14,14 @@ interface LocationPickerMapProps {
 interface SearchResult {
   place_id: number | string;
   display_name: string;
-  lat: string;
-  lon: string;
+  name?: string;
+  lat: number | string;
+  lon: number | string;
+  type?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postcode?: string;
 }
 
 const PRESET_LOCATIONS = [
@@ -45,6 +51,10 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [isLocating, setIsLocating] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Custom emerald pin icon matching Horizon brand
   const createPinIcon = useCallback(() => {
@@ -159,60 +169,90 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
     }
   }, [radiusMeters]);
 
-  // Geocoding search handler using OpenStreetMap Nominatim
-  const handleSearch = async (queryText: string) => {
-    if (!queryText.trim()) {
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Global geocoding search handler via server-side /api/geocoding
+  const performSearch = useCallback(async (queryText: string) => {
+    const trimmed = queryText.trim();
+    if (trimmed.length < 2) {
       setSearchResults([]);
       setShowDropdown(false);
+      setIsSearching(false);
+      setSearchError(null);
       return;
     }
 
     setIsSearching(true);
     setShowDropdown(true);
+    setSearchError(null);
 
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          queryText.trim()
-        )}&limit=5&addressdetails=1`
-      );
-
+      const res = await fetch(`/api/geocoding?q=${encodeURIComponent(trimmed)}`);
       if (res.ok) {
-        const data: SearchResult[] = await res.json();
-        setSearchResults(data);
+        const data = await res.json();
+        const results: SearchResult[] = data.results || [];
+        setSearchResults(results);
       } else {
         // Fallback filter over presets
         const filtered = PRESET_LOCATIONS.filter((p) =>
-          p.name.toLowerCase().includes(queryText.toLowerCase())
+          p.name.toLowerCase().includes(trimmed.toLowerCase())
         ).map((p, idx) => ({
           place_id: `preset-${idx}`,
           display_name: `${p.name}, India`,
-          lat: p.lat.toString(),
-          lon: p.lng.toString(),
+          name: p.name,
+          lat: p.lat,
+          lon: p.lng,
+          type: 'city',
         }));
         setSearchResults(filtered);
       }
     } catch {
       // Offline fallback
       const filtered = PRESET_LOCATIONS.filter((p) =>
-        p.name.toLowerCase().includes(queryText.toLowerCase())
+        p.name.toLowerCase().includes(trimmed.toLowerCase())
       ).map((p, idx) => ({
         place_id: `preset-${idx}`,
         display_name: `${p.name}, India`,
-        lat: p.lat.toString(),
-        lon: p.lng.toString(),
+        name: p.name,
+        lat: p.lat,
+        lon: p.lng,
+        type: 'city',
       }));
       setSearchResults(filtered);
+      if (filtered.length === 0) {
+        setSearchError('Network error while searching. You can click on the map directly.');
+      }
     } finally {
       setIsSearching(false);
     }
+  }, []);
+
+  const handleInputChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(text);
+    }, 300);
   };
 
   const handleSelectLocation = (result: SearchResult) => {
-    const lat = parseFloat(parseFloat(result.lat).toFixed(6));
-    const lng = parseFloat(parseFloat(result.lon).toFixed(6));
+    const lat = parseFloat(Number(result.lat).toFixed(6));
+    const lng = parseFloat(Number(result.lon).toFixed(6));
     setSelectedAddress(result.display_name);
-    setSearchQuery(result.display_name.split(',')[0]);
+    setSearchQuery(result.name || result.display_name.split(',')[0]);
     setShowDropdown(false);
 
     if (mapInstanceRef.current && markerRef.current && circleRef.current) {
@@ -269,7 +309,7 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* Search Input Bar with Geocoding Autocomplete */}
-      <div style={{ position: 'relative' }}>
+      <div ref={searchContainerRef} style={{ position: 'relative' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <span
@@ -288,14 +328,11 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                handleSearch(e.target.value);
-              }}
+              onChange={(e) => handleInputChange(e.target.value)}
               onFocus={() => {
-                if (searchQuery.trim().length > 1) setShowDropdown(true);
+                if (searchQuery.trim().length >= 2) setShowDropdown(true);
               }}
-              placeholder="Search place, city, or address (e.g. Pune, Kothrud, Hinjewadi)..."
+              placeholder="Search any global city, address, landmark, or postal code (e.g. Pune, London, Nariman Point)..."
               className="form-input-text"
               style={{
                 paddingLeft: '36px',
@@ -314,11 +351,12 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
                   top: '50%',
                   transform: 'translateY(-50%)',
                   fontSize: '12px',
-                  color: '#15803D',
+                  color: '#7C3AED',
                   fontWeight: 600,
+                  animation: 'spin 1s linear infinite',
                 }}
               >
-                ⟳
+                ⏳
               </span>
             )}
           </div>
@@ -349,7 +387,7 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
         </div>
 
         {/* Dropdown search suggestions */}
-        {showDropdown && searchResults.length > 0 && (
+        {showDropdown && (
           <div
             style={{
               position: 'absolute',
@@ -361,42 +399,57 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
               background: '#FFFFFF',
               borderRadius: '8px',
               border: '1px solid #EAECF0',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-              maxHeight: '220px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
+              maxHeight: '260px',
               overflowY: 'auto',
             }}
           >
-            {searchResults.map((item) => (
-              <div
-                key={item.place_id}
-                onClick={() => handleSelectLocation(item)}
-                style={{
-                  padding: '10px 14px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  color: '#101828',
-                  borderBottom: '1px solid #F2F4F7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'background 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#F9FAFB';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#FFFFFF';
-                }}
-              >
-                <span style={{ color: '#15803D', fontSize: '13px' }}>📍</span>
-                <span style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {item.display_name}
-                </span>
-                <span style={{ fontSize: '11px', color: '#98A2B3', fontFamily: 'monospace' }}>
-                  {parseFloat(item.lat).toFixed(4)}, {parseFloat(item.lon).toFixed(4)}
-                </span>
+            {isSearching && searchResults.length === 0 ? (
+              <div style={{ padding: '14px', textAlign: 'center', fontSize: '12px', color: '#64748B' }}>
+                Searching global places &amp; addresses...
               </div>
-            ))}
+            ) : searchResults.length > 0 ? (
+              searchResults.map((item) => (
+                <div
+                  key={item.place_id}
+                  onClick={() => handleSelectLocation(item)}
+                  style={{
+                    padding: '10px 14px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: '#101828',
+                    borderBottom: '1px solid #F2F4F7',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#F9FAFB';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#FFFFFF';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#0F172A' }}>
+                      <span style={{ color: '#7C3AED', fontSize: '13px' }}>📍</span>
+                      <span>{item.name || item.display_name.split(',')[0]}</span>
+                    </div>
+                    <span style={{ fontSize: '10.5px', color: '#98A2B3', fontFamily: 'monospace' }}>
+                      {Number(item.lat).toFixed(4)}, {Number(item.lon).toFixed(4)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', paddingLeft: '18px' }}>
+                    {item.display_name}
+                  </div>
+                </div>
+              ))
+            ) : !isSearching && searchQuery.trim().length >= 2 ? (
+              <div style={{ padding: '14px', textAlign: 'center', fontSize: '12px', color: '#64748B' }}>
+                No locations found for &quot;{searchQuery}&quot;. You can click directly on the map or drag the pin.
+              </div>
+            ) : null}
           </div>
         )}
       </div>
