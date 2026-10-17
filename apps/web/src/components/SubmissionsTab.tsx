@@ -16,7 +16,9 @@ import {
 import {
   SPREADSHEET_FACTORS,
   SPREADSHEET_SECTIONS,
-} from '../lib/spreadsheetData';
+  type SpreadsheetFactor,
+  type SpreadsheetSection,
+} from '../data/spreadsheetData';
 
 export interface ImageQualityItem {
   id: string;
@@ -775,10 +777,10 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {SPREADSHEET_SECTIONS.map((sec) => {
-                      const factorsInSection = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title);
+                    {SPREADSHEET_SECTIONS.map((sec: SpreadsheetSection) => {
+                      const factorsInSection = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === sec.title);
                       const matchingEntries = Object.entries(selectedSub.form_data).filter(([k]) =>
-                        factorsInSection.some((f) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
+                        factorsInSection.some((f: SpreadsheetFactor) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
                       );
 
                       if (matchingEntries.length === 0) return null;
@@ -795,7 +797,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
 
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
                             {matchingEntries.map(([key, val]) => {
-                              const factorDef = factorsInSection.find((f) => f.id === key || f.id.replace(/_/g, '') === key.replace(/_/g, ''));
+                              const factorDef = factorsInSection.find((f: SpreadsheetFactor) => f.id === key || f.id.replace(/_/g, '') === key.replace(/_/g, ''));
                               const isRisk = factorDef?.factor_type === 'Risk';
                               const strVal = String(val);
                               const isPositiveAnswer = strVal.includes('Present') && !isRisk;
@@ -860,7 +862,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     {/* Non-sectioned attributes (e.g., project_type, field notes) */}
                     {(() => {
                       const unsectioned = Object.entries(selectedSub.form_data).filter(
-                        ([k]) => !SPREADSHEET_FACTORS.some((f) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
+                        ([k]) => !SPREADSHEET_FACTORS.some((f: SpreadsheetFactor) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
                       );
                       if (unsectioned.length === 0) return null;
                       return (

@@ -7,7 +7,10 @@ import {
   SPREADSHEET_PROJECT_TYPES,
   SPREADSHEET_SECTIONS,
   SPREADSHEET_FACTORS,
-} from '../lib/spreadsheetData';
+  type SpreadsheetFactor,
+  type SpreadsheetSection,
+  type SpreadsheetProjectType,
+} from '../data/spreadsheetData';
 
 const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
   ssr: false,
@@ -68,7 +71,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const [selectedDomain, setSelectedDomain] = useState<string>('Tenure & Governance');
   const [selectedFactors, setSelectedFactors] = useState<string[]>(() =>
-    SPREADSHEET_FACTORS.filter((f) => f.relevance.includes('Real Estate Development')).map((f) => f.id)
+    SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id)
   );
 
   if (!isOpen) return null;
@@ -77,7 +80,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const handleArtifactTypeChange = (newType: string) => {
     setArtifactType(newType);
-    const relevant = SPREADSHEET_FACTORS.filter((f) => f.relevance.includes(newType)).map((f) => f.id);
+    const relevant = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes(newType)).map((f: SpreadsheetFactor) => f.id);
     setSelectedFactors(relevant);
     const pt = SPREADSHEET_PROJECT_TYPES[newType];
     if (pt) {
@@ -106,7 +109,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setScarcity('2.0');
     setEffortMinutes('45');
     setStatus('published');
-    setSelectedFactors(SPREADSHEET_FACTORS.filter((f) => f.relevance.includes('Real Estate Development')).map((f) => f.id));
+    setSelectedFactors(SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id));
     setValidationError(null);
   };
 
@@ -240,7 +243,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       value={artifactType}
                       onChange={(e) => handleArtifactTypeChange(e.target.value)}
                     >
-                      {Object.values(SPREADSHEET_PROJECT_TYPES).map((pt) => (
+                      {Object.values(SPREADSHEET_PROJECT_TYPES).map((pt: SpreadsheetProjectType) => (
                         <option key={pt.id} value={pt.id}>
                           {pt.title} ({pt.user_profile})
                         </option>
@@ -266,10 +269,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                   {/* Domain Tabs */}
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                    {SPREADSHEET_SECTIONS.map((sec) => {
+                    {SPREADSHEET_SECTIONS.map((sec: SpreadsheetSection) => {
                       const isDomainActive = selectedDomain === sec.title;
-                      const count = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title && selectedFactors.includes(f.id)).length;
-                      const total = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title).length;
+                      const count = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === sec.title && selectedFactors.includes(f.id)).length;
+                      const total = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === sec.title).length;
                       return (
                         <button
                           key={sec.id}
@@ -294,7 +297,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                   {/* Factor items checklist */}
                   <div style={{ maxHeight: '190px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px', background: '#FAFAFA' }}>
-                    {SPREADSHEET_FACTORS.filter((f) => f.section === selectedDomain).map((factor) => {
+                    {SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === selectedDomain).map((factor: SpreadsheetFactor) => {
                       const isChecked = selectedFactors.includes(factor.id);
                       return (
                         <label
