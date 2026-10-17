@@ -465,6 +465,7 @@ def settle_consensus(
     stake_action: str = "refund",
     slashing_confirmed: bool = False,
     admin_notes: Optional[str] = None,
+    admin_override: bool = False,
 ) -> Dict[str, Any]:
     """Execute exactly-once token ledger settlement with row-level transaction safety."""
     if consensus.settlement_status == "settled":
@@ -509,7 +510,7 @@ def settle_consensus(
     if consensus.status == "APPROVED":
         # Defensive enforcement: ensure mandatory evidence verification succeeded!
         verification = db.query(Verification).filter(Verification.submission_id == submission.id).first()
-        if verification:
+        if verification and not admin_override:
             relevance_failed = (
                 verification.ai_status == "FAIL"
                 or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")

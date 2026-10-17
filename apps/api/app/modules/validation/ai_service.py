@@ -429,8 +429,11 @@ class AIValidationService:
         relevance_status = str(ai_data.get("relevance_status") or "")
         service_unavailable = bool(ai_data.get("service_unavailable", False)) or (overall_status in ["UNAVAILABLE", "verification_unavailable"])
 
+        # Check if deterministic validation previously failed
+        det_failed = bool(verification and verification.validation_status == "FAILED")
+
         # Fail-safe and relevance enforcement
-        if overall_status == "FAIL" or relevance_status == "IRRELEVANT":
+        if overall_status == "FAIL" or relevance_status == "IRRELEVANT" or det_failed:
             is_blocked = True
             target_status = "flagged"
         elif service_unavailable:
@@ -441,7 +444,7 @@ class AIValidationService:
             target_status = "under_review"
         else:
             is_blocked = False
-            target_status = "pending"
+            target_status = "under_review"
 
         # Construct safe descriptive note for auditing & transparency
         if is_blocked and target_status == "verification_unavailable":
@@ -449,13 +452,16 @@ class AIValidationService:
             first_reason = (ai_data.get("reasons") or ["AI evidence verification unavailable"])[0]
             verif_note = f"AI Verification Blocked ({err_code}): {first_reason}"
         elif is_blocked and target_status == "flagged":
-            first_reason = (ai_data.get("reasons") or ["Evidence contradiction / quality anomaly flagged"])[0]
-            verif_note = f"Verification Flagged: {first_reason}"
-        elif target_status == "under_review":
+            if det_failed:
+                verif_note = "Verification Flagged: Deterministic validation checks failed."
+            else:
+                first_reason = (ai_data.get("reasons") or ["Evidence contradiction / quality anomaly flagged"])[0]
+                verif_note = f"Verification Flagged: {first_reason}"
+        elif target_status == "under_review" and (overall_status == "WARNING" or relevance_status == "NEEDS_REVIEW"):
             first_reason = (ai_data.get("reasons") or ["Manual review required"])[0]
             verif_note = f"Review Required: {first_reason}"
         else:
-            verif_note = "Automated verification passed all criteria."
+            verif_note = "Automated verification passed all criteria. Ready for admin review."
 
         if not verification:
             verification = Verification(
@@ -474,20 +480,15 @@ class AIValidationService:
             if is_blocked and verification.status not in ["approved", "verified"]:
                 verification.status = target_status
                 verification.notes = verif_note
-            elif not is_blocked and verification.status in ["verification_unavailable", "flagged"]:
+            elif not is_blocked and verification.status in ["verification_unavailable", "flagged", "pending"]:
                 verification.status = target_status
                 verification.notes = verif_note
-            elif verification.status == "pending" and target_status == "under_review":
-                verification.status = "under_review"
-                verification.notes = verif_note
 
-        # Reflect blocking status on submission model if not previously finalized
+        # Reflect status on submission model if not previously finalized
         if is_blocked and submission.status not in ["approved", "verified"]:
             submission.status = target_status
-        elif not is_blocked and submission.status in ["verification_unavailable", "flagged"]:
-            submission.status = "under_review" if target_status == "under_review" else "submitted"
-        elif submission.status == "submitted" and target_status == "under_review":
-            submission.status = "under_review"
+        elif not is_blocked and submission.status in ["verification_unavailable", "flagged", "submitted", "validating", "pending"]:
+            submission.status = target_status
 
         db.commit()
         db.refresh(verification)

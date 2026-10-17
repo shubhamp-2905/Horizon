@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'members':
         return 'Members & Contributors';
       case 'review':
-        return 'Peer Consensus & Decision Management';
+        return 'Admin Review & Decisions';
       case 'pipeline':
         return 'Verified Geospatial Data';
       case 'settings':
@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'members':
         return 'Directory of registered platform contributors, activity records, and token balances';
       case 'review':
-        return 'Multi-reviewer consensus queue, voting quorum, dispute resolution, and admin decisions';
+        return 'Inspect verified field submissions, review AI validation diagnostics, and execute authoritative decisions';
       case 'pipeline':
         return 'Loupe analytics dataset packaging and ETL export feeds';
       case 'settings':

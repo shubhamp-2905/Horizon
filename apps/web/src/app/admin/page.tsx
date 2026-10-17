@@ -289,8 +289,7 @@ export default function AdminPage() {
                 location: s.latitude != null && s.longitude != null ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : 'Pune, Maharashtra',
                 gps_accuracy: `±${(s.gps_accuracy != null ? Number(s.gps_accuracy) : 4.2).toFixed(1)}m`,
                 submitted: timeAgo,
-                community_result: isFlagged ? 'Flagged (Telemetry Anomaly)' : 'Awaiting Review (Quorum Pending)',
-                community_votes: { approve: 0, reject: 0, flag: isFlagged ? 1 : 0, quorum: 2 },
+                community_result: isFlagged ? 'Verification Issue (Anomaly)' : 'Verification Passed (Ready for Review)',
                 status: isFlagged ? 'flagged' : 'awaiting_review',
               };
             });
@@ -505,9 +504,9 @@ export default function AdminPage() {
             </AdminErrorBoundary>
           )}
 
-          {/* OPERATIONS: Reviews - Peer Consensus & Decision Management */}
+          {/* OPERATIONS: Reviews - Admin Review & Decision Management */}
           {currentTab === 'review' && (
-            <AdminErrorBoundary tabName="Consensus & Peer Reviews">
+            <AdminErrorBoundary tabName="Admin Review & Decisions">
               <ReviewsTab
                 initialSelectedId={selectedReviewId}
                 adminToken={adminToken}

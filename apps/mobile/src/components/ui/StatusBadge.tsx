@@ -20,18 +20,50 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
         return theme.primaryPurple;
       case 'verified':
       case 'completed':
+      case 'approved':
         return theme.statusSuccess;
       case 'draft':
       case 'pending':
+      case 'under_review':
+      case 'pending_admin_review':
         return theme.statusPending;
       case 'claimed':
       case 'submitted':
         return theme.secondaryPurple;
+      case 'flagged':
+      case 'verification_failed':
       case 'rejected':
       case 'expired':
         return theme.statusError;
+      case 'disputed':
+      case 'verification_unavailable':
+        return theme.statusPending;
       default:
         return theme.textMuted;
+    }
+  };
+
+  const getStatusLabel = () => {
+    if (label) return label;
+    switch (norm) {
+      case 'under_review':
+      case 'pending_admin_review':
+        return 'AWAITING ADMIN REVIEW';
+      case 'flagged':
+      case 'verification_failed':
+        return 'VERIFICATION ISSUE';
+      case 'verification_unavailable':
+        return 'VERIFICATION UNAVAILABLE';
+      case 'disputed':
+        return 'UNDER INVESTIGATION';
+      case 'submitted':
+        return 'SUBMITTED';
+      case 'approved':
+        return 'APPROVED';
+      case 'rejected':
+        return 'REJECTED';
+      default:
+        return status.replace(/_/g, ' ').toUpperCase();
     }
   };
 
@@ -47,7 +79,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
     >
       <View style={[styles.dot, { backgroundColor: statusColor }]} />
       <Text style={[styles.text, { color: statusColor }]}>
-        {label || status.replace(/_/g, ' ').toUpperCase()}
+        {getStatusLabel()}
       </Text>
     </View>
   );

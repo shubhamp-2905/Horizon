@@ -105,9 +105,12 @@ class SubmissionListResponse(BaseModel):
 
 
 class VerificationReviewRequest(BaseModel):
-    status: str = Field(..., examples=["approved", "rejected", "under_review"])
+    status: str = Field(..., examples=["approved", "rejected", "disputed"])
     notes: Optional[str] = Field(None, examples=["Ground-truth evidence matches required parameters."])
     ai_confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0, examples=[0.95])
+    admin_override: Optional[bool] = Field(False, description="Explicit override for failed or unavailable automated verification")
+    override_reason: Optional[str] = Field(None, description="Audited justification required if overriding automated verification")
+    stake_action: Optional[str] = Field("refund", description="Stake handling on rejection: 'refund' or 'slash'")
 
 
 class VerificationResponse(BaseModel):

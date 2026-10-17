@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="nav-icon">
               <CheckCircle2Icon size={18} />
             </span>
-            <span>Reviews</span>
+            <span>Admin Review</span>
           </span>
         </button>
 
@@ -184,10 +184,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer with Operational Status and Sign Out */}
       <div className="sidebar-footer">
-        <div className="conn-status">
+        {/* <div className="conn-status">
           <div className={`conn-dot ${apiConnected ? '' : 'conn-dot-offline'}`} />
           <span>{apiConnected ? 'PostGIS Active (:4000)' : 'Connecting to API...'}</span>
-        </div>
+        </div> */}
         <div className="admin-profile-pill" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="admin-avatar">OP</div>

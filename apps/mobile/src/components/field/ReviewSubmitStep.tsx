@@ -129,7 +129,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
       >
         <Text style={[styles.summaryTitle, { color: theme.textMuted }]}>PRE-FLIGHT AUDIT & VERIFICATION</Text>
         <Text style={[styles.summarySub, { color: theme.textSecondary }]}>
-          Verify that all mandatory geospatial evidence meets consensus criteria before locking.
+          Verify that all mandatory geospatial evidence meets verification criteria before submitting.
         </Text>
       </View>
 
@@ -396,7 +396,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
               <View style={styles.modalSumRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Pipeline Phase</Text>
                 <Text style={[styles.modalSumValGreen, { color: theme.primaryLight }]}>
-                  {isOffline ? 'Offline Queue' : 'Peer Verification'}
+                  {isOffline ? 'Offline Queue' : 'Admin Review Queue'}
                 </Text>
               </View>
             </View>

@@ -101,11 +101,11 @@ def admin_get_system_stats(
     active_tasks = db.query(Task).filter(Task.status == "published").count()
 
     total_submissions = db.query(Submission).count()
-    pending_submissions = db.query(Submission).filter(Submission.status.in_(["submitted", "validating", "under_review", "pending"])).count()
-    awaiting_review = db.query(Submission).filter(Submission.status.in_(["submitted", "under_review"])).count()
+    pending_submissions = db.query(Submission).filter(Submission.status.in_(["submitted", "validating", "pending_verification"])).count()
+    awaiting_review = db.query(Submission).filter(Submission.status.in_(["under_review", "pending_admin_review"])).count()
     approved_count = db.query(Submission).filter(Submission.status.in_(["approved", "verified"])).count()
     rejected_count = db.query(Submission).filter(Submission.status == "rejected").count()
-    flagged_count = db.query(Submission).filter(Submission.status == "flagged").count()
+    flagged_count = db.query(Submission).filter(Submission.status.in_(["flagged", "verification_failed", "verification_unavailable"])).count()
 
     # Also check verification records
     if approved_count == 0:

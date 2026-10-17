@@ -435,10 +435,6 @@ def transition_submission_to_submitted(
     ai_result = AIValidationService.evaluate_submission_media(db, submission)
     AIValidationService.record_ai_result(db, submission, ai_result)
 
-    # 3. Initialize Phase 6 Consensus record & Reviewer pool
-    from app.modules.consensus.service import initialize_submission_consensus
-    initialize_submission_consensus(db, submission)
-
     db.refresh(submission)
     return submission
 
@@ -559,8 +555,13 @@ def review_submission_record(
     reviewer_id: uuid.UUID,
     payload: VerificationReviewRequest,
 ) -> Verification:
-    """Review and record verification outcome for a contributor submission."""
-    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    """Authoritative administrative review and final decision for a contributor submission."""
+    submission = (
+        db.query(Submission)
+        .filter(Submission.id == submission_id)
+        .with_for_update()
+        .first()
+    )
     if not submission:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -568,8 +569,14 @@ def review_submission_record(
         )
 
     verification = db.query(Verification).filter(Verification.submission_id == submission_id).first()
+    from app.database.models.user import User
+    reviewer = db.query(User).filter(User.id == reviewer_id).first()
+    admin_name = reviewer.username if reviewer else "admin"
 
-    if payload.status in ["approved", "verified"]:
+    now_time = datetime.now(timezone.utc)
+    decision = payload.status.lower().strip()
+
+    if decision in ["approved", "verified"]:
         # Mandatory evidence verification policy enforcement:
         if verification:
             relevance_failed = (
@@ -583,51 +590,66 @@ def review_submission_record(
             )
             validation_failed = (verification.validation_status == "FAILED")
 
-            if relevance_failed:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "EVIDENCE_RELEVANCE_FAILED",
-                        "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved.",
-                    },
-                )
-            if verification_unavailable:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "VERIFICATION_UNAVAILABLE",
-                        "message": "Cannot approve submission: AI evidence verification is unavailable. Required checks must succeed before approval.",
-                    },
-                )
-            if validation_failed:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "DETERMINISTIC_VALIDATION_FAILED",
-                        "message": "Cannot approve submission: Deterministic validation failed.",
-                    },
-                )
+            is_failing = relevance_failed or verification_unavailable or validation_failed
 
-    if not verification:
-        verification = Verification(
-            submission_id=submission_id,
-            reviewer_id=reviewer_id,
-            status=payload.status,
-            notes=payload.notes,
-            ai_confidence_score=payload.ai_confidence_score,
-        )
-        db.add(verification)
-    else:
-        verification.reviewer_id = reviewer_id
-        verification.status = payload.status
-        verification.notes = payload.notes
-        if verification.ai_confidence_score is None and payload.ai_confidence_score is not None:
-            verification.ai_confidence_score = payload.ai_confidence_score
+            if is_failing:
+                if not payload.admin_override:
+                    if relevance_failed:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "code": "EVIDENCE_RELEVANCE_FAILED",
+                                "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved without an explicit administrator override.",
+                            },
+                        )
+                    if verification_unavailable:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "code": "VERIFICATION_UNAVAILABLE",
+                                "message": "Cannot approve submission: AI evidence verification is unavailable. Required checks must succeed before approval without an explicit administrator override.",
+                            },
+                        )
+                    if validation_failed:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "code": "DETERMINISTIC_VALIDATION_FAILED",
+                                "message": "Cannot approve submission: Deterministic validation failed. Required checks must succeed before approval without an explicit administrator override.",
+                            },
+                        )
+                else:
+                    override_text = (payload.override_reason or payload.notes or "").strip()
+                    if len(override_text) < 10:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "code": "OVERRIDE_REASON_REQUIRED",
+                                "message": "An explicit audited justification of at least 10 characters is required to override failed automated verification.",
+                            },
+                        )
+                    payload.notes = f"[ADMIN OVERRIDE by @{admin_name}] {override_text}"
 
-    submission.status = payload.status
+        decision_notes = payload.notes or "Approved by administrator."
+        submission.status = "approved"
 
-    # Sync consensus and settle tokens authoritatively via settle_consensus
-    try:
+        if not verification:
+            verification = Verification(
+                submission_id=submission_id,
+                reviewer_id=reviewer_id,
+                status="approved",
+                notes=decision_notes,
+                ai_confidence_score=payload.ai_confidence_score,
+            )
+            db.add(verification)
+        else:
+            verification.reviewer_id = reviewer_id
+            verification.status = "approved"
+            verification.notes = decision_notes
+            if payload.ai_confidence_score is not None:
+                verification.ai_confidence_score = payload.ai_confidence_score
+
+        # Authoritatively execute exactly-once token reward settlement & escrow stake release
         from app.database.models.consensus import ConsensusRecord
         from app.modules.consensus.service import get_or_create_consensus_record, settle_consensus
 
@@ -635,24 +657,109 @@ def review_submission_record(
         if not consensus:
             consensus = get_or_create_consensus_record(db, submission_id=submission.id)
 
-        if consensus:
-            if payload.status in ["approved", "verified"]:
-                consensus.status = "APPROVED"
-                consensus.resolution_notes = payload.notes
-                consensus.resolved_by = reviewer_id
-                consensus.resolved_at = datetime.now(timezone.utc)
-                settle_consensus(db, consensus, stake_action="refund")
-            elif payload.status == "rejected":
-                consensus.status = "REJECTED"
-                consensus.resolution_notes = payload.notes
-                consensus.resolved_by = reviewer_id
-                consensus.resolved_at = datetime.now(timezone.utc)
-                settle_consensus(db, consensus, stake_action="forfeit")
-    except Exception as e:
-        logger.error(f"Error settling consensus during submission review: {e}")
+        consensus.status = "APPROVED"
+        consensus.resolution_notes = decision_notes
+        consensus.resolved_by = reviewer_id
+        consensus.resolved_at = now_time
+
+        settle_consensus(
+            db,
+            consensus,
+            stake_action="refund",
+            admin_notes=decision_notes,
+            admin_override=bool(payload.admin_override),
+        )
+
+    elif decision == "rejected":
+        rejection_reason = (payload.notes or "").strip()
+        if not rejection_reason or len(rejection_reason) < 5:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "REASON_REQUIRED", "message": "Rejection rationale of at least 5 characters is required."},
+            )
+
+        submission.status = "rejected"
+
+        if not verification:
+            verification = Verification(
+                submission_id=submission_id,
+                reviewer_id=reviewer_id,
+                status="rejected",
+                notes=rejection_reason,
+            )
+            db.add(verification)
+        else:
+            verification.reviewer_id = reviewer_id
+            verification.status = "rejected"
+            verification.notes = rejection_reason
+
+        from app.database.models.consensus import ConsensusRecord
+        from app.modules.consensus.service import get_or_create_consensus_record, settle_consensus
+
+        consensus = db.query(ConsensusRecord).filter(ConsensusRecord.submission_id == submission_id).first()
+        if not consensus:
+            consensus = get_or_create_consensus_record(db, submission_id=submission.id)
+
+        consensus.status = "REJECTED"
+        consensus.resolution_notes = rejection_reason
+        consensus.resolved_by = reviewer_id
+        consensus.resolved_at = now_time
+
+        stake_action = "slash" if (payload.stake_action == "slash") else "refund"
+        settle_consensus(
+            db,
+            consensus,
+            stake_action=stake_action,
+            slashing_confirmed=(stake_action == "slash"),
+            admin_notes=rejection_reason,
+        )
+
+    elif decision == "disputed":
+        dispute_notes = (payload.notes or "").strip()
+        if not dispute_notes or len(dispute_notes) < 5:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "REASON_REQUIRED", "message": "Dispute investigation rationale of at least 5 characters is required."},
+            )
+
+        submission.status = "disputed"
+
+        dispute_summary = f"Dispute opened by @{admin_name}: {dispute_notes}"
+        if not verification:
+            verification = Verification(
+                submission_id=submission_id,
+                reviewer_id=reviewer_id,
+                status="disputed",
+                notes=dispute_summary,
+            )
+            db.add(verification)
+        else:
+            verification.reviewer_id = reviewer_id
+            verification.status = "disputed"
+            verification.notes = dispute_summary
+
+        from app.database.models.consensus import ConsensusRecord
+        from app.modules.consensus.service import get_or_create_consensus_record
+
+        consensus = db.query(ConsensusRecord).filter(ConsensusRecord.submission_id == submission_id).first()
+        if not consensus:
+            consensus = get_or_create_consensus_record(db, submission_id=submission.id)
+
+        consensus.status = "DISPUTED"
+        consensus.dispute_reason = dispute_notes
+        consensus.disputed_by = reviewer_id
+        consensus.disputed_at = now_time
+        consensus.settlement_status = "disputed"
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_STATUS", "message": f"Unsupported decision '{payload.status}'. Must be 'approved', 'rejected', or 'disputed'."},
+        )
 
     db.commit()
     db.refresh(verification)
+    db.refresh(submission)
     return verification
 
 
@@ -676,13 +783,6 @@ def retry_submission_verification(
 
     ai_result = AIValidationService.evaluate_submission_media(db, submission)
     verification = AIValidationService.record_ai_result(db, submission, ai_result)
-
-    # Re-evaluate consensus quorum if exists
-    try:
-        from app.modules.consensus.service import evaluate_consensus_quorum
-        evaluate_consensus_quorum(db, submission_id)
-    except Exception:
-        pass
 
     db.refresh(submission)
     return verification

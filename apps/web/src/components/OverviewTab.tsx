@@ -38,7 +38,6 @@ export interface ReviewQueueItem {
   gps_accuracy: string;
   submitted: string;
   community_result: string;
-  community_votes: { approve: number; reject: number; flag: number; quorum: number };
   status: 'awaiting_review' | 'flagged' | 'pending';
 }
 
@@ -123,15 +122,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
         </div>
 
-        {/* 2. Awaiting Review */}
+        {/* 2. Awaiting Admin Review */}
         <div className="kpi-card">
           <div className="kpi-icon-wrap kpi-icon-blue">
             <EyeIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Awaiting Review</div>
+            <div className="stat-label">Awaiting Admin Review</div>
             <div className="stat-value">{awaitingFinalReview}</div>
-            <div className="stat-sub">Community quorum met</div>
+            <div className="stat-sub">Automated checks passed</div>
           </div>
         </div>
 
@@ -162,9 +161,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <AlertTriangleIcon size={18} />
           </div>
           <div className="kpi-content">
-            <div className="stat-label">Flagged</div>
+            <div className="stat-label">Verification Issues</div>
             <div className="stat-value">{flaggedCount}</div>
-            <div className="stat-sub">Telemetry anomaly</div>
+            <div className="stat-sub">Automated check failed</div>
           </div>
         </div>
 
@@ -185,11 +184,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className="work-queue-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>Requires Review</h2>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>Requires Admin Review</h2>
               <span className="work-queue-badge">{awaitingFinalReview} Actionable</span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Field submissions with community consensus awaiting final administrator acceptance or rejection
+              Field submissions that passed automated verification awaiting final administrator decision
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -198,7 +197,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               className="btn btn-secondary btn-sm"
               onClick={onNavigateToReviews || onNavigateToSubmissions}
             >
-              <span>Reviews Queue</span>
+              <span>Admin Review Queue</span>
               <ArrowRightIcon size={14} />
             </button>
             <button
@@ -220,7 +219,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <th>Contributor</th>
                 <th>Location</th>
                 <th>Submitted</th>
-                <th>Community Result</th>
+                <th>Automated Verification</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
               </tr>

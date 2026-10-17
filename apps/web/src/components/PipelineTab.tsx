@@ -261,7 +261,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           </span>
           <span style={{ color: 'var(--text-muted)' }}>→</span>
           <span className="consensus-badge" style={{ background: 'rgba(45, 140, 255, 0.14)', color: 'var(--blue-soft)', borderColor: 'var(--border-default)' }}>
-            Silver: AI &amp; Quorum Scored
+            Silver: AI &amp; Spatial Scored
           </span>
           <span style={{ color: 'var(--text-muted)' }}>→</span>
           <span className="consensus-badge" style={{ background: 'rgba(16, 185, 129, 0.14)', color: 'var(--accent-emerald-text)', borderColor: 'var(--accent-emerald-border)' }}>
@@ -570,7 +570,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               </div>
 
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
-                ℹ Extracts only finalized, approved submissions with quorum consensus. Packages GeoJSON, JSON, and CSV exports with SHA-256 integrity checksums.
+                ℹ Extracts only finalized, verified and admin-approved submissions. Packages GeoJSON, JSON, and CSV exports with SHA-256 integrity checksums.
               </div>
             </div>
 

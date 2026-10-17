@@ -1,8 +1,8 @@
 /**
  * @file Push Notification Architecture for Horizon Contributor
  * Handles push token registration, device permission negotiation,
- * and high-priority notification handling for peer review assignments
- * and consensus token reward settlements.
+ * and high-priority notification handling for automated verification outcomes
+ * and admin review token reward settlements.
  */
 
 import { Platform } from 'react-native';
@@ -10,7 +10,8 @@ import { apiClient } from './api';
 
 export type HorizonNotificationType =
   | 'CONSENSUS_SETTLED'
-  | 'REVIEW_ASSIGNED'
+  | 'ADMIN_REVIEW_DECIDED'
+  | 'VERIFICATION_COMPLETED'
   | 'TASK_EXPIRING'
   | 'REWARD_EARNED';
 

@@ -450,7 +450,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
           <span className="pipeline-separator">→</span>
           <div className="pipeline-step">
             <span className="pipeline-step-badge">4</span>
-            <span>Consensus Queue Hand-off</span>
+            <span>Admin Review Queue Hand-off</span>
           </div>
         </div>
       </div>
@@ -620,7 +620,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     </div>
                     <div style={{ fontSize: '12px', color: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#78350F' : '#7F1D1D', lineHeight: 1.4 }}>
                       {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
-                        ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, peer quorum approval, and token settlement are strictly blocked until verification succeeds.'
+                        ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, admin approval, and token settlement are strictly blocked until verification succeeds.'
                         : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
                     </div>
 
@@ -672,10 +672,10 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
               >
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>
-                    Peer Consensus &amp; Decision Management
+                    Admin Review &amp; Decision Management
                   </div>
                   <div style={{ fontSize: '12px', color: '#15803D', marginTop: '2px' }}>
-                    Peer review ballots, quorum progress, and dispute rulings are managed on the dedicated Reviews page.
+                    Automated verification diagnostics, evidence inspection, and authoritative decisions are managed on the Admin Review page.
                   </div>
                 </div>
 
@@ -686,7 +686,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     onClick={() => onNavigateToReview(selectedSub.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <span>Open in Reviews Queue</span>
+                    <span>Open in Admin Review</span>
                     <ArrowRightIcon size={13} />
                   </button>
                 )}

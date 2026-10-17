@@ -81,12 +81,23 @@ class DisputeResolveRequest(BaseModel):
     notes: str = Field(..., min_length=5, description="Administrative audit findings justifying the resolution")
 
 
+class AdminReviewSummaryCounts(BaseModel):
+    pending_admin_review: int = 0
+    verification_failed: int = 0
+    approved: int = 0
+    rejected: int = 0
+    disputed: int = 0
+    total: int = 0
+
+
 class AdminReviewItemResponse(BaseModel):
     id: str
     submission_id: str
     task_id: str
     task_title: str
+    task_description: Optional[str] = None
     artifact_type: str
+    task_requirements: List[str] = Field(default_factory=list)
     base_reward: float
     commitment_stake: float
     contributor_email: Optional[str] = None
@@ -97,8 +108,8 @@ class AdminReviewItemResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     gps_accuracy: float
-    media: List[Dict[str, Any]] = []
-    form_data: Dict[str, Any] = {}
+    media: List[Dict[str, Any]] = Field(default_factory=list)
+    form_data: Dict[str, Any] = Field(default_factory=dict)
     verification_status: Optional[str] = None
     verification_notes: Optional[str] = None
     validation_status: Optional[str] = None
@@ -106,10 +117,19 @@ class AdminReviewItemResponse(BaseModel):
     ai_status: Optional[str] = None
     ai_confidence_score: Optional[float] = None
     ai_results: Optional[Dict[str, Any]] = None
-    consensus: ConsensusStatusResponse
+    settlement_status: Optional[str] = "unsettled"
+    settled_at: Optional[str] = None
+    dispute_reason: Optional[str] = None
+    disputed_by: Optional[str] = None
+    disputed_at: Optional[str] = None
+    resolution_notes: Optional[str] = None
+    resolved_by: Optional[str] = None
+    resolved_at: Optional[str] = None
+    consensus: Optional[ConsensusStatusResponse] = None
 
 
 class AdminReviewListResponse(BaseModel):
     reviews: List[AdminReviewItemResponse]
     total: int
+    counts: Optional[AdminReviewSummaryCounts] = None
 
