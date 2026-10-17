@@ -92,7 +92,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
 
           {/* Economics Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', padding: '14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', marginBottom: '16px' }}>
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>REWARD</div>
               <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--cyan-glow)' }}>+{task.base_reward}</div>
@@ -103,11 +103,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>DIFFICULTY</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>{task.difficulty.toFixed(1)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {task.difficulty <= 1.5 ? 'Easy' : task.difficulty <= 3.0 ? 'Medium' : 'Hard'}
+              </div>
             </div>
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>EFFORT</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>~{task.estimated_effort_minutes || 25}m</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>AVAILABILITY</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {task.scarcity <= 1.2 ? 'Low' : task.scarcity <= 2.2 ? 'Medium' : 'High'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>ESTIMATED EFFORT</div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {task.estimated_effort_minutes || 45} minutes
+              </div>
             </div>
           </div>
 

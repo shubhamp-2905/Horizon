@@ -33,6 +33,60 @@ const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
   ),
 });
 
+export type DifficultyLevel = 'easy' | 'medium' | 'hard';
+export type DataAvailabilityLevel = 'low' | 'medium' | 'high';
+
+export const DIFFICULTY_NUMERIC_MAP: Record<DifficultyLevel, number> = {
+  easy: 1.0,
+  medium: 2.5,
+  hard: 4.0,
+};
+
+export const DATA_AVAILABILITY_NUMERIC_MAP: Record<DataAvailabilityLevel, number> = {
+  low: 1.0,
+  medium: 2.0,
+  high: 3.0,
+};
+
+export interface FieldExplanation {
+  title: string;
+  text: string;
+  options?: Array<{ label: string; desc: string }>;
+}
+
+export const TASK_ECONOMICS_EXPLANATIONS: Record<string, FieldExplanation> = {
+  baseReward: {
+    title: 'Base Reward',
+    text: 'The starting token reward for successfully completing the task. The final reward may depend on the existing reward calculation rules.',
+  },
+  commitmentStake: {
+    title: 'Commitment Stake',
+    text: 'Tokens temporarily locked when reserving a task. The stake is handled according to the existing verification, settlement, and refund rules.',
+  },
+  taskDifficulty: {
+    title: 'Task Difficulty',
+    text: 'Indicates the effort and verification required from contributors:',
+    options: [
+      { label: 'Easy', desc: 'A straightforward task requiring relatively little effort.' },
+      { label: 'Medium', desc: 'A task requiring a moderate amount of effort or verification.' },
+      { label: 'Hard', desc: 'A task requiring greater effort, complexity, or verification.' },
+    ],
+  },
+  dataAvailability: {
+    title: 'Data Availability',
+    text: 'Communicates how readily suitable contribution data is available for the task:',
+    options: [
+      { label: 'Low', desc: 'Suitable data is readily available; the task has lower scarcity.' },
+      { label: 'Medium', desc: 'Suitable data is somewhat limited.' },
+      { label: 'High', desc: 'Suitable data is difficult to obtain or is in short supply.' },
+    ],
+  },
+  estimatedEffort: {
+    title: 'Estimated Effort (minutes)',
+    text: 'The approximate time a contributor may need to complete the task.',
+  },
+};
+
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,8 +117,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [mediaRequirements, setMediaRequirements] = useState('Title Documents, Topographical Survey, Site Photos (up to 50 files)');
   const [baseReward, setBaseReward] = useState('250');
   const [commitmentStake, setCommitmentStake] = useState('30');
-  const [difficulty, setDifficulty] = useState('2.5');
-  const [scarcity, setScarcity] = useState('2.0');
+  const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel>('medium');
+  const [dataAvailability, setDataAvailability] = useState<DataAvailabilityLevel>('medium');
   const [effortMinutes, setEffortMinutes] = useState('45');
   const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -77,33 +131,51 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   // Task Economics Field Info Popover State
   const [activeInfoField, setActiveInfoField] = useState<string | null>(null);
 
-  const FIELD_EXPLANATIONS: Record<string, { title: string; text: string }> = {
-    baseReward: {
-      title: 'Base Reward',
-      text: 'The starting token reward for successfully completing the task. The final reward may depend on the existing reward calculation rules.',
-    },
-    commitmentStake: {
-      title: 'Commitment Stake',
-      text: 'Tokens temporarily locked when reserving a task. The stake is handled according to the existing verification, settlement, and refund rules.',
-    },
-    difficultyFactor: {
-      title: 'Difficulty Factor',
-      text: 'An internal multiplier used to account for task difficulty when calculating rewards.',
-    },
-    scarcityMultiplier: {
-      title: 'Scarcity Multiplier',
-      text: 'Adjusts rewards according to the availability of suitable contribution data.',
-    },
-    estimatedEffort: {
-      title: 'Estimated Effort',
-      text: 'The approximate time a contributor may need to complete the task.',
-    },
-  };
-
-  const renderInfoIcon = (fieldKey: string) => {
+  const renderInfoIcon = (fieldKey: string, align: 'left' | 'center' | 'right' = 'center') => {
     const isActive = activeInfoField === fieldKey;
-    const info = FIELD_EXPLANATIONS[fieldKey];
+    const info = TASK_ECONOMICS_EXPLANATIONS[fieldKey];
     if (!info) return null;
+
+    const popoverPositionStyle: React.CSSProperties = {
+      position: 'absolute',
+      bottom: 'calc(100% + 10px)',
+      width: '280px',
+      maxWidth: 'calc(100vw - 36px)',
+      backgroundColor: '#EAF7EE',
+      color: '#1E293B',
+      borderRadius: '8px',
+      padding: '12px 14px',
+      boxShadow: '0 10px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.08)',
+      zIndex: 1000,
+      fontSize: '12px',
+      lineHeight: 1.45,
+      border: '1px solid #B7DEC1',
+      textAlign: 'left',
+    };
+
+    const arrowStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: '100%',
+      width: 0,
+      height: 0,
+      borderLeft: '6px solid transparent',
+      borderRight: '6px solid transparent',
+      borderTop: '6px solid #B7DEC1',
+    };
+
+    if (align === 'left') {
+      popoverPositionStyle.left = '-10px';
+      arrowStyle.left = '16px';
+    } else if (align === 'right') {
+      popoverPositionStyle.right = '-10px';
+      popoverPositionStyle.left = 'auto';
+      arrowStyle.right = '16px';
+    } else {
+      popoverPositionStyle.left = '50%';
+      popoverPositionStyle.transform = 'translateX(-50%)';
+      arrowStyle.left = '50%';
+      arrowStyle.transform = 'translateX(-50%)';
+    }
 
     return (
       <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: '6px' }}>
@@ -115,9 +187,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           }}
           aria-label={`Info for ${info.title}`}
           style={{
-            background: isActive ? '#7C3AED' : 'rgba(124, 58, 237, 0.08)',
-            color: isActive ? '#FFFFFF' : '#7C3AED',
-            border: isActive ? '1px solid #7C3AED' : '1px solid rgba(124, 58, 237, 0.25)',
+            background: isActive ? '#ECFDF5' : '#F2F4F7',
+            color: isActive ? '#15803D' : '#344054',
+            border: isActive ? '1px solid #15803D' : '1px solid #D0D5DD',
             borderRadius: '50%',
             width: '16px',
             height: '16px',
@@ -131,34 +203,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             padding: 0,
             transition: 'all 0.15s ease',
           }}
+          title={info.title}
         >
-          ⓘ
+          i
         </button>
 
         {isActive && (
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              bottom: 'calc(100% + 8px)',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '260px',
-              maxWidth: 'calc(100vw - 40px)',
-              backgroundColor: '#1E1B4B',
-              color: '#FFFFFF',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.25)',
-              zIndex: 1000,
-              fontSize: '12px',
-              lineHeight: 1.45,
-              border: '1px solid rgba(167, 139, 250, 0.35)',
-              textAlign: 'left',
-            }}
+            style={popoverPositionStyle}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <span style={{ fontWeight: 700, color: '#C4B5FD', fontSize: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', borderBottom: '1px solid #D1EAD7', paddingBottom: '4px' }}>
+              <span style={{ fontWeight: 700, color: '#166534', fontSize: '12.5px' }}>
                 {info.title}
               </span>
               <button
@@ -167,32 +223,35 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#9CA3AF',
+                  color: '#475467',
                   cursor: 'pointer',
                   fontSize: '13px',
                   padding: '0 2px',
                   lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
+                aria-label="Close tooltip"
               >
                 ✕
               </button>
             </div>
-            <div style={{ color: '#E0E7FF', fontSize: '11.5px', fontWeight: 400 }}>
+
+            <div style={{ color: '#1E293B', fontSize: '11.5px', lineHeight: 1.45 }}>
               {info.text}
             </div>
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 0,
-                height: 0,
-                borderLeft: '6px solid transparent',
-                borderRight: '6px solid transparent',
-                borderTop: '6px solid #1E1B4B',
-              }}
-            />
+
+            {info.options && (
+              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #D1EAD7', paddingTop: '6px' }}>
+                {info.options.map((opt) => (
+                  <div key={opt.label} style={{ fontSize: '11px', color: '#1E293B', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#166534' }}>{opt.label}:</strong> {opt.desc}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={arrowStyle} />
           </div>
         )}
       </span>
@@ -230,8 +289,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setMediaRequirements('Title Documents, Topographical Survey, Site Photos (up to 50 files)');
     setBaseReward('250');
     setCommitmentStake('30');
-    setDifficulty('2.5');
-    setScarcity('2.0');
+    setDifficultyLevel('medium');
+    setDataAvailability('medium');
     setEffortMinutes('45');
     setStatus('published');
     setSelectedFactors(SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id));
@@ -267,11 +326,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         description: description.trim(),
         artifact_type: artifactType,
         status,
-        difficulty: parseFloat(difficulty) || 1.0,
-        scarcity: parseFloat(scarcity) || 1.0,
+        difficulty: DIFFICULTY_NUMERIC_MAP[difficultyLevel] ?? 2.5,
+        scarcity: DATA_AVAILABILITY_NUMERIC_MAP[dataAvailability] ?? 2.0,
         base_reward: parseInt(baseReward, 10) || 50,
         commitment_stake: parseInt(commitmentStake, 10) || 10,
-        estimated_effort_minutes: parseInt(effortMinutes, 10) || 25,
+        estimated_effort_minutes: parseInt(effortMinutes, 10) || 45,
         latitude: latNum,
         longitude: lngNum,
         requirements: requirementsList.length > 0 ? requirementsList : ['Geotagged ground observation'],
@@ -603,7 +662,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
                         Base Reward (Tokens)
-                        {renderInfoIcon('baseReward')}
+                        {renderInfoIcon('baseReward', 'left')}
                       </label>
                       <input
                         type="number"
@@ -615,7 +674,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
                         Commitment Stake (Tokens)
-                        {renderInfoIcon('commitmentStake')}
+                        {renderInfoIcon('commitmentStake', 'right')}
                       </label>
                       <input
                         type="number"
@@ -628,38 +687,48 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Difficulty Factor
-                        {renderInfoIcon('difficultyFactor')}
+                        Task Difficulty
+                        {renderInfoIcon('taskDifficulty', 'left')}
                       </label>
-                      <input
-                        type="text"
-                        className="form-input-text"
-                        value={difficulty}
-                        onChange={(e) => setDifficulty(e.target.value)}
-                      />
+                      <select
+                        className="form-select"
+                        value={difficultyLevel}
+                        onChange={(e) => setDifficultyLevel(e.target.value as DifficultyLevel)}
+                        aria-label="Task Difficulty"
+                      >
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Scarcity Multiplier
-                        {renderInfoIcon('scarcityMultiplier')}
+                        Data Availability
+                        {renderInfoIcon('dataAvailability', 'center')}
                       </label>
-                      <input
-                        type="text"
-                        className="form-input-text"
-                        value={scarcity}
-                        onChange={(e) => setScarcity(e.target.value)}
-                      />
+                      <select
+                        className="form-select"
+                        value={dataAvailability}
+                        onChange={(e) => setDataAvailability(e.target.value as DataAvailabilityLevel)}
+                        aria-label="Data Availability"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Estimated Effort (min)
-                        {renderInfoIcon('estimatedEffort')}
+                        Estimated Effort (minutes)
+                        {renderInfoIcon('estimatedEffort', 'right')}
                       </label>
                       <input
                         type="number"
                         className="form-input-text"
                         value={effortMinutes}
                         onChange={(e) => setEffortMinutes(e.target.value)}
+                        placeholder="45"
+                        min={5}
                       />
                     </div>
                   </div>
@@ -744,7 +813,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       {artifactType.replace(/_/g, ' ').toUpperCase()}
                     </span>
                     <span style={{ fontSize: '11px', color: '#15803D', fontWeight: 700 }}>
-                      Proximity Ready · ~{effortMinutes || 25} min
+                      Proximity Ready · ~{effortMinutes || 45} minutes
                     </span>
                   </div>
 
