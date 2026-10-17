@@ -34,7 +34,8 @@ const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
 });
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
-export type DataAvailabilityLevel = 'low' | 'medium' | 'high';
+export type DataScarcityLevel = 'readily_available' | 'limited' | 'rare';
+export type DataAvailabilityLevel = DataScarcityLevel | 'low' | 'medium' | 'high';
 
 export const DIFFICULTY_NUMERIC_MAP: Record<DifficultyLevel, number> = {
   easy: 1.0,
@@ -42,7 +43,14 @@ export const DIFFICULTY_NUMERIC_MAP: Record<DifficultyLevel, number> = {
   hard: 4.0,
 };
 
-export const DATA_AVAILABILITY_NUMERIC_MAP: Record<DataAvailabilityLevel, number> = {
+export const DATA_SCARCITY_NUMERIC_MAP: Record<DataScarcityLevel, number> = {
+  readily_available: 1.0,
+  limited: 2.0,
+  rare: 3.0,
+};
+
+export const DATA_AVAILABILITY_NUMERIC_MAP: Record<string, number> = {
+  ...DATA_SCARCITY_NUMERIC_MAP,
   low: 1.0,
   medium: 2.0,
   high: 3.0,
@@ -72,13 +80,22 @@ export const TASK_ECONOMICS_EXPLANATIONS: Record<string, FieldExplanation> = {
       { label: 'Hard', desc: 'A task requiring greater effort, complexity, or verification.' },
     ],
   },
-  dataAvailability: {
-    title: 'Data Availability',
-    text: 'Communicates how readily suitable contribution data is available for the task:',
+  dataScarcity: {
+    title: 'Data Scarcity',
+    text: 'Indicates how difficult it is to obtain suitable data for this task. This setting may affect the internal reward calculation.',
     options: [
-      { label: 'Low', desc: 'Suitable data is readily available; the task has lower scarcity.' },
-      { label: 'Medium', desc: 'Suitable data is somewhat limited.' },
-      { label: 'High', desc: 'Suitable data is difficult to obtain or is in short supply.' },
+      { label: 'Readily Available', desc: 'Suitable data is easy to obtain.' },
+      { label: 'Limited', desc: 'Suitable data exists, but coverage is incomplete or access is difficult.' },
+      { label: 'Rare', desc: 'Suitable data is difficult to find or largely missing.' },
+    ],
+  },
+  dataAvailability: {
+    title: 'Data Scarcity',
+    text: 'Indicates how difficult it is to obtain suitable data for this task. This setting may affect the internal reward calculation.',
+    options: [
+      { label: 'Readily Available', desc: 'Suitable data is easy to obtain.' },
+      { label: 'Limited', desc: 'Suitable data exists, but coverage is incomplete or access is difficult.' },
+      { label: 'Rare', desc: 'Suitable data is difficult to find or largely missing.' },
     ],
   },
   estimatedEffort: {
@@ -118,7 +135,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [baseReward, setBaseReward] = useState('250');
   const [commitmentStake, setCommitmentStake] = useState('30');
   const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel>('medium');
-  const [dataAvailability, setDataAvailability] = useState<DataAvailabilityLevel>('medium');
+  const [dataScarcity, setDataScarcity] = useState<DataScarcityLevel>('limited');
   const [effortMinutes, setEffortMinutes] = useState('45');
   const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -290,7 +307,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setBaseReward('250');
     setCommitmentStake('30');
     setDifficultyLevel('medium');
-    setDataAvailability('medium');
+    setDataScarcity('limited');
     setEffortMinutes('45');
     setStatus('published');
     setSelectedFactors(SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id));
@@ -327,7 +344,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         artifact_type: artifactType,
         status,
         difficulty: DIFFICULTY_NUMERIC_MAP[difficultyLevel] ?? 2.5,
-        scarcity: DATA_AVAILABILITY_NUMERIC_MAP[dataAvailability] ?? 2.0,
+        scarcity: DATA_SCARCITY_NUMERIC_MAP[dataScarcity] ?? 2.0,
         base_reward: parseInt(baseReward, 10) || 50,
         commitment_stake: parseInt(commitmentStake, 10) || 10,
         estimated_effort_minutes: parseInt(effortMinutes, 10) || 45,
@@ -703,18 +720,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Data Availability
-                        {renderInfoIcon('dataAvailability', 'center')}
+                        Data Scarcity
+                        {renderInfoIcon('dataScarcity', 'center')}
                       </label>
                       <select
                         className="form-select"
-                        value={dataAvailability}
-                        onChange={(e) => setDataAvailability(e.target.value as DataAvailabilityLevel)}
-                        aria-label="Data Availability"
+                        value={dataScarcity}
+                        onChange={(e) => setDataScarcity(e.target.value as DataScarcityLevel)}
+                        aria-label="Data Scarcity"
                       >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
+                        <option value="readily_available">Readily Available</option>
+                        <option value="limited">Limited</option>
+                        <option value="rare">Rare</option>
                       </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>

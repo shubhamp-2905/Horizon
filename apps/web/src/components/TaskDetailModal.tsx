@@ -108,9 +108,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>AVAILABILITY</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {task.scarcity <= 1.2 ? 'Low' : task.scarcity <= 2.2 ? 'Medium' : 'High'}
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>DATA SCARCITY</div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {task.scarcity <= 1.2 ? 'Readily Available' : task.scarcity <= 2.2 ? 'Limited' : 'Rare'}
               </div>
             </div>
             <div>
