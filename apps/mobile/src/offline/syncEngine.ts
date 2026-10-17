@@ -285,11 +285,18 @@ export class SyncEngine {
           throw new Error('Cannot attach media before server submission ID is created');
         }
         const payload = op.payload as any;
-        await this.client.attachSubmissionMedia(serverSubId, {
-          storage_key: payload.storage_key,
-          media_type: payload.media_type,
-          metadata: payload.metadata,
-        });
+        if (payload.metadata?.is_link && payload.metadata?.url) {
+          await this.client.addSubmissionLink(serverSubId, {
+            url: payload.metadata.url,
+            title: payload.metadata.file_name || payload.metadata.title,
+          });
+        } else {
+          await this.client.attachSubmissionMedia(serverSubId, {
+            storage_key: payload.storage_key,
+            media_type: payload.media_type,
+            metadata: payload.metadata,
+          });
+        }
 
         if (payload.localMediaId) {
           await sqliteDb.updateLocalMediaStatus(payload.localMediaId, 'SYNCED');

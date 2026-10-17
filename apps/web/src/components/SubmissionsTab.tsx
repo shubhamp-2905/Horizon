@@ -13,6 +13,10 @@ import {
   MapPinIcon,
   LayersIcon,
 } from './Icons';
+import {
+  SPREADSHEET_FACTORS,
+  SPREADSHEET_SECTIONS,
+} from '../lib/spreadsheetData';
 
 export interface ImageQualityItem {
   id: string;
@@ -751,13 +755,18 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                 </div>
               </div>
 
-              {/* Card 2: Original Submitted Form Data */}
+              {/* Card 2: Original Submitted Form Data Grouped by Spreadsheet Domains */}
               <div className="table-container" style={{ padding: '20px 24px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Original Submitted Observation Data
-                </h3>
-                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px' }}>
-                  Dynamic observations and site condition inputs submitted by contributor
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                    Spreadsheet Assessment Observations
+                  </h3>
+                  <span style={{ fontSize: '11px', color: '#15803D', background: '#ECFDF5', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                    Source: Google Sheets Tab 2 (29 Factors)
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
+                  Contributor field evaluations grouped across the 3 authoritative spreadsheet assessment domains
                 </p>
 
                 {Object.keys(selectedSub.form_data).length === 0 ? (
@@ -765,87 +774,294 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     No dynamic form attributes submitted with this observation.
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                    {Object.entries(selectedSub.form_data).map(([key, val]) => (
-                      <div key={key} style={{ padding: '10px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
-                        <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'capitalize' }}>
-                          {key.replace(/_/g, ' ')}
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', marginTop: '3px' }}>
-                          {String(val)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {SPREADSHEET_SECTIONS.map((sec) => {
+                      const factorsInSection = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title);
+                      const matchingEntries = Object.entries(selectedSub.form_data).filter(([k]) =>
+                        factorsInSection.some((f) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
+                      );
 
-              {/* Card 3: Evidence Media Gallery */}
-              <div className="table-container" style={{ padding: '20px 24px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Attached Evidence Media ({selectedSub.media?.length || 0})
-                </h3>
-                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px' }}>
-                  Geotagged photos with EXIF timestamp and sensor metadata
-                </p>
-
-                {(!selectedSub.media || selectedSub.media.length === 0) ? (
-                  <div style={{ padding: '24px', background: '#F8FAFC', borderRadius: '8px', color: '#64748B', fontSize: '12px', textAlign: 'center' }}>
-                    No evidence photos attached to this submission.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-                    {selectedSub.media.map((med, idx) => {
-                      const base64Data = med.metadata?.image_base64 || med.metadata?.base64;
-                      const imgSrc = base64Data ? (base64Data.startsWith('data:') ? base64Data : `data:image/jpeg;base64,${base64Data}`) : null;
+                      if (matchingEntries.length === 0) return null;
 
                       return (
-                        <div
-                          key={med.id || idx}
-                          style={{
-                            border: '1px solid #E2E8F0',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            background: '#FFFFFF',
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: '140px',
-                              background: '#F1F5F9',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: imgSrc ? 'pointer' : 'default',
-                              overflow: 'hidden',
-                            }}
-                            onClick={() => imgSrc && setActivePhotoUrl(imgSrc)}
-                          >
-                            {imgSrc ? (
-                              <img
-                                src={imgSrc}
-                                alt={`Evidence ${idx + 1}`}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#94A3B8' }}>
-                                <CameraIcon size={24} />
-                                <span style={{ fontSize: '11px', marginTop: '4px' }}>Evidence Photo</span>
-                              </div>
-                            )}
+                        <div key={sec.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px' }}>{sec.icon}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>{sec.title}</span>
+                            <span style={{ fontSize: '11px', color: '#64748B', marginLeft: 'auto' }}>
+                              {matchingEntries.length} factor(s) evaluated
+                            </span>
                           </div>
 
-                          <div style={{ padding: '10px 12px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              Photo {idx + 1}: {med.storage_key || 'field_evidence.jpg'}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                              Type: {med.media_type || 'image/jpeg'}
-                            </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                            {matchingEntries.map(([key, val]) => {
+                              const factorDef = factorsInSection.find((f) => f.id === key || f.id.replace(/_/g, '') === key.replace(/_/g, ''));
+                              const isRisk = factorDef?.factor_type === 'Risk';
+                              const strVal = String(val);
+                              const isPositiveAnswer = strVal.includes('Present') && !isRisk;
+                              const isRiskDetected = strVal.includes('Present') && isRisk;
+
+                              return (
+                                <div
+                                  key={key}
+                                  style={{
+                                    padding: '10px 12px',
+                                    background: '#FFFFFF',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '6px',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                                      {factorDef?.label || key.replace(/_/g, ' ')}
+                                    </span>
+                                    {factorDef && (
+                                      <span
+                                        style={{
+                                          fontSize: '10px',
+                                          fontWeight: 700,
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          background: isRisk ? '#FEF2F2' : '#F0FDF4',
+                                          color: isRisk ? '#B91C1C' : '#15803D',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        {factorDef.factor_type}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span
+                                      style={{
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        color: isRiskDetected ? '#B91C1C' : isPositiveAnswer ? '#15803D' : '#0F172A',
+                                      }}
+                                    >
+                                      {strVal}
+                                    </span>
+                                  </div>
+
+                                  {factorDef?.metric && (
+                                    <div style={{ fontSize: '10px', color: '#64748B', marginTop: '4px' }}>
+                                      Metric: {factorDef.metric}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
                     })}
+
+                    {/* Non-sectioned attributes (e.g., project_type, field notes) */}
+                    {(() => {
+                      const unsectioned = Object.entries(selectedSub.form_data).filter(
+                        ([k]) => !SPREADSHEET_FACTORS.some((f) => f.id === k || f.id.replace(/_/g, '') === k.replace(/_/g, ''))
+                      );
+                      if (unsectioned.length === 0) return null;
+                      return (
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px 16px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
+                            Assessment Metadata &amp; Site Notes
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                            {unsectioned.map(([key, val]) => (
+                              <div key={key} style={{ padding: '8px 12px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '6px' }}>
+                                <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'capitalize' }}>
+                                  {key.replace(/_/g, ' ')}
+                                </div>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
+                                  {String(val)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Card 3: Categorized Evidence Inspector (Photos, Documents, Links) */}
+              <div className="table-container" style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                    Attached Evidence Packages ({selectedSub.media?.length || 0})
+                  </h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                      Photos: {selectedSub.media?.filter((m: any) => m.media_type?.startsWith('image/')).length || 0}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>•</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                      Docs: {selectedSub.media?.filter((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link).length || 0}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>•</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                      Links: {selectedSub.media?.filter((m: any) => m.media_type === 'link' || m.metadata?.is_link).length || 0}
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
+                  Inspect geotagged photos, uploaded supporting documents (PDF, DOCX, CSV), and external registry links
+                </p>
+
+                {(!selectedSub.media || selectedSub.media.length === 0) ? (
+                  <div style={{ padding: '24px', background: '#F8FAFC', borderRadius: '8px', color: '#64748B', fontSize: '12px', textAlign: 'center' }}>
+                    No evidence attachments registered with this observation.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* 1. Visual Photo Evidence */}
+                    {selectedSub.media.some((m: any) => m.media_type?.startsWith('image/')) && (
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📸 Visual Photographic Evidence</span>
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: '#15803D', background: '#DCFCE7', padding: '1px 6px', borderRadius: '4px' }}>
+                            Subject to AI Vision Models (MobileNetV3 + MobileCLIP)
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                          {selectedSub.media
+                            .filter((m: any) => m.media_type?.startsWith('image/'))
+                            .map((med: any, idx: number) => {
+                              const base64Data = med.metadata?.image_base64 || med.metadata?.base64;
+                              const imgSrc = base64Data
+                                ? (base64Data.startsWith('data:') ? base64Data : `data:image/jpeg;base64,${base64Data}`)
+                                : `${API_BASE_URL}/submissions/${selectedSub.id}/media/${med.id}/content`;
+
+                              return (
+                                <div key={med.id || idx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden', background: '#FFFFFF' }}>
+                                  <div
+                                    style={{ height: '140px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}
+                                    onClick={() => setActivePhotoUrl(imgSrc)}
+                                  >
+                                    <img
+                                      src={imgSrc}
+                                      alt={`Evidence ${idx + 1}`}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      onError={(e) => {
+                                        // Fallback if image content requires auth header
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={{ padding: '10px 12px' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                      {med.metadata?.file_name || `Photo ${idx + 1}`}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', display: 'flex', justifyContent: 'space-between' }}>
+                                      <span>{med.media_type || 'image/jpeg'}</span>
+                                      {med.metadata?.file_size_bytes && (
+                                        <span>{(med.metadata.file_size_bytes / 1024).toFixed(0)} KB</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Uploaded Supporting Documents */}
+                    {selectedSub.media.some((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link) && (
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📄 Supporting Documents (PDF, DOCX, CSV, XLSX)</span>
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: '#0369A1', background: '#E0F2FE', padding: '1px 6px', borderRadius: '4px' }}>
+                            Ordinary Validation (Format &amp; Telemetry Verified)
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                          {selectedSub.media
+                            .filter((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link)
+                            .map((med: any, idx: number) => {
+                              const fname = med.metadata?.file_name || med.metadata?.filename || `Document ${idx + 1}`;
+                              const fsize = med.metadata?.file_size_bytes ? `${(med.metadata.file_size_bytes / 1024).toFixed(1)} KB` : 'Attached File';
+                              const downloadUrl = `${API_BASE_URL}/submissions/${selectedSub.id}/media/${med.id}/content`;
+
+                              return (
+                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                      📄 {fname}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                                      Type: {med.media_type} • {fsize}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: '#15803D', fontWeight: 600, marginTop: '2px' }}>
+                                      ✓ Verified Document Evidence
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={downloadUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ fontSize: '11px', padding: '4px 8px', textDecoration: 'none' }}
+                                  >
+                                    Download ⬇
+                                  </a>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. Evidence Links */}
+                    {selectedSub.media.some((m: any) => m.media_type === 'link' || m.metadata?.is_link) && (
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>🔗 Evidence Links (Registry &amp; Spatial Portals)</span>
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: '#475569', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px' }}>
+                            HTTP/HTTPS Validated
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                          {selectedSub.media
+                            .filter((m: any) => m.media_type === 'link' || m.metadata?.is_link)
+                            .map((med: any, idx: number) => {
+                              const linkUrl = med.metadata?.url || med.storage_key;
+                              const hostname = med.metadata?.hostname || 'External Portal';
+                              const title = med.metadata?.title || linkUrl;
+
+                              return (
+                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ flex: 1, marginRight: '10px', overflow: 'hidden' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: 700, background: '#EFF6FF', color: '#1D4ED8', padding: '1px 6px', borderRadius: '4px' }}>
+                                        {hostname}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                      {title}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                      {linkUrl}
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={linkUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ fontSize: '11px', padding: '4px 8px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                  >
+                                    Open Link ↗
+                                  </a>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

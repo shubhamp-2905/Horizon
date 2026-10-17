@@ -195,173 +195,299 @@ export const ObservationFormStep: React.FC<ObservationFormStepProps> = ({
         )}
       </View>
 
-      {/* Dynamic Form Fields */}
+      {/* Dynamic Form Fields Grouped by Spreadsheet Domains */}
       <View style={styles.formContainer}>
-        {fields.map((field) => {
-          const val = formData[field.id];
-          const hasError = touchedFields[field.id] && !!validationErrors[field.id];
-          const errorMsg = validationErrors[field.id];
+        {(() => {
+          const sectionMap: Record<string, TaskFormFieldDefinitionDTO[]> = {};
+          for (const f of fields) {
+            const sec = f.section_title || f.section || (
+              f.section_id === 'tenure_governance'
+                ? 'Tenure & Governance'
+                : f.section_id === 'environmental_climatic'
+                ? 'Environmental & Climatic'
+                : f.section_id === 'development_suitability'
+                ? 'Development Suitability'
+                : 'Site Assessment Factors'
+            );
+            if (!sectionMap[sec]) sectionMap[sec] = [];
+            sectionMap[sec].push(f);
+          }
 
-          return (
-            <View
-              key={field.id}
-              style={[
-                styles.fieldGroup,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: hasError ? theme.error : theme.border,
-                },
-              ]}
-            >
-              {/* Field Label & Required Indicator */}
-              <View style={styles.labelRow}>
-                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                  {field.label}
-                  {field.required && <Text style={[styles.requiredAsterisk, { color: theme.error }]}> *</Text>}
-                </Text>
-                {field.required && (
-                  <Text style={[styles.requiredTag, { color: theme.tokenGold }]}>REQUIRED</Text>
-                )}
-              </View>
+          const getSectionIcon = (name: string) => {
+            if (name.includes('Tenure')) return '🏛️';
+            if (name.includes('Environmental')) return '🌿';
+            if (name.includes('Development')) return '🏗️';
+            return '📋';
+          };
 
-              {/* Render Field By Type */}
-              {field.type === 'select' ? (
-                <View style={styles.selectContainer}>
-                  <View style={styles.chipsRow}>
-                    {(field.options || []).map((opt) => {
-                      const isSelected = val === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          onPress={() => handleFieldChange(field, opt)}
-                          style={[
-                            styles.selectChip,
-                            {
-                              backgroundColor: isSelected ? theme.primaryMuted : theme.surfaceElevated,
-                              borderColor: isSelected ? theme.primary : theme.border,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[
-                              styles.chipText,
-                              {
-                                color: isSelected ? theme.primaryLight : theme.textSecondary,
-                                fontWeight: isSelected ? '800' : '600',
-                              },
-                            ]}
-                          >
-                            {opt.replace(/_/g, ' ')}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+          return Object.entries(sectionMap).map(([sectionName, sectionFields]) => {
+            const secRequired = sectionFields.filter((f) => f.required).length;
+            const secCompleted = sectionFields.filter(
+              (f) => f.required && formData[f.id] !== undefined && formData[f.id] !== ''
+            ).length;
+
+            return (
+              <View key={sectionName} style={styles.sectionBlock}>
+                {/* Section Header */}
+                <View
+                  style={[
+                    styles.sectionHeader,
+                    {
+                      backgroundColor: theme.surfaceElevated,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.sectionHeaderLeft}>
+                    <Text style={styles.sectionIcon}>{getSectionIcon(sectionName)}</Text>
+                    <Text style={[styles.sectionHeaderText, { color: theme.textPrimary }]}>
+                      {sectionName}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.sectionPill,
+                      {
+                        backgroundColor: secCompleted >= secRequired ? theme.primaryMuted : theme.card,
+                        borderColor: secCompleted >= secRequired ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sectionPillText,
+                        { color: secCompleted >= secRequired ? theme.primaryLight : theme.textSecondary },
+                      ]}
+                    >
+                      {secCompleted}/{secRequired} DONE
+                    </Text>
                   </View>
                 </View>
-              ) : field.type === 'boolean' ? (
-                <View style={styles.booleanRow}>
-                  <TouchableOpacity
-                    onPress={() => handleFieldChange(field, true)}
-                    style={[
-                      styles.boolOption,
-                      {
-                        backgroundColor: val === true ? theme.primaryMuted : theme.surfaceElevated,
-                        borderColor: val === true ? theme.primary : theme.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.boolOptionText,
-                        {
-                          color: val === true ? theme.primaryLight : theme.textSecondary,
-                          fontWeight: val === true ? '800' : '600',
-                        },
-                      ]}
-                    >
-                      Yes / Confirmed
-                    </Text>
-                  </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => handleFieldChange(field, false)}
-                    style={[
-                      styles.boolOption,
-                      {
-                        backgroundColor: val === false ? theme.errorMuted : theme.surfaceElevated,
-                        borderColor: val === false ? theme.error : theme.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.boolOptionText,
-                        {
-                          color: val === false ? theme.error : theme.textSecondary,
-                          fontWeight: val === false ? '800' : '600',
-                        },
-                      ]}
-                    >
-                      No / Absent
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : field.type === 'textarea' || field.type === 'multiline' ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.textarea,
-                    {
-                      backgroundColor: theme.input,
-                      borderColor: hasError ? theme.error : theme.border,
-                      color: theme.textPrimary,
-                    },
-                  ]}
-                  value={(val as string) || ''}
-                  onChangeText={(text) => handleFieldChange(field, text)}
-                  onBlur={() => handleBlur(field)}
-                  placeholder={field.placeholder || `Enter detailed ${field.label.toLowerCase()}...`}
-                  placeholderTextColor={theme.textMuted}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              ) : (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: theme.input,
-                      borderColor: hasError ? theme.error : theme.border,
-                      color: theme.textPrimary,
-                    },
-                  ]}
-                  value={val !== undefined && val !== null ? String(val) : ''}
-                  onChangeText={(text) =>
-                    handleFieldChange(
-                      field,
-                      field.type === 'number' ? (text === '' ? '' : Number(text)) : text
-                    )
-                  }
-                  onBlur={() => handleBlur(field)}
-                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
-                  placeholderTextColor={theme.textMuted}
-                  keyboardType={field.type === 'number' ? 'numeric' : 'default'}
-                />
-              )}
+                {/* Section Field Items */}
+                <View style={styles.sectionFieldsList}>
+                  {sectionFields.map((field) => {
+                    const val = formData[field.id];
+                    const hasError = touchedFields[field.id] && !!validationErrors[field.id];
+                    const errorMsg = validationErrors[field.id];
+                    const isRisk = field.factor_type === 'Risk';
+                    const isOpportunity = field.factor_type === 'Opportunity';
 
-              {/* Inline Validation Warning */}
-              {hasError && (
-                <View style={styles.inlineErrorBox}>
-                  <Text style={[styles.inlineErrorText, { color: theme.error }]}>{errorMsg}</Text>
+                    return (
+                      <View
+                        key={field.id}
+                        style={[
+                          styles.fieldGroup,
+                          {
+                            backgroundColor: theme.card,
+                            borderColor: hasError ? theme.error : theme.border,
+                          },
+                        ]}
+                      >
+                        {/* Header: Label + Factor Type Badge + Required Indicator */}
+                        <View style={styles.labelRow}>
+                          <View style={styles.labelLeftCol}>
+                            <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                              {field.label}
+                              {field.required && <Text style={[styles.requiredAsterisk, { color: theme.error }]}> *</Text>}
+                            </Text>
+
+                            {/* Factor Type Badge from Spreadsheet */}
+                            {(isRisk || isOpportunity) && (
+                              <View style={styles.factorBadgeRow}>
+                                <View
+                                  style={[
+                                    styles.factorTypeBadge,
+                                    {
+                                      backgroundColor: isRisk ? '#FEF2F2' : '#F0FDF4',
+                                      borderColor: isRisk ? '#FCA5A5' : '#86EFAC',
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.factorTypeBadgeText,
+                                      { color: isRisk ? '#B91C1C' : '#15803D' },
+                                    ]}
+                                  >
+                                    {field.factor_type?.toUpperCase()}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+
+                          {field.required && (
+                            <Text style={[styles.requiredTag, { color: theme.tokenGold }]}>REQUIRED</Text>
+                          )}
+                        </View>
+
+                        {/* Metric & Source Metadata Hint */}
+                        {field.metric && (
+                          <View style={styles.metaHintBox}>
+                            <Text style={[styles.metaHintText, { color: theme.textMuted }]}>
+                              📊 <Text style={{ fontWeight: '600' }}>Metric:</Text> {field.metric}
+                            </Text>
+                            {field.source && (
+                              <Text style={[styles.metaHintText, { color: theme.textMuted }]}>
+                                🔍 <Text style={{ fontWeight: '600' }}>Source:</Text> {field.source}
+                              </Text>
+                            )}
+                          </View>
+                        )}
+
+                        {/* Render Field By Type */}
+                        {field.type === 'select' ? (
+                          <View style={styles.selectContainer}>
+                            <View style={styles.chipsRow}>
+                              {(field.options || []).map((opt) => {
+                                const isSelected = val === opt;
+                                const isRiskOpt = opt.includes('Risk Present');
+                                const isOppOpt = opt.includes('Opportunity Identified');
+
+                                return (
+                                  <TouchableOpacity
+                                    key={opt}
+                                    onPress={() => handleFieldChange(field, opt)}
+                                    style={[
+                                      styles.selectChip,
+                                      {
+                                        backgroundColor: isSelected
+                                          ? (isRiskOpt ? '#FEF2F2' : isOppOpt ? '#F0FDF4' : theme.primaryMuted)
+                                          : theme.surfaceElevated,
+                                        borderColor: isSelected
+                                          ? (isRiskOpt ? '#EF4444' : isOppOpt ? '#10B981' : theme.primary)
+                                          : theme.border,
+                                      },
+                                    ]}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.chipText,
+                                        {
+                                          color: isSelected
+                                            ? (isRiskOpt ? '#B91C1C' : isOppOpt ? '#15803D' : theme.primaryLight)
+                                            : theme.textSecondary,
+                                          fontWeight: isSelected ? '800' : '600',
+                                        },
+                                      ]}
+                                    >
+                                      {opt}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        ) : field.type === 'boolean' ? (
+                          <View style={styles.booleanRow}>
+                            <TouchableOpacity
+                              onPress={() => handleFieldChange(field, true)}
+                              style={[
+                                styles.boolOption,
+                                {
+                                  backgroundColor: val === true ? theme.primaryMuted : theme.surfaceElevated,
+                                  borderColor: val === true ? theme.primary : theme.border,
+                                },
+                              ]}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.boolOptionText,
+                                  {
+                                    color: val === true ? theme.primaryLight : theme.textSecondary,
+                                    fontWeight: val === true ? '800' : '600',
+                                  },
+                                ]}
+                              >
+                                Yes / Confirmed
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => handleFieldChange(field, false)}
+                              style={[
+                                styles.boolOption,
+                                {
+                                  backgroundColor: val === false ? theme.errorMuted : theme.surfaceElevated,
+                                  borderColor: val === false ? theme.error : theme.border,
+                                },
+                              ]}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.boolOptionText,
+                                  {
+                                    color: val === false ? theme.error : theme.textSecondary,
+                                    fontWeight: val === false ? '800' : '600',
+                                  },
+                                ]}
+                              >
+                                No / Absent
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : field.type === 'textarea' || field.type === 'multiline' ? (
+                          <TextInput
+                            style={[
+                              styles.input,
+                              styles.textarea,
+                              {
+                                backgroundColor: theme.input,
+                                borderColor: hasError ? theme.error : theme.border,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                            value={(val as string) || ''}
+                            onChangeText={(text) => handleFieldChange(field, text)}
+                            onBlur={() => handleBlur(field)}
+                            placeholder={field.placeholder || `Enter detailed observations for ${field.label.toLowerCase()}...`}
+                            placeholderTextColor={theme.textMuted}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                          />
+                        ) : (
+                          <TextInput
+                            style={[
+                              styles.input,
+                              {
+                                backgroundColor: theme.input,
+                                borderColor: hasError ? theme.error : theme.border,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                            value={val !== undefined && val !== null ? String(val) : ''}
+                            onChangeText={(text) =>
+                              handleFieldChange(
+                                field,
+                                field.type === 'number' ? (text === '' ? '' : Number(text)) : text
+                              )
+                            }
+                            onBlur={() => handleBlur(field)}
+                            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                            placeholderTextColor={theme.textMuted}
+                            keyboardType={field.type === 'number' ? 'numeric' : 'default'}
+                          />
+                        )}
+
+                        {/* Inline Validation Warning */}
+                        {hasError && (
+                          <View style={styles.inlineErrorBox}>
+                            <Text style={[styles.inlineErrorText, { color: theme.error }]}>{errorMsg}</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
-              )}
-            </View>
-          );
-        })}
+              </View>
+            );
+          });
+        })()}
       </View>
 
       {/* Navigation Footer */}
@@ -493,7 +619,75 @@ const styles = StyleSheet.create({
   },
   inlineErrorText: {
     fontSize: 11,
-    fontWeight: '600',
+    lineHeight: 15,
+  },
+  sectionBlock: {
+    gap: 10,
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionIcon: {
+    fontSize: 16,
+  },
+  sectionHeaderText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  sectionPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+  },
+  sectionPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  sectionFieldsList: {
+    gap: 12,
+  },
+  labelLeftCol: {
+    flex: 1,
+    gap: 4,
+    marginRight: 8,
+  },
+  factorBadgeRow: {
+    flexDirection: 'row',
+  },
+  factorTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+  },
+  factorTypeBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  metaHintBox: {
+    marginTop: 2,
+    marginBottom: 8,
+    gap: 2,
+  },
+  metaHintText: {
+    fontSize: 10,
+    lineHeight: 14,
   },
   emptyContainer: {
     padding: 24,

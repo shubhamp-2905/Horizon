@@ -38,7 +38,7 @@ import {
   LocationCaptureStep,
   type LocationData,
 } from '../components/field/LocationCaptureStep';
-import { ImageCollectionStep } from '../components/field/ImageCollectionStep';
+import { BulkEvidenceStep, type BulkFilePayload } from '../components/field/BulkEvidenceStep';
 import { ObservationFormStep } from '../components/field/ObservationFormStep';
 import { ReviewSubmitStep } from '../components/field/ReviewSubmitStep';
 
@@ -224,22 +224,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentDraft(updated);
   };
 
-  // Image Step Handlers
-  const handleCapturePhoto = async (
-    uri: string,
-    metadata: Record<string, unknown> = {}
-  ) => {
+  // Bulk Evidence Handlers
+  const handleAttachBulkFiles = async (files: BulkFilePayload[]) => {
     if (!currentDraft) return;
-    const newMedia = await submissionRepo.attachLocalMedia(
-      currentDraft.local_submission_id,
-      uri,
-      (metadata.mime_type as string) || 'image/jpeg',
-      metadata
-    );
-    setMediaList((prev) => [...prev, newMedia]);
+    const addedMedia: LocalMediaRecord[] = [];
+    for (const file of files) {
+      const newMedia = await submissionRepo.attachLocalMedia(
+        currentDraft.local_submission_id,
+        file.uri,
+        file.mime_type,
+        file.metadata
+      );
+      addedMedia.push(newMedia);
+    }
+    setMediaList((prev) => [...prev, ...addedMedia]);
   };
 
-  const handleDeletePhoto = async (localMediaId: string) => {
+  const handleDeleteMedia = async (localMediaId: string) => {
     await submissionRepo.deleteLocalMedia(localMediaId);
     setMediaList((prev) => prev.filter((m) => m.local_media_id !== localMediaId));
   };
@@ -299,7 +300,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const fieldStatus = getFieldStatus();
 
   // Step Status Metrics for FieldStepIndicator
-  const requiredPhotos = schema?.minimum_photos || 2;
+  const requiredPhotos = schema?.minimum_photos || 1;
   const requiredFields = (schema?.fields || []).filter((f) => f.required);
   const formData = currentDraft?.form_data || {};
   const completedFieldCount = requiredFields.filter(
@@ -788,13 +789,14 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           />
         )}
 
-        {/* Step 3: Images Collection Screen */}
+        {/* Step 3: Evidence Collection Screen (Bulk Upload & Links) */}
         {currentStep === 'images' && (
-          <ImageCollectionStep
+          <BulkEvidenceStep
             mediaList={mediaList}
-            requiredPhotos={requiredPhotos}
-            onCapturePhoto={handleCapturePhoto}
-            onDeletePhoto={handleDeletePhoto}
+            requiredCount={requiredPhotos}
+            maxFiles={50}
+            onAttachFiles={handleAttachBulkFiles}
+            onDeleteMedia={handleDeleteMedia}
             onNext={() => setCurrentStep('observations')}
             onBack={() => setCurrentStep('location')}
           />

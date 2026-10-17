@@ -69,6 +69,27 @@ def create_task_record(db: Session, payload: TaskCreateRequest) -> Task:
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    # Automatically persist authoritative spreadsheet-derived form schema for the new task
+    try:
+        from app.database.models.task_schema import TaskFormSchema
+        from app.modules.tasks.spreadsheet_schema import compile_task_form_schema
+        schema_def = compile_task_form_schema(
+            task_id=str(task.id),
+            project_type=task.artifact_type,
+            instructions=f"Complete ground observation for {task.title}. Evaluate Tenure & Governance, Environmental & Climatic, and Development Suitability.",
+        )
+        task_schema = TaskFormSchema(
+            task_id=task.id,
+            schema_definition=schema_def,
+            version=1,
+        )
+        db.add(task_schema)
+        db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to auto-seed TaskFormSchema for task {task.id}: {e}")
+
     return task
 
 

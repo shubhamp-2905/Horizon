@@ -21,11 +21,16 @@ class SubmissionDraftUpdateRequest(BaseModel):
 
 class SubmissionMediaCreateRequest(BaseModel):
     storage_key: str = Field(..., examples=["submissions/2026/10/water_source_01.jpg"])
-    media_type: str = Field("image/jpeg", examples=["image/jpeg", "image/png"])
+    media_type: str = Field("image/jpeg", examples=["image/jpeg", "image/png", "application/pdf", "link"])
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         examples=[{"width": 4032, "height": 3024, "hash": "a1b2c3d4e5f6", "file_size_bytes": 2450000}],
     )
+
+
+class EvidenceLinkCreateRequest(BaseModel):
+    url: str = Field(..., min_length=4, max_length=1024, examples=["https://example.com/site-report.pdf"])
+    title: Optional[str] = Field(None, max_length=255, examples=["Environmental Assessment Report"])
 
 
 class SubmissionMediaResponse(BaseModel):
@@ -35,21 +40,34 @@ class SubmissionMediaResponse(BaseModel):
     media_type: str
     metadata: Dict[str, Any]
     created_at: str
+    url: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    is_link: bool = False
 
 
 class TaskFormFieldDefinition(BaseModel):
     id: str
     label: str
-    type: str  # text, number, select, boolean, textarea
+    type: str  # select, text, number, boolean, textarea
     required: bool = True
     options: Optional[List[str]] = None
     placeholder: Optional[str] = None
+    section: Optional[str] = None  # Tenure & Governance, Environmental & Climatic, Development Suitability
+    factor_type: Optional[str] = None  # Risk, Opportunity
+    metric: Optional[str] = None
+    scoring_method: Optional[str] = None
+    source: Optional[str] = None
+    description: Optional[str] = None
 
 
 class TaskFormSchemaResponse(BaseModel):
     task_id: str
     version: int
     fields: List[TaskFormFieldDefinition]
+    sections: Optional[List[str]] = None
+    project_type: Optional[str] = None
+    user_profile: Optional[str] = None
     minimum_photos: int = 1
     instructions: Optional[str] = None
 

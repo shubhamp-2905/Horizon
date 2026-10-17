@@ -3,6 +3,11 @@
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { AdminTaskItem } from './OverviewTab';
+import {
+  SPREADSHEET_PROJECT_TYPES,
+  SPREADSHEET_SECTIONS,
+  SPREADSHEET_FACTORS,
+} from '../lib/spreadsheetData';
 
 const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
   ssr: false,
@@ -40,40 +45,68 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [artifactType, setArtifactType] = useState('water_source');
+  const [artifactType, setArtifactType] = useState('Real Estate Development');
   const [latitude, setLatitude] = useState('18.5204');
   const [longitude, setLongitude] = useState('73.8567');
   const [showManualCoords, setShowManualCoords] = useState(false);
-  const [geographicScope, setGeographicScope] = useState('Point Observation (Radius 50m)');
-  const [requiredEvidence, setRequiredEvidence] = useState('2 geotagged high-resolution photographs\nPhysical condition confirmation');
-  const [requiredFields, setRequiredFields] = useState('Operating condition, Water flow rate');
-  const [mediaRequirements, setMediaRequirements] = useState('Wide contextual overview, Close-up label');
-  const [baseReward, setBaseReward] = useState('150');
-  const [commitmentStake, setCommitmentStake] = useState('20');
-  const [difficulty, setDifficulty] = useState('2.0');
-  const [scarcity, setScarcity] = useState('1.5');
-  const [effortMinutes, setEffortMinutes] = useState('25');
+  const [geographicScope, setGeographicScope] = useState('Spatial Parcel Boundary (SRID 4326)');
+  const [requiredEvidence, setRequiredEvidence] = useState(
+    'Official Title / Cadastral Deed Certificate (PDF / Image)\n' +
+    'Zoning & Planning Authority Permitted Use Notice\n' +
+    'Ground-truth Geotagged Site Inspection Photographs\n' +
+    'Government Portal or GIS Registry Evidence URL'
+  );
+  const [requiredFields, setRequiredFields] = useState('Disputed Ownership, Flood Risk, Road Connectivity, Soil Permeability');
+  const [mediaRequirements, setMediaRequirements] = useState('Title Documents, Topographical Survey, Site Photos (up to 50 files)');
+  const [baseReward, setBaseReward] = useState('250');
+  const [commitmentStake, setCommitmentStake] = useState('30');
+  const [difficulty, setDifficulty] = useState('2.5');
+  const [scarcity, setScarcity] = useState('2.0');
+  const [effortMinutes, setEffortMinutes] = useState('45');
   const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const [selectedDomain, setSelectedDomain] = useState<string>('Tenure & Governance');
+  const [selectedFactors, setSelectedFactors] = useState<string[]>(() =>
+    SPREADSHEET_FACTORS.filter((f) => f.relevance.includes('Real Estate Development')).map((f) => f.id)
+  );
+
   if (!isOpen) return null;
 
-  const loadDemoPreset = () => {
-    setTitle('Community Water Source Survey');
-    setDescription('Survey and verify public water dispensary status, flow rate, and contamination risk.');
-    setArtifactType('water_source');
+  const currentProjectType = SPREADSHEET_PROJECT_TYPES[artifactType] || SPREADSHEET_PROJECT_TYPES['Real Estate Development'];
+
+  const handleArtifactTypeChange = (newType: string) => {
+    setArtifactType(newType);
+    const relevant = SPREADSHEET_FACTORS.filter((f) => f.relevance.includes(newType)).map((f) => f.id);
+    setSelectedFactors(relevant);
+    const pt = SPREADSHEET_PROJECT_TYPES[newType];
+    if (pt) {
+      setDescription(`Assess parcel suitability for ${newType}. Verify tenure security, environmental risk factors, and development access parameters.`);
+    }
+  };
+
+  const loadSpreadsheetPreset = () => {
+    setTitle('Real Estate Development - Site Due Diligence & Zoning Survey');
+    setDescription(SPREADSHEET_PROJECT_TYPES['Real Estate Development'].description);
+    setArtifactType('Real Estate Development');
     setLatitude('18.5204');
     setLongitude('73.8567');
-    setGeographicScope('Point Observation (SRID 4326)');
-    setRequiredEvidence('2 geotagged photos\nFlow rate test\nSafety label verification');
-    setRequiredFields('Dispensary condition, Flow rate (L/min), Water clarity');
-    setMediaRequirements('Ground level entrance photo, Dispenser serial barcode');
-    setBaseReward('150');
-    setCommitmentStake('20');
-    setDifficulty('2.0');
-    setScarcity('1.5');
-    setEffortMinutes('25');
+    setGeographicScope('Spatial Parcel Boundary (SRID 4326)');
+    setRequiredEvidence(
+      'Official Title / Cadastral Deed Certificate (PDF / Image)\n' +
+      'Zoning & Planning Authority Permitted Use Notice\n' +
+      'Ground-truth Geotagged Site Inspection Photographs\n' +
+      'Government Portal or GIS Registry Evidence URL'
+    );
+    setRequiredFields('Disputed Ownership, Flood Risk, Road Connectivity, Soil Permeability');
+    setMediaRequirements('Title Documents, Topographical Survey, Site Photos (up to 50 files)');
+    setBaseReward('250');
+    setCommitmentStake('30');
+    setDifficulty('2.5');
+    setScarcity('2.0');
+    setEffortMinutes('45');
     setStatus('published');
+    setSelectedFactors(SPREADSHEET_FACTORS.filter((f) => f.relevance.includes('Real Estate Development')).map((f) => f.id));
     setValidationError(null);
   };
 
@@ -123,20 +156,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '920px', width: '95%' }}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '960px', width: '95%' }}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">Create Geospatial Task</h2>
-            <div className="modal-subtitle">Configure spatial boundaries, telemetry requirements, and economic rewards</div>
+            <h2 className="modal-title">Create Spreadsheet-Driven Task</h2>
+            <div className="modal-subtitle">Configured from Google Sheets (7 Project Types &amp; 29 Assessment Factors)</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
-              onClick={loadDemoPreset}
+              onClick={loadSpreadsheetPreset}
               className="btn btn-secondary btn-sm"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>⚡ Load Spatial Preset</span>
+              <span>⚡ Load Spreadsheet Preset</span>
             </button>
             <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close modal">
               ✕
@@ -145,7 +178,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ maxHeight: '72vh' }}>
+          <div className="modal-body" style={{ maxHeight: '74vh' }}>
             {validationError && (
               <div style={{
                 background: '#FEF3F2',
@@ -164,18 +197,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '28px', alignItems: 'start' }}>
               {/* Left Column: Structured Form Sections */}
               <div>
-                {/* 1. Basic Information */}
+                {/* 1. Basic Information & Spreadsheet Project Type */}
                 <div className="form-section">
                   <div className="form-section-title">
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>1</span>
-                    <span>Basic Information</span>
+                    <span>Basic Information &amp; Project Type (Tab 1)</span>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Task Title</label>
                     <input
                       type="text"
                       className="form-input-text"
-                      placeholder="e.g. Community Water Source Survey"
+                      placeholder="e.g. Commercial Site Due Diligence & Zoning Survey"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       required
@@ -183,7 +216,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Description & Objective</label>
+                    <label className="form-label">Description &amp; Objective</label>
                     <textarea
                       className="form-textarea"
                       placeholder="Specify observation goals, required accuracy, and target feature details..."
@@ -194,19 +227,124 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Artifact Category</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label className="form-label" style={{ marginBottom: 0 }}>Project Type (Source: Tab 1)</label>
+                      {currentProjectType && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803D', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px' }}>
+                          Target Profile: {currentProjectType.user_profile}
+                        </span>
+                      )}
+                    </div>
                     <select
                       className="form-select"
                       value={artifactType}
-                      onChange={(e) => setArtifactType(e.target.value)}
+                      onChange={(e) => handleArtifactTypeChange(e.target.value)}
                     >
-                      <option value="water_source">Water Source</option>
-                      <option value="solar_installation">Solar Installation</option>
-                      <option value="traffic_flow">Traffic Flow</option>
-                      <option value="emergency_shelter">Emergency Shelter</option>
-                      <option value="telecom_tower">Telecom Tower</option>
-                      <option value="infrastructure">Public Infrastructure</option>
+                      {Object.values(SPREADSHEET_PROJECT_TYPES).map((pt) => (
+                        <option key={pt.id} value={pt.id}>
+                          {pt.title} ({pt.user_profile})
+                        </option>
+                      ))}
                     </select>
+                    {currentProjectType && (
+                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '6px', lineHeight: 1.4 }}>
+                        {currentProjectType.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 1B. Spreadsheet Assessment Factors Checklist (Tab 2: 29 Factors) */}
+                <div className="form-section">
+                  <div className="form-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>✓</span>
+                      <span>Assessment Factors ({selectedFactors.length} Active / 29 Total)</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>Source: Tab 2</span>
+                  </div>
+
+                  {/* Domain Tabs */}
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                    {SPREADSHEET_SECTIONS.map((sec) => {
+                      const isDomainActive = selectedDomain === sec.title;
+                      const count = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title && selectedFactors.includes(f.id)).length;
+                      const total = SPREADSHEET_FACTORS.filter((f) => f.section === sec.title).length;
+                      return (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          onClick={() => setSelectedDomain(sec.title)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            fontWeight: isDomainActive ? 700 : 500,
+                            borderRadius: '6px',
+                            border: isDomainActive ? '1.5px solid #10B981' : '1px solid #E2E8F0',
+                            background: isDomainActive ? '#ECFDF5' : '#FFFFFF',
+                            color: isDomainActive ? '#065F46' : '#64748B',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {sec.icon} {sec.title} ({count}/{total})
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Factor items checklist */}
+                  <div style={{ maxHeight: '190px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px', background: '#FAFAFA' }}>
+                    {SPREADSHEET_FACTORS.filter((f) => f.section === selectedDomain).map((factor) => {
+                      const isChecked = selectedFactors.includes(factor.id);
+                      return (
+                        <label
+                          key={factor.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '8px',
+                            padding: '6px 8px',
+                            borderRadius: '6px',
+                            background: isChecked ? '#FFFFFF' : 'transparent',
+                            border: isChecked ? '1px solid #E2E8F0' : '1px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedFactors((prev) => [...prev, factor.id]);
+                              } else {
+                                setSelectedFactors((prev) => prev.filter((id) => id !== factor.id));
+                              }
+                            }}
+                            style={{ marginTop: '3px' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 600, color: '#0F172A' }}>{factor.label}</span>
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                background: factor.factor_type === 'Risk' ? '#FEF2F2' : '#F0FDF4',
+                                color: factor.factor_type === 'Risk' ? '#B91C1C' : '#15803D',
+                              }}>
+                                {factor.factor_type}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
+                              <strong>Metric:</strong> {factor.metric}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 

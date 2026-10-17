@@ -375,6 +375,25 @@ export class HorizonApiClient {
     return res.json();
   }
 
+  async addSubmissionLink(
+    submissionId: string,
+    payload: {
+      url: string;
+      title?: string;
+    }
+  ): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/submissions/${submissionId}/links`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail?.message || err.detail || 'Failed to add evidence link');
+    }
+    return res.json();
+  }
+
   async finalizeSubmission(submissionId: string): Promise<any> {
     const res = await fetch(`${this.baseUrl}/submissions/${submissionId}/submit`, {
       method: 'POST',

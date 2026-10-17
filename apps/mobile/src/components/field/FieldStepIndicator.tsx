@@ -24,7 +24,7 @@ interface FieldStepIndicatorProps {
 const STEPS: Array<{ key: SurveyStep; label: string; index: number }> = [
   { key: 'overview', label: 'Overview', index: 1 },
   { key: 'location', label: 'Location', index: 2 },
-  { key: 'images', label: 'Images', index: 3 },
+  { key: 'images', label: 'Evidence', index: 3 },
   { key: 'observations', label: 'Observations', index: 4 },
   { key: 'review', label: 'Review', index: 5 },
 ];
@@ -63,7 +63,7 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
       case 'location':
         return stepStatus.hasLocation ? '✓ GPS Captured' : 'Pending GPS';
       case 'images':
-        return `${stepStatus.photoCount}/${stepStatus.requiredPhotos} Photos`;
+        return `${stepStatus.photoCount}/${stepStatus.requiredPhotos} Evidence Items`;
       case 'observations':
         return stepStatus.observationsCount > 0
           ? `${stepStatus.observationsCount}/${stepStatus.requiredObservationsCount} Fields`

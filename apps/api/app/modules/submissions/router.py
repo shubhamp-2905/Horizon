@@ -23,11 +23,14 @@ from app.schemas.submissions import (
     VerificationResponse,
     UploadUrlRequest,
     UploadUrlResponse,
+    EvidenceLinkCreateRequest,
 )
 from app.modules.submissions.service import (
     create_submission_record,
     update_submission_draft,
     add_submission_media_record,
+    add_submission_link_record,
+    delete_submission_media_record,
     transition_submission_to_submitted,
     get_task_form_schema,
     get_submission_details,
@@ -186,14 +189,114 @@ def attach_submission_media(
 ):
     """Register uploaded photo or sensor evidence storage key and EXIF telemetry."""
     m = add_submission_media_record(db, submission_id=submission_id, user_id=current_user.id, payload=payload)
+    meta = m.media_metadata or {}
     return SubmissionMediaResponse(
         id=str(m.id),
         submission_id=str(m.submission_id),
         storage_key=m.storage_key,
         media_type=m.media_type,
-        metadata=m.media_metadata or {},
+        metadata=meta,
         created_at=m.created_at.isoformat() if m.created_at else "",
+        url=meta.get("url"),
+        file_name=meta.get("file_name"),
+        file_size_bytes=meta.get("file_size_bytes") or meta.get("file_size"),
+        is_link=m.media_type == "link" or bool(meta.get("is_link")),
     )
+
+
+@router.post(
+    "/submissions/{submission_id}/links",
+    response_model=SubmissionMediaResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Attach an external HTTP/HTTPS evidence link",
+)
+def attach_evidence_link(
+    payload: EvidenceLinkCreateRequest,
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Register an external evidence link (registry document, spatial layer, survey citation)."""
+    m = add_submission_link_record(db, submission_id=submission_id, user_id=current_user.id, url=payload.url, title=payload.title)
+    meta = m.media_metadata or {}
+    return SubmissionMediaResponse(
+        id=str(m.id),
+        submission_id=str(m.submission_id),
+        storage_key=m.storage_key,
+        media_type=m.media_type,
+        metadata=meta,
+        created_at=m.created_at.isoformat() if m.created_at else "",
+        url=payload.url,
+        file_name=meta.get("title", payload.url),
+        is_link=True,
+    )
+
+
+@router.delete(
+    "/submissions/{submission_id}/media/{media_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Remove an attached media or evidence link from a draft submission",
+)
+def remove_submission_media(
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    media_id: uuid.UUID = Path(..., description="Media UUID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove an attached file or link before submitting observation."""
+    delete_submission_media_record(db, submission_id=submission_id, user_id=current_user.id, media_id=media_id)
+    return {"status": "deleted", "media_id": str(media_id)}
+
+
+@router.get(
+    "/submissions/{submission_id}/media/{media_id}/content",
+    summary="Securely view or download an authorized evidence document/photo",
+)
+def get_media_content(
+    submission_id: uuid.UUID = Path(..., description="Submission UUID"),
+    media_id: uuid.UUID = Path(..., description="Media UUID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream authorized evidence file to authenticated contributor or reviewer."""
+    from fastapi.responses import FileResponse, RedirectResponse
+    from app.database.models.submission_media import SubmissionMedia
+    from app.core.storage import get_safe_local_path
+    import os
+
+    sub = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub.user_id != current_user.id and current_user.role not in ("admin", "reviewer"):
+        raise HTTPException(status_code=403, detail="Unauthorized to access this submission evidence")
+
+    m = db.query(SubmissionMedia).filter(
+        SubmissionMedia.id == media_id,
+        SubmissionMedia.submission_id == submission_id,
+    ).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Media record not found")
+
+    meta = m.media_metadata or {}
+    if m.media_type == "link" or meta.get("is_link"):
+        url = meta.get("url")
+        if url:
+            return RedirectResponse(url)
+        raise HTTPException(status_code=400, detail="Invalid link metadata")
+
+    try:
+        local_path = get_safe_local_path(m.storage_key)
+        if local_path.exists():
+            fname = meta.get("file_name") or os.path.basename(m.storage_key)
+            return FileResponse(
+                path=str(local_path),
+                media_type=m.media_type or "application/octet-stream",
+                filename=fname,
+            )
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=404, detail="Evidence content not found in persistent storage")
 
 
 @router.post(

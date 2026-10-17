@@ -75,3 +75,23 @@ def list_my_claimed_tasks(
 ):
     """List tasks currently claimed / committed by the authenticated contributor."""
     return get_user_claimed_tasks(db, current_user.id)
+
+
+@router.get("/tasks/metadata/spreadsheet-types", summary="Get Google Sheets project types and assessment factors")
+@router.get("/tasks/spreadsheet-types", include_in_schema=False)
+def get_spreadsheet_types():
+    """Retrieve all 7 project types, 3 factor domains, and 29 assessment factors directly from Google Sheets."""
+    from app.modules.tasks.spreadsheet_schema import PROJECT_TYPES, FACTOR_SECTIONS, get_all_factors
+    return {
+        "project_types": [
+            {
+                "id": k,
+                "title": k,
+                "user_profile": v["user_profile"],
+                "description": v["description"],
+            }
+            for k, v in PROJECT_TYPES.items()
+        ],
+        "sections": FACTOR_SECTIONS,
+        "factors": get_all_factors(),
+    }

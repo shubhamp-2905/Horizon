@@ -44,9 +44,23 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
   const hasGps = !!(submission?.latitude && submission?.longitude);
   const gpsAccuracy = submission?.gps_accuracy ? Math.round(submission.gps_accuracy) : 8;
 
-  const requiredPhotos = schema?.minimum_photos || 2;
-  const photoCount = mediaList.length;
-  const photosComplete = photoCount >= requiredPhotos;
+  const requiredEvidence = schema?.minimum_photos || 1;
+  const totalEvidenceCount = mediaList.length;
+  const evidenceComplete = totalEvidenceCount >= requiredEvidence;
+
+  const imageCount = mediaList.filter(
+    (m) =>
+      !m.metadata?.is_link &&
+      ((m.metadata?.mime_type as string) || m.media_type || '').startsWith('image/')
+  ).length;
+
+  const docCount = mediaList.filter(
+    (m) =>
+      !m.metadata?.is_link &&
+      !((m.metadata?.mime_type as string) || m.media_type || '').startsWith('image/')
+  ).length;
+
+  const linkCount = mediaList.filter((m) => !!m.metadata?.is_link || !!m.metadata?.url).length;
 
   const requiredFields = (schema?.fields || []).filter((f) => f.required);
   const formData = submission?.form_data || {};
@@ -59,7 +73,7 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
   // Total missing count
   let missingItemsCount = 0;
   if (!hasGps) missingItemsCount++;
-  if (!photosComplete) missingItemsCount++;
+  if (!evidenceComplete) missingItemsCount++;
   if (!observationsComplete) missingItemsCount++;
 
   const isFormComplete = missingItemsCount === 0;
@@ -181,13 +195,13 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
           <Text style={[styles.editLink, { color: theme.primaryLight }]}>Edit →</Text>
         </TouchableOpacity>
 
-        {/* Item 2: Images */}
+        {/* Item 2: Evidence Files & Links */}
         <TouchableOpacity
           style={[
             styles.checkCard,
             {
               backgroundColor: theme.card,
-              borderColor: photosComplete ? theme.border : theme.tokenGold,
+              borderColor: evidenceComplete ? theme.border : theme.tokenGold,
             },
           ]}
           onPress={() => onNavigateToStep('images')}
@@ -197,21 +211,21 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
             <View
               style={[
                 styles.statusIconCircle,
-                photosComplete
+                evidenceComplete
                   ? { backgroundColor: theme.successMuted, borderColor: theme.success, borderWidth: 1 }
                   : { backgroundColor: theme.tokenGoldMuted, borderColor: theme.tokenGold, borderWidth: 1 },
               ]}
             >
-              <Text style={{ color: photosComplete ? theme.success : theme.tokenGold, fontWeight: '800' }}>
-                {photosComplete ? '✓' : '!'}
+              <Text style={{ color: evidenceComplete ? theme.success : theme.tokenGold, fontWeight: '800' }}>
+                {evidenceComplete ? '✓' : '!'}
               </Text>
             </View>
             <View>
-              <Text style={[styles.checkTitle, { color: theme.textPrimary }]}>Field Photos</Text>
+              <Text style={[styles.checkTitle, { color: theme.textPrimary }]}>Evidence Files & Links</Text>
               <Text style={[styles.checkSub, { color: theme.textSecondary }]}>
-                {photosComplete
-                  ? `${photoCount} of ${requiredPhotos} photos captured`
-                  : `Need ${requiredPhotos - photoCount} more photo(s)`}
+                {evidenceComplete
+                  ? `${totalEvidenceCount} items (${imageCount} photos, ${docCount} docs, ${linkCount} links)`
+                  : `Need ${requiredEvidence - totalEvidenceCount} more item(s)`}
               </Text>
             </View>
           </View>
@@ -370,8 +384,10 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
                 </Text>
               </View>
               <View style={styles.modalSumRow}>
-                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Photos Attached</Text>
-                <Text style={[styles.modalSumVal, { color: theme.textPrimary }]}>{photoCount} Images</Text>
+                <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Evidence Attached</Text>
+                <Text style={[styles.modalSumVal, { color: theme.textPrimary }]}>
+                  {totalEvidenceCount} items ({imageCount} img, {docCount} doc, {linkCount} links)
+                </Text>
               </View>
               <View style={styles.modalSumRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Reward Value</Text>

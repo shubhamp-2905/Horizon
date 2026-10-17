@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from geoalchemy2.shape import to_shape, from_shape
 from shapely.geometry import Point
+import os
 from app.database.models.submission import Submission
 from app.database.models.submission_media import SubmissionMedia
 from app.database.models.verification import Verification
@@ -26,6 +27,7 @@ from app.schemas.submissions import (
     VerificationReviewRequest,
     VerificationResponse,
 )
+from app.modules.tasks.spreadsheet_schema import compile_task_form_schema
 
 
 def _extract_coordinates(location_point) -> Tuple[Optional[float], Optional[float]]:
@@ -45,14 +47,23 @@ def _submission_to_response(sub: Submission) -> SubmissionResponse:
     media_list = []
     if sub.media:
         for m in sub.media:
+            meta = m.media_metadata or {}
+            is_link = (m.media_type == "link") or bool(meta.get("is_link"))
+            link_url = meta.get("url") if is_link else None
+            fname = meta.get("file_name") or meta.get("filename") or (os.path.basename(m.storage_key) if not is_link else meta.get("title", "Evidence Link"))
+            fsize = meta.get("file_size_bytes") or meta.get("file_size")
             media_list.append(
                 SubmissionMediaResponse(
                     id=str(m.id),
                     submission_id=str(m.submission_id),
                     storage_key=m.storage_key,
                     media_type=m.media_type,
-                    metadata=m.media_metadata or {},
+                    metadata=meta,
                     created_at=m.created_at.isoformat() if m.created_at else "",
+                    url=link_url,
+                    file_name=fname,
+                    file_size_bytes=fsize,
+                    is_link=is_link,
                 )
             )
 
@@ -264,6 +275,100 @@ def add_submission_media_record(
     return media
 
 
+def add_submission_link_record(
+    db: Session,
+    submission_id: uuid.UUID,
+    user_id: uuid.UUID,
+    url: str,
+    title: Optional[str] = None,
+) -> SubmissionMedia:
+    """Attach external HTTP/HTTPS evidence link to submission."""
+    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SUBMISSION_NOT_FOUND", "message": "Submission not found"},
+        )
+    if submission.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "Not authorized to edit this submission"},
+        )
+    if submission.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "SUBMISSION_LOCKED", "message": f"Cannot add link to submission in '{submission.status}' state"},
+        )
+
+    # Validate HTTP/HTTPS protocol
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_URL", "message": "URL must be a valid HTTP or HTTPS address."},
+        )
+
+    storage_key = f"links/{submission_id}/{uuid.uuid4().hex[:8]}"
+    metadata = {
+        "url": url,
+        "title": title or parsed.netloc,
+        "hostname": parsed.netloc,
+        "is_link": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    media = SubmissionMedia(
+        submission_id=submission_id,
+        storage_key=storage_key,
+        media_type="link",
+        media_metadata=metadata,
+    )
+    db.add(media)
+    db.commit()
+    db.refresh(media)
+    return media
+
+
+def delete_submission_media_record(
+    db: Session,
+    submission_id: uuid.UUID,
+    user_id: uuid.UUID,
+    media_id: uuid.UUID,
+) -> bool:
+    """Delete an attached media or link item from a submission draft."""
+    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SUBMISSION_NOT_FOUND", "message": "Submission not found"},
+        )
+    if submission.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "Not authorized to edit this submission"},
+        )
+    if submission.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "SUBMISSION_LOCKED", "message": f"Cannot remove media from submission in '{submission.status}' state"},
+        )
+
+    media = db.query(SubmissionMedia).filter(
+        SubmissionMedia.id == media_id,
+        SubmissionMedia.submission_id == submission_id,
+    ).first()
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "MEDIA_NOT_FOUND", "message": "Media artifact not found"},
+        )
+
+    db.delete(media)
+    db.commit()
+    return True
+
+
 def transition_submission_to_submitted(
     db: Session,
     submission_id: uuid.UUID,
@@ -339,7 +444,7 @@ def transition_submission_to_submitted(
 
 
 def get_task_form_schema(db: Session, task_id: uuid.UUID) -> TaskFormSchemaResponse:
-    """Get the dynamic schema definition for task observation forms."""
+    """Get the dynamic schema definition for task observation forms, backed by Google Sheets."""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(
@@ -349,109 +454,61 @@ def get_task_form_schema(db: Session, task_id: uuid.UUID) -> TaskFormSchemaRespo
 
     schema_record = db.query(TaskFormSchema).filter(TaskFormSchema.task_id == task_id).first()
     if schema_record and "fields" in schema_record.schema_definition:
-        fields = [TaskFormFieldDefinition(**f) for f in schema_record.schema_definition.get("fields", [])]
+        schema_def = schema_record.schema_definition
+        raw_fields = schema_def.get("fields", [])
+        fields = [
+            TaskFormFieldDefinition(**{k: v for k, v in f.items() if k in TaskFormFieldDefinition.model_fields})
+            for f in raw_fields
+        ]
+        sections = [
+            s["title"] if isinstance(s, dict) else str(s)
+            for s in schema_def.get("sections", [])
+        ]
         return TaskFormSchemaResponse(
             task_id=str(task_id),
             version=schema_record.version,
             fields=fields,
-            minimum_photos=schema_record.schema_definition.get("minimum_photos", 2),
-            instructions=schema_record.schema_definition.get("instructions"),
+            sections=sections,
+            project_type=schema_def.get("project_type"),
+            user_profile=schema_def.get("user_profile"),
+            minimum_photos=schema_def.get("minimum_photos", 1),
+            instructions=schema_def.get("instructions"),
         )
 
-    # Build standard dynamic schema based on artifact_type
-    fields: List[TaskFormFieldDefinition] = []
-    if task.artifact_type == "water_source":
-        fields = [
-            TaskFormFieldDefinition(
-                id="operational_status",
-                label="Operational Status",
-                type="select",
-                options=["operational", "partially_functional", "broken", "dry"],
-                required=True,
-            ),
-            TaskFormFieldDefinition(
-                id="water_clarity",
-                label="Water Clarity",
-                type="select",
-                options=["clear", "moderate_turbidity", "cloudy", "discolored"],
-                required=True,
-            ),
-            TaskFormFieldDefinition(
-                id="flow_rate_estimate",
-                label="Estimated Flow Rate (Liters/min)",
-                type="number",
-                required=False,
-                placeholder="e.g. 15",
-            ),
-            TaskFormFieldDefinition(
-                id="field_notes",
-                label="Condition Notes & Hazards",
-                type="textarea",
-                required=False,
-                placeholder="Describe physical integrity, leaks, contamination risks...",
-            ),
-        ]
-    elif task.artifact_type == "solar_installation":
-        fields = [
-            TaskFormFieldDefinition(
-                id="panel_condition",
-                label="Panel Physical Integrity",
-                type="select",
-                options=["intact", "microcracks", "heavy_soiling", "shattered"],
-                required=True,
-            ),
-            TaskFormFieldDefinition(
-                id="inverter_reading",
-                label="Inverter Display Power (kW)",
-                type="number",
-                required=False,
-                placeholder="e.g. 4.2",
-            ),
-            TaskFormFieldDefinition(
-                id="shading_obstructions",
-                label="Canopy Shading",
-                type="select",
-                options=["none", "partial_morning", "partial_afternoon", "dense_overhang"],
-                required=True,
-            ),
-            TaskFormFieldDefinition(
-                id="field_notes",
-                label="Installation Notes",
-                type="textarea",
-                required=False,
-            ),
-        ]
-    else:
-        fields = [
-            TaskFormFieldDefinition(
-                id="operational_condition",
-                label="Site Condition",
-                type="select",
-                options=["excellent", "satisfactory", "degraded", "critical_hazard"],
-                required=True,
-            ),
-            TaskFormFieldDefinition(
-                id="verification_observations",
-                label="Ground-Truth Observations",
-                type="textarea",
-                required=True,
-                placeholder="Enter detailed site observations adhering to task requirements...",
-            ),
-            TaskFormFieldDefinition(
-                id="public_access_status",
-                label="Public Access Status",
-                type="select",
-                options=["open_access", "restricted_permit", "gated_locked"],
-                required=False,
-            ),
-        ]
+    # Compile authoritative spreadsheet-derived schema for this task's artifact / project type
+    compiled = compile_task_form_schema(
+        task_id=str(task_id),
+        project_type=task.artifact_type,
+        instructions=f"Complete ground observation for {task.title}. Evaluate Tenure & Governance, Environmental & Climatic, and Development Suitability.",
+    )
 
+    # Persist snapshot directly into task_form_schemas to guarantee historical schema preservation
+    schema_record = TaskFormSchema(
+        task_id=task_id,
+        schema_definition=compiled,
+        version=1,
+    )
+    db.add(schema_record)
+    db.commit()
+    db.refresh(schema_record)
+
+    fields = [
+        TaskFormFieldDefinition(**{k: v for k, v in f.items() if k in TaskFormFieldDefinition.model_fields})
+        for f in compiled.get("fields", [])
+    ]
+    sections = [
+        s["title"] if isinstance(s, dict) else str(s)
+        for s in compiled.get("sections", [])
+    ]
     return TaskFormSchemaResponse(
         task_id=str(task_id),
-        version=1,
+        version=schema_record.version,
         fields=fields,
-        minimum_photos=2,
-        instructions=f"Complete all required fields and capture evidence photos matching task specifications: {', '.join(task.requirements or [])}",
+        sections=sections,
+        project_type=compiled.get("project_type"),
+        user_profile=compiled.get("user_profile"),
+        minimum_photos=compiled.get("minimum_photos", 1),
+        instructions=compiled.get("instructions"),
     )
 
 

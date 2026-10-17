@@ -361,12 +361,24 @@ export interface TaskFormFieldDefinitionDTO {
   required: boolean;
   options?: string[];
   placeholder?: string;
+  section_id?: string;
+  section_title?: string;
+  section?: string;
+  factor_type?: 'Risk' | 'Opportunity' | string;
+  metric?: string;
+  scoring_method?: string;
+  scoring?: string;
+  source?: string;
+  help_text?: string;
 }
 
 export interface TaskFormSchemaResponseDTO {
   task_id: string;
   version: number;
   fields: TaskFormFieldDefinitionDTO[];
+  sections?: Array<{ id: string; title: string } | string>;
+  project_type?: string;
+  user_profile?: string;
   minimum_photos: number;
   instructions?: string;
 }
@@ -451,6 +463,6 @@ export interface LoupeSyncResponseDTO {
   dispatch_mode: string;
   delivered_at: string;
   checksum_sha256: string;
-  details?: Record<string, unknown>;
 }
+
 
