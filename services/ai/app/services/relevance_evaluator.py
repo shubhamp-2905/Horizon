@@ -102,6 +102,21 @@ class TaskRelevanceEvaluator:
                 "handheld device display",
             ],
         },
+        "infrastructure": {
+            "title_keywords": ["infrastructure", "plant", "dispensary", "facility", "utility", "civil", "structure", "foundation", "installation", "pipeline", "drainage"],
+            "expected_concepts": [
+                "civil infrastructure facility",
+                "mechanical installation / piping",
+                "concrete foundation structure",
+                "utility equipment / dispensary",
+            ],
+            "irrelevant_contradictions": [
+                "laptop screen / code editor",
+                "electronic computer monitor",
+                "indoor domestic bedroom",
+                "domestic pet / animal",
+            ],
+        },
     }
 
     @classmethod
@@ -114,20 +129,28 @@ class TaskRelevanceEvaluator:
         ctx = task_context or {}
         artifact_type = str(ctx.get("artifact_type") or "water_source").lower()
         task_title = str(ctx.get("task_title") or "").strip()
+        task_description = str(ctx.get("task_description") or "").strip()
         requirements = ctx.get("requirements") or []
 
-        # Default profile fallback if custom artifact_type
+        # Resolve domain profile against exact artifact_type, task title, task description, and requirements
         profile = cls.DOMAIN_PROFILES.get(artifact_type)
         if not profile:
-            # Check title keywords
+            combined_context = f"{artifact_type} {task_title} {task_description} {' '.join(str(r) for r in requirements)}".lower()
             matched_profile = None
-            title_lower = task_title.lower()
+            matched_domain_key = None
             for key, p in cls.DOMAIN_PROFILES.items():
-                if any(kw in title_lower for kw in p["title_keywords"]):
+                if any(kw in combined_context for kw in p["title_keywords"]):
                     matched_profile = p
-                    artifact_type = key
+                    matched_domain_key = key
                     break
-            profile = matched_profile or cls.DOMAIN_PROFILES["water_source"]
+            if matched_profile:
+                profile = matched_profile
+                domain_for_features = matched_domain_key
+            else:
+                profile = cls.DOMAIN_PROFILES["water_source"]
+                domain_for_features = "water_source"
+        else:
+            domain_for_features = artifact_type
 
         # Ensure correct orientation
         try:
@@ -135,14 +158,20 @@ class TaskRelevanceEvaluator:
         except Exception:
             pass
 
+        # Optimized working image for deep feature & contour analysis (prevents CPU memory exhaustion & timeouts)
+        analysis_img = img
+        if max(img.width, img.height) > 1024:
+            analysis_img = img.copy()
+            analysis_img.thumbnail((1024, 1024), Image.Resampling.BILINEAR)
+
         # 1. Optical Screen & Electronic Display Contradiction Analysis
-        screen_signals = cls._detect_screen_and_code_editor(img)
+        screen_signals = cls._detect_screen_and_code_editor(analysis_img)
         is_screen = screen_signals["is_screen"]
         screen_confidence = screen_signals["confidence"]
         screen_reasons = screen_signals["reasons"]
 
         # 2. Natural Physical Environment & Texture Analysis
-        env_signals = cls._analyze_environmental_features(img, artifact_type)
+        env_signals = cls._analyze_environmental_features(analysis_img, domain_for_features)
         env_score = env_signals["domain_compatibility"]
         detected_features = env_signals["features"]
 
@@ -336,6 +365,15 @@ class TaskRelevanceEvaluator:
             if abs(mean_r - mean_g) < 15.0 and abs(mean_g - mean_b) < 15.0 and mean_gradient > 16.0:
                 features.append("asphalt_corridor_surface_tones")
                 compatibility += 0.50
+
+        elif artifact_type == "infrastructure":
+            # Civil and utility infrastructure: masonry, concrete, pipes, plant equipment
+            if not is_indoor_domestic and mean_gradient > 12.0:
+                features.append("civil_infrastructure_surface_tones")
+                compatibility += 0.45
+            if earth_tones or greenery_tones or (not is_indoor_domestic and std_gray > 28.0):
+                features.append("physical_facility_context")
+                compatibility += 0.25
 
         else:
             if not is_indoor_domestic and mean_gradient > 15.0:

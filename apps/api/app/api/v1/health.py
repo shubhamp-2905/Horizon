@@ -62,8 +62,14 @@ def readiness_check(response: Response) -> ReadinessResponse:
     # 2. AI Service Check
     ai_start = time.perf_counter()
     try:
-        url = f"{settings.AI_SERVICE_URL.rstrip('/')}/health"
-        with httpx.Client(timeout=1.0) as client:
+        base_ai_url = settings.AI_SERVICE_URL.strip().rstrip("/")
+        if not base_ai_url.startswith(("http://", "https://")):
+            if ".onrender.com" in base_ai_url or base_ai_url.endswith(":443"):
+                base_ai_url = f"https://{base_ai_url}"
+            else:
+                base_ai_url = f"http://{base_ai_url}"
+        url = f"{base_ai_url}/health"
+        with httpx.Client(timeout=3.0) as client:
             resp = client.get(url)
             ai_ms = round((time.perf_counter() - ai_start) * 1000, 2)
             if resp.status_code == 200:

@@ -56,8 +56,8 @@ class Settings(BaseSettings):
     # AI Verification Microservice
     AI_SERVICE_URL: str = "http://localhost:8000"
     AI_SERVICE_API_KEY: str = "horizon_ai_dev_key"
-    AI_SERVICE_TIMEOUT_SECONDS: float = 3.0
-    AI_SERVICE_MAX_RETRIES: int = 1
+    AI_SERVICE_TIMEOUT_SECONDS: float = 30.0
+    AI_SERVICE_MAX_RETRIES: int = 2
 
     # S3 / MinIO Object Storage
     S3_ENDPOINT: str = "http://localhost:9000"

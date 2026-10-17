@@ -38,9 +38,14 @@ services:
           name: horizon-ai
           property: host
       - key: AI_SERVICE_TIMEOUT_SECONDS
-        value: "5.0"
+        value: "30.0"
       - key: AI_SERVICE_MAX_RETRIES
         value: "2"
+      - key: AI_SERVICE_API_KEY
+        fromService:
+          type: web
+          name: horizon-ai
+          envVarKey: AI_SERVICE_API_KEY
       - key: S3_BUCKET
         value: horizon-media-prod
       - key: S3_REGION

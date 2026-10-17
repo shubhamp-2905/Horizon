@@ -316,7 +316,17 @@ class EvidenceEvaluator:
 
         overall_reasons: List[str] = []
 
-        if RelevanceStatus.IRRELEVANT in relevance_statuses:
+        has_semantic_contradiction = any(
+            m.relevance.status == RelevanceStatus.IRRELEVANT
+            and any(c != "corrupt_or_undecodable_image" for c in m.relevance.detected_contradictions)
+            for m in media_results
+        )
+        has_corrupt_payload = any(
+            "corrupt_or_undecodable_image" in m.relevance.detected_contradictions
+            for m in media_results
+        )
+
+        if has_semantic_contradiction:
             overall_rec = QualityStatus.FAIL
             overall_rel = RelevanceStatus.IRRELEVANT
             overall_qual = (
@@ -330,20 +340,20 @@ class EvidenceEvaluator:
                 if m.relevance.status == RelevanceStatus.IRRELEVANT:
                     overall_reasons.append(f"Media '{m.storage_key or m.media_id}': {'; '.join(m.reasons)}")
 
-        elif QualityStatus.FAIL in recommendations:
+        elif has_corrupt_payload or QualityStatus.FAIL in recommendations:
             overall_rec = QualityStatus.FAIL
             overall_rel = (
-                RelevanceStatus.NEEDS_REVIEW
-                if RelevanceStatus.NEEDS_REVIEW in relevance_statuses
-                else RelevanceStatus.RELEVANT
+                RelevanceStatus.IRRELEVANT
+                if has_corrupt_payload
+                else (RelevanceStatus.NEEDS_REVIEW if RelevanceStatus.NEEDS_REVIEW in relevance_statuses else RelevanceStatus.RELEVANT)
             )
             overall_qual = QualityStatus.FAIL
             overall_conf = 0.90
             overall_reasons.append(
-                "EVIDENCE QUALITY FAILED: Quality metrics did not meet verification criteria."
+                "EVIDENCE INTEGRITY / QUALITY FAILED: Media payload was corrupt or quality metrics did not meet verification criteria."
             )
             for m in media_results:
-                if m.quality.status == QualityStatus.FAIL:
+                if m.quality.status == QualityStatus.FAIL or m.automated_recommendation == QualityStatus.FAIL:
                     overall_reasons.append(f"Media '{m.storage_key or m.media_id}': {'; '.join(m.reasons)}")
 
         elif QualityStatus.WARNING in recommendations or RelevanceStatus.NEEDS_REVIEW in relevance_statuses:

@@ -1,19 +1,36 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from typing import Optional
-from app.config.config import settings
-from app.schemas.health import AIHealthResponse
-from app.schemas.quality import (
-    SubmissionQualityEvaluationRequest,
-    SubmissionQualityEvaluationResponse,
-    ImageQualityResult,
-)
-from app.schemas.verification import (
-    SubmissionEvidenceEvaluationRequest,
-    SubmissionEvidenceEvaluationResponse,
-    ComprehensiveEvidenceResult,
-)
-from app.services.quality_evaluator import ImageQualityEvaluator
-from app.services.evidence_evaluator import EvidenceEvaluator
+
+try:
+    from services.ai.app.config.config import settings
+    from services.ai.app.schemas.health import AIHealthResponse
+    from services.ai.app.schemas.quality import (
+        SubmissionQualityEvaluationRequest,
+        SubmissionQualityEvaluationResponse,
+        ImageQualityResult,
+    )
+    from services.ai.app.schemas.verification import (
+        SubmissionEvidenceEvaluationRequest,
+        SubmissionEvidenceEvaluationResponse,
+        ComprehensiveEvidenceResult,
+    )
+    from services.ai.app.services.quality_evaluator import ImageQualityEvaluator
+    from services.ai.app.services.evidence_evaluator import EvidenceEvaluator
+except (ImportError, ModuleNotFoundError):
+    from app.config.config import settings  # type: ignore
+    from app.schemas.health import AIHealthResponse  # type: ignore
+    from app.schemas.quality import (  # type: ignore
+        SubmissionQualityEvaluationRequest,
+        SubmissionQualityEvaluationResponse,
+        ImageQualityResult,
+    )
+    from app.schemas.verification import (  # type: ignore
+        SubmissionEvidenceEvaluationRequest,
+        SubmissionEvidenceEvaluationResponse,
+        ComprehensiveEvidenceResult,
+    )
+    from app.services.quality_evaluator import ImageQualityEvaluator  # type: ignore
+    from app.services.evidence_evaluator import EvidenceEvaluator  # type: ignore
 
 
 app = FastAPI(
@@ -27,6 +44,8 @@ app = FastAPI(
 
 
 @app.get("/health", response_model=AIHealthResponse, tags=["Health"])
+@app.get("/healthz", response_model=AIHealthResponse, tags=["Health"])
+@app.get("/readyz", response_model=AIHealthResponse, tags=["Health"])
 def ai_health() -> AIHealthResponse:
     """Return health and runtime engine readiness of the isolated AI service."""
     return AIHealthResponse(
@@ -125,4 +144,4 @@ async def evaluate_single_evidence_file(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=settings.AI_SERVICE_HOST, port=settings.AI_SERVICE_PORT, reload=True)
+    uvicorn.run(app, host=settings.AI_SERVICE_HOST, port=settings.AI_SERVICE_PORT)
