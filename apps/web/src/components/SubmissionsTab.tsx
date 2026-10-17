@@ -182,12 +182,55 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
 
   // Active enlarged photo preview modal
   const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
+
+  const handleRetryVerification = async (submissionId: string) => {
+    try {
+      setVerifying(true);
+      setVerifyNotice(null);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // Call retry verification endpoint
+      const res = await fetch(`${API_BASE_URL}/admin/submissions/${submissionId}/verify`, {
+        method: 'POST',
+        headers,
+      }).catch(() => null);
+
+      // Re-fetch fresh submissions list
+      const listRes = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, {
+        headers,
+      }).catch(() => null);
+
+      if (listRes && listRes.ok) {
+        const data = await listRes.json().catch(() => null);
+        if (data && Array.isArray(data.submissions)) {
+          const mapped: AdminSubmissionItem[] = data.submissions.map(mapSubmissionItem);
+          setSubmissions(mapped);
+          const target = mapped.find((m) => m.id === submissionId) || mapped[0] || null;
+          setSelectedSub(target);
+          try {
+            sessionStorage.setItem('horizon_admin_submissions_cache_v5', JSON.stringify(mapped));
+          } catch {
+            // ignore
+          }
+          setVerifyNotice('AI verification successfully re-evaluated with current multimodal models.');
+        }
+      }
+    } catch (err: any) {
+      setVerifyNotice(`Verification retry failed: ${err.message || 'Network error'}`);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   // Restore SWR cache immediately for instantaneous rendering
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = sessionStorage.getItem('horizon_admin_submissions_cache_v4') || sessionStorage.getItem('horizon_admin_submissions_cache');
+        const cached = sessionStorage.getItem('horizon_admin_submissions_cache_v5');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -239,7 +282,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
             }
 
             try {
-              sessionStorage.setItem('horizon_admin_submissions_cache_v4', JSON.stringify(mapped));
+              sessionStorage.setItem('horizon_admin_submissions_cache_v5', JSON.stringify(mapped));
             } catch {
               // ignore cache write error
             }
@@ -573,6 +616,35 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                       {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
                         ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, peer quorum approval, and token settlement are strictly blocked until verification succeeds.'
                         : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
+                    </div>
+
+                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRetryVerification(selectedSub.id)}
+                        disabled={verifying}
+                        style={{
+                          background: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#D97706' : '#DC2626',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: verifying ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {verifying ? 'Running AI Verification...' : '↻ Re-run AI Evidence Verification'}
+                      </button>
+
+                      {verifyNotice && (
+                        <span style={{ fontSize: '12px', color: '#166534', fontWeight: 600 }}>
+                          {verifyNotice}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

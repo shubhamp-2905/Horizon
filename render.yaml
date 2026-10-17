@@ -36,16 +36,13 @@ services:
         fromService:
           type: web
           name: horizon-ai
-          property: host
+          property: hostport
       - key: AI_SERVICE_TIMEOUT_SECONDS
         value: "30.0"
       - key: AI_SERVICE_MAX_RETRIES
         value: "2"
       - key: AI_SERVICE_API_KEY
-        fromService:
-          type: web
-          name: horizon-ai
-          envVarKey: AI_SERVICE_API_KEY
+        value: horizon_ai_internal_secret_prod_key_2026
       - key: S3_BUCKET
         value: horizon-media-prod
       - key: S3_REGION
@@ -68,7 +65,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: AI_SERVICE_API_KEY
-        generateValue: true
+        value: horizon_ai_internal_secret_prod_key_2026
 
   # 3. Horizon Web Management Console (Next.js)
   - type: web

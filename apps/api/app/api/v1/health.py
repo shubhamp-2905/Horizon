@@ -68,6 +68,12 @@ def readiness_check(response: Response) -> ReadinessResponse:
                 base_ai_url = f"https://{base_ai_url}"
             else:
                 base_ai_url = f"http://{base_ai_url}"
+        
+        import urllib.parse
+        parsed_ai = urllib.parse.urlparse(base_ai_url)
+        if parsed_ai.hostname == "horizon-ai" and not parsed_ai.port:
+            base_ai_url = f"{parsed_ai.scheme}://horizon-ai:10000{parsed_ai.path}".rstrip("/")
+
         url = f"{base_ai_url}/health"
         with httpx.Client(timeout=3.0) as client:
             resp = client.get(url)
