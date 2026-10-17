@@ -224,10 +224,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
             <tbody>
               {currentQueue.length === 0 ? (
                 <tr>

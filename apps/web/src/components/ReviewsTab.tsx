@@ -197,7 +197,7 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
             setReviews(mapped);
             if (parsed.counts) setCounts(parsed.counts);
             const target = initialSelectedId
-              ? mapped.find((p) => p.submission_id === initialSelectedId || p.id === initialSelectedId)
+              ? mapped.find((p: AdminReviewRecord) => p.submission_id === initialSelectedId || p.id === initialSelectedId)
               : mapped[0];
             setSelectedReview(target || mapped[0] || null);
             setLoading(false);
