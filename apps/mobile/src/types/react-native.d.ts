@@ -102,6 +102,7 @@ declare module 'react-native' {
     hitSlop?: { top?: number; bottom?: number; left?: number; right?: number } | number;
     collapsable?: boolean;
     ref?: any;
+    onLayout?: (event: { nativeEvent: { layout: { x: number; y: number; width: number; height: number } } }) => void;
   }
 
   export interface TextProps {
@@ -116,6 +117,8 @@ declare module 'react-native' {
 
   export interface TouchableOpacityProps extends ViewProps {
     onPress?: () => void;
+    onPressIn?: () => void;
+    onPressOut?: () => void;
     activeOpacity?: number;
     disabled?: boolean;
   }
@@ -227,8 +230,25 @@ declare module 'react-native' {
   }
 
   export const RefreshControl: React.FC<RefreshControlProps>;
-  export const ScrollView: React.FC<ScrollViewProps>;
-  export const TextInput: React.FC<TextInputProps>;
+
+  export interface ScrollView extends React.Component<ScrollViewProps> {
+    scrollTo(options?: { x?: number; y?: number; animated?: boolean }): void;
+    scrollToEnd(options?: { animated?: boolean }): void;
+  }
+  export const ScrollView: React.ComponentClass<ScrollViewProps> & {
+    new (props: ScrollViewProps): ScrollView;
+  };
+
+  export interface TextInput extends React.Component<TextInputProps> {
+    focus(): void;
+    blur(): void;
+    isFocused(): boolean;
+    clear(): void;
+  }
+  export const TextInput: React.ComponentClass<TextInputProps> & {
+    new (props: TextInputProps): TextInput;
+  };
+
   export const ActivityIndicator: React.FC<ActivityIndicatorProps>;
   export const Modal: React.FC<ModalProps>;
   export interface ImageProps extends ViewProps {
@@ -245,5 +265,10 @@ declare module 'react-native' {
       subscription: () => void
     ): { remove: () => void };
     export function dismiss(): void;
+  }
+
+  export namespace Linking {
+    export function openURL(url: string): Promise<any>;
+    export function canOpenURL(url: string): Promise<boolean>;
   }
 }

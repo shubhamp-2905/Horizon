@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,6 +54,11 @@ export type TaskFieldStatus =
   | 'Claimed'
   | 'In Progress'
   | 'Draft Saved'
+  | 'Queued for Sync'
+  | 'Syncing / Uploading'
+  | 'Awaiting Review'
+  | 'Needs Revision'
+  | 'Approved'
   | 'Submitted';
 
 export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
@@ -66,6 +71,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   // Navigation & Step state
   const [currentStep, setCurrentStep] = useState<SurveyStep>('overview');
+  const contentScrollViewRef = useRef<ScrollView>(null);
+
+  // Automatically scroll main content to top on step transition
+  useEffect(() => {
+    contentScrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentStep]);
 
   // Task & Schema data
   const [schema, setSchema] = useState<TaskFormSchemaResponseDTO | null>(null);
@@ -103,7 +114,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       // 1. Check Claims
       const cachedClaims = await claimRepo.getCachedClaims();
       const existingClaim = cachedClaims.find(
-        (c) => c.task_id === task.id && (c.status === 'claimed' || c.status === 'active')
+        (c) =>
+          c.task_id === task.id &&
+          (c.status === 'claimed' ||
+            c.status === 'active' ||
+            c.status === 'submitted' ||
+            c.status === 'completed' ||
+            c.status === 'approved')
       );
 
       if (existingClaim) {
@@ -115,7 +132,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         try {
           const myTasks = await apiClient.getMyTasks();
           const onlineClaim = myTasks.find(
-            (c) => c.task.id === task.id && (c.status === 'claimed' || c.status === 'active')
+            (c) =>
+              c.task.id === task.id &&
+              (c.status === 'claimed' ||
+                c.status === 'active' ||
+                c.status === 'submitted' ||
+                c.status === 'completed' ||
+                c.status === 'approved')
           );
           if (onlineClaim) {
             setIsClaimed(true);
@@ -278,10 +301,29 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
-  // Calculate field status for Overview badge
+  // Calculate authoritative field status for Overview badge & action button
   const getFieldStatus = (): TaskFieldStatus => {
     if (currentDraft?.local_status === 'READY_TO_SYNC') {
-      return 'Submitted';
+      return isOffline ? 'Queued for Sync' : 'Syncing / Uploading';
+    }
+    if (currentDraft?.local_status === 'SYNCING') {
+      return 'Syncing / Uploading';
+    }
+    if (currentDraft?.local_status === 'SYNCED' || currentDraft?.server_status) {
+      const serverStatus = currentDraft.server_status?.toLowerCase();
+      if (serverStatus === 'approved' || serverStatus === 'verified') {
+        return 'Approved';
+      }
+      if (serverStatus === 'rejected' || serverStatus === 'flagged') {
+        return 'Needs Revision';
+      }
+      return 'Awaiting Review';
+    }
+    if (claimRecord?.status === 'completed' || claimRecord?.status === 'approved' || task.status === 'completed') {
+      return 'Approved';
+    }
+    if (claimRecord?.status === 'submitted' || task.status === 'submitted') {
+      return 'Awaiting Review';
     }
     if (
       currentDraft &&
@@ -356,6 +398,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
       {/* Main Content Area Based on Current Step */}
       <ScrollView
+        ref={contentScrollViewRef}
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -386,20 +429,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                       styles.fieldStatusBadge,
                       {
                         backgroundColor:
-                          fieldStatus === 'Draft Saved'
+                          fieldStatus === 'Draft Saved' || fieldStatus === 'Queued for Sync'
                             ? theme.tokenGoldMuted
+                            : fieldStatus === 'Approved'
+                            ? theme.successMuted
+                            : fieldStatus === 'Needs Revision'
+                            ? theme.errorMuted
+                            : fieldStatus === 'Awaiting Review' || fieldStatus === 'Submitted' || fieldStatus === 'Syncing / Uploading'
+                            ? theme.primaryMuted
                             : fieldStatus === 'Claimed'
                             ? theme.primaryMuted
-                            : fieldStatus === 'Submitted'
-                            ? theme.successMuted
                             : theme.surfaceElevated,
                         borderColor:
-                          fieldStatus === 'Draft Saved'
+                          fieldStatus === 'Draft Saved' || fieldStatus === 'Queued for Sync'
                             ? theme.tokenGold
+                            : fieldStatus === 'Approved'
+                            ? theme.success
+                            : fieldStatus === 'Needs Revision'
+                            ? theme.error
+                            : fieldStatus === 'Awaiting Review' || fieldStatus === 'Submitted' || fieldStatus === 'Syncing / Uploading'
+                            ? theme.primary
                             : fieldStatus === 'Claimed'
                             ? theme.primary
-                            : fieldStatus === 'Submitted'
-                            ? theme.success
                             : theme.borderLight,
                       },
                     ]}
@@ -409,12 +460,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                         styles.fieldStatusText,
                         {
                           color:
-                            fieldStatus === 'Draft Saved'
+                            fieldStatus === 'Draft Saved' || fieldStatus === 'Queued for Sync'
                               ? theme.tokenGold
+                              : fieldStatus === 'Approved'
+                              ? theme.success
+                              : fieldStatus === 'Needs Revision'
+                              ? theme.error
+                              : fieldStatus === 'Awaiting Review' || fieldStatus === 'Submitted' || fieldStatus === 'Syncing / Uploading'
+                              ? theme.primaryLight
                               : fieldStatus === 'Claimed'
                               ? theme.primaryLight
-                              : fieldStatus === 'Submitted'
-                              ? theme.success
                               : theme.textSecondary,
                         },
                       ]}
@@ -716,11 +771,25 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   title={
                     fieldStatus === 'Draft Saved'
                       ? 'CONTINUE SURVEY →'
-                      : fieldStatus === 'Submitted'
+                      : fieldStatus === 'Submitted' ||
+                        fieldStatus === 'Awaiting Review' ||
+                        fieldStatus === 'Queued for Sync' ||
+                        fieldStatus === 'Approved'
                       ? 'VIEW SUBMISSION REVIEW →'
                       : 'START SURVEY →'
                   }
-                  onPress={() => setCurrentStep('location')}
+                  onPress={() => {
+                    if (
+                      fieldStatus === 'Submitted' ||
+                      fieldStatus === 'Awaiting Review' ||
+                      fieldStatus === 'Queued for Sync' ||
+                      fieldStatus === 'Approved'
+                    ) {
+                      setCurrentStep('review');
+                    } else {
+                      setCurrentStep('location');
+                    }
+                  }}
                   size="lg"
                   variant="primary"
                 />

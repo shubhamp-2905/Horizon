@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { radius } from '../../theme/colors';
 import { useTheme } from '../../theme/ThemeContext';
@@ -36,6 +36,8 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
 }) => {
   const { theme, isDark } = useTheme();
   const currentIndex = STEPS.findIndex((s) => s.key === currentStep);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const stepLayouts = useRef<{ [key: string]: { x: number; width: number } }>({});
 
   const isStepComplete = (key: SurveyStep): boolean => {
     switch (key) {
@@ -53,6 +55,36 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
         );
       case 'review':
         return false;
+    }
+  };
+
+  // Automatically scroll horizontal step bar to keep active step visible
+  useEffect(() => {
+    const layout = stepLayouts.current[currentStep];
+    if (layout && scrollViewRef.current) {
+      const scrollX = Math.max(0, layout.x - 20);
+      scrollViewRef.current.scrollTo({ x: scrollX, animated: true });
+    } else if (scrollViewRef.current) {
+      const idx = STEPS.findIndex((s) => s.key === currentStep);
+      if (idx >= 0) {
+        scrollViewRef.current.scrollTo({ x: Math.max(0, idx * 125 - 20), animated: true });
+      }
+    }
+  }, [currentStep]);
+
+  const canNavigateTo = (targetIndex: number): boolean => {
+    if (targetIndex <= currentIndex) return true;
+    // Check all previous steps are complete
+    for (let i = 0; i < targetIndex; i++) {
+      if (!isStepComplete(STEPS[i].key)) return false;
+    }
+    return true;
+  };
+
+  const handleSelectStep = (targetStep: SurveyStep) => {
+    const targetIdx = STEPS.findIndex((s) => s.key === targetStep);
+    if (canNavigateTo(targetIdx)) {
+      onSelectStep(targetStep);
     }
   };
 
@@ -103,8 +135,9 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
         </Text>
       </View>
 
-      {/* Interactive Breadcrumb Bar */}
+      {/* Interactive Breadcrumb Bar with Auto-Scroll */}
       <ScrollView
+        ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.stepsRow}
@@ -113,11 +146,19 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
           const isActive = step.key === currentStep;
           const isComplete = isStepComplete(step.key);
           const isPast = idx < currentIndex;
+          const isAccessible = canNavigateTo(idx);
 
           return (
             <React.Fragment key={step.key}>
               <TouchableOpacity
-                onPress={() => onSelectStep(step.key)}
+                onLayout={(e: any) => {
+                  stepLayouts.current[step.key] = {
+                    x: e.nativeEvent.layout.x,
+                    width: e.nativeEvent.layout.width,
+                  };
+                }}
+                onPress={() => handleSelectStep(step.key)}
+                disabled={!isAccessible}
                 style={[
                   styles.stepNode,
                   {
@@ -129,8 +170,12 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
                     borderColor: isActive
                       ? theme.primary
                       : isComplete
-                      ? isDark ? 'rgba(124, 58, 237, 0.45)' : 'rgba(124, 58, 237, 0.3)'
+                      ? isDark
+                        ? 'rgba(124, 58, 237, 0.45)'
+                        : 'rgba(124, 58, 237, 0.3)'
                       : theme.borderLight,
+                    borderWidth: isActive ? 1.5 : 1,
+                    opacity: isAccessible ? 1.0 : 0.5,
                   },
                 ]}
                 activeOpacity={0.7}

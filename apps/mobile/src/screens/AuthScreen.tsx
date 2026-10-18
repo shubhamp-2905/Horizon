@@ -59,6 +59,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
+  // Input & submission references
+  const loginPasswordRef = useRef<TextInput>(null);
+  const regPasswordRef = useRef<TextInput>(null);
+  const regConfirmPasswordRef = useRef<TextInput>(null);
+  const isSubmittingRef = useRef<boolean>(false);
+  const passwordFocusedRef = useRef<boolean>(false);
+  const confirmPasswordFocusedRef = useRef<boolean>(false);
+  const eyeToggleActiveRef = useRef<boolean>(false);
+
   // Sync mode if initialMode prop changes
   useEffect(() => {
     setIsLogin(initialMode === 'login');
@@ -101,6 +110,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  const handleTogglePassword = () => {
+    const wasFocused = passwordFocusedRef.current || focusedField === 'password';
+    setShowPassword((prev) => !prev);
+    if (wasFocused) {
+      requestAnimationFrame(() => {
+        if (isLogin) {
+          loginPasswordRef.current?.focus();
+        } else {
+          regPasswordRef.current?.focus();
+        }
+        eyeToggleActiveRef.current = false;
+      });
+    } else {
+      eyeToggleActiveRef.current = false;
+    }
+  };
+
+  const handleToggleConfirmPassword = () => {
+    const wasFocused = confirmPasswordFocusedRef.current || focusedField === 'confirmPassword';
+    setShowConfirmPassword((prev) => !prev);
+    if (wasFocused) {
+      requestAnimationFrame(() => {
+        regConfirmPasswordRef.current?.focus();
+        eyeToggleActiveRef.current = false;
+      });
+    } else {
+      eyeToggleActiveRef.current = false;
+    }
+  };
+
   const validateForm = (): boolean => {
     const errors: FieldErrors = {};
     setErrorMessage(null);
@@ -132,9 +171,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (loading) return;
+    if (loading || isSubmittingRef.current) return;
     if (!validateForm()) return;
 
+    isSubmittingRef.current = true;
     setLoading(true);
     setErrorMessage(null);
     setLoadingMessage(isLogin ? 'Signing in...' : 'Creating account...');
@@ -156,6 +196,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       const msg = err.message || (isLogin ? 'Sign in failed' : 'Registration failed');
       setErrorMessage(msg);
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
       setLoadingMessage(null);
     }
@@ -183,7 +224,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           styles.content,
           {
             paddingTop: Math.max(insets.top, 16),
-            paddingBottom: isKeyboardVisible ? 24 : Math.max(insets.bottom + 20, 36),
+            paddingBottom: isKeyboardVisible ? 150 : Math.max(insets.bottom + 24, 40),
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -395,6 +436,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      ref={loginPasswordRef}
                       collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="Enter your password"
@@ -410,14 +452,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
+                      onFocus={() => {
+                        passwordFocusedRef.current = true;
+                        setFocusedField('password');
+                      }}
+                      onBlur={() => {
+                        if (!eyeToggleActiveRef.current) {
+                          passwordFocusedRef.current = false;
+                          setFocusedField(null);
+                        }
+                      }}
                       textContentType="password"
                       autoComplete="current-password"
                     />
                     <TouchableOpacity
                       style={styles.eyeButton}
-                      onPress={() => setShowPassword((prev) => !prev)}
+                      onPressIn={() => {
+                        eyeToggleActiveRef.current = true;
+                      }}
+                      onPress={handleTogglePassword}
                       activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
@@ -589,6 +642,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      ref={regPasswordRef}
                       collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="At least 8 characters"
@@ -604,14 +658,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
+                      onFocus={() => {
+                        passwordFocusedRef.current = true;
+                        setFocusedField('password');
+                      }}
+                      onBlur={() => {
+                        if (!eyeToggleActiveRef.current) {
+                          passwordFocusedRef.current = false;
+                          setFocusedField(null);
+                        }
+                      }}
                       textContentType="newPassword"
                       autoComplete="new-password"
                     />
                     <TouchableOpacity
                       style={styles.eyeButton}
-                      onPress={() => setShowPassword((prev) => !prev)}
+                      onPressIn={() => {
+                        eyeToggleActiveRef.current = true;
+                      }}
+                      onPress={handleTogglePassword}
                       activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
@@ -648,6 +713,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      ref={regConfirmPasswordRef}
                       collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="Re-enter your password"
@@ -663,14 +729,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => setFocusedField('confirmPassword')}
-                      onBlur={() => setFocusedField(null)}
+                      onFocus={() => {
+                        confirmPasswordFocusedRef.current = true;
+                        setFocusedField('confirmPassword');
+                      }}
+                      onBlur={() => {
+                        if (!eyeToggleActiveRef.current) {
+                          confirmPasswordFocusedRef.current = false;
+                          setFocusedField(null);
+                        }
+                      }}
                       textContentType="newPassword"
                       autoComplete="new-password"
                     />
                     <TouchableOpacity
                       style={styles.eyeButton}
-                      onPress={() => setShowConfirmPassword((prev) => !prev)}
+                      onPressIn={() => {
+                        eyeToggleActiveRef.current = true;
+                      }}
+                      onPress={handleToggleConfirmPassword}
                       activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={

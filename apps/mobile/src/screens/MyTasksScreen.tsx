@@ -334,27 +334,49 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
             onAction={onExploreMore}
           />
         ) : (
-          completedClaims.map((item) => (
-            <View
-              key={item.claim_id}
-              style={[
-                styles.taskCard,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: theme.border,
-                  shadowColor: '#000000',
-                },
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={[styles.taskTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
-                <StatusBadge status={item.status} />
-              </View>
-              <Text style={[styles.completedSubText, { color: theme.textSecondary }]}>
-                Reward settled to token balance.
-              </Text>
-            </View>
-          ))
+          completedClaims.map((item) => {
+            const isAwaitingReview = item.status === 'submitted';
+            return (
+              <TouchableOpacity
+                key={item.claim_id}
+                style={[
+                  styles.taskCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    shadowColor: '#000000',
+                  },
+                ]}
+                activeOpacity={0.75}
+                onPress={() => onSelectClaimedTask && onSelectClaimedTask(item.task)}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.taskTitle, { color: theme.textPrimary, flex: 1, marginRight: 8 }]}>
+                    {item.task.title}
+                  </Text>
+                  <StatusBadge status={item.status} />
+                </View>
+                <Text style={[styles.completedSubText, { color: theme.textSecondary }]}>
+                  {isAwaitingReview
+                    ? `Evidence submitted & awaiting review. Stake (${item.stake_amount} TKN) held safely in escrow.`
+                    : 'Verification approved. Reward and released stake settled to wallet.'}
+                </Text>
+                <View
+                  style={[
+                    styles.progressFooter,
+                    { borderTopColor: theme.border, marginTop: 12 },
+                  ]}
+                >
+                  <Text style={[styles.progressStatusText, { color: isAwaitingReview ? theme.tokenGold : theme.success }]}>
+                    {isAwaitingReview ? 'Awaiting Consensus Review' : 'Survey Verified & Closed'}
+                  </Text>
+                  <Text style={[styles.detailsChevron, { color: theme.primaryLight }]}>
+                    View Submission →
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )
       ) : (
         historyClaims.length === 0 ? (
@@ -364,7 +386,7 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
           />
         ) : (
           historyClaims.map((item) => (
-            <View
+            <TouchableOpacity
               key={item.claim_id}
               style={[
                 styles.taskCard,
@@ -374,12 +396,26 @@ export const MyTasksScreen: React.FC<MyTasksScreenProps> = ({
                   shadowColor: '#000000',
                 },
               ]}
+              activeOpacity={0.75}
+              onPress={() => onSelectClaimedTask && onSelectClaimedTask(item.task)}
             >
               <View style={styles.cardHeader}>
-                <Text style={[styles.taskTitle, { color: theme.textPrimary }]}>{item.task.title}</Text>
+                <Text style={[styles.taskTitle, { color: theme.textPrimary, flex: 1, marginRight: 8 }]}>
+                  {item.task.title}
+                </Text>
                 <StatusBadge status={item.status} />
               </View>
-            </View>
+              <View
+                style={[
+                  styles.progressFooter,
+                  { borderTopColor: theme.border, marginTop: 8 },
+                ]}
+              >
+                <Text style={[styles.detailsChevron, { color: theme.textMuted }]}>
+                  View Archive Details →
+                </Text>
+              </View>
+            </TouchableOpacity>
           ))
         )
       )}

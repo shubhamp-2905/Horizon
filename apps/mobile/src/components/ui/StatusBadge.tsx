@@ -23,12 +23,14 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
       case 'approved':
         return theme.statusSuccess;
       case 'draft':
-      case 'pending':
+      case 'queued_for_sync':
+      case 'queued_sync':
+        return theme.statusPending;
       case 'under_review':
       case 'pending_admin_review':
-        return theme.statusPending;
-      case 'claimed':
+      case 'pending':
       case 'submitted':
+      case 'syncing':
         return theme.secondaryPurple;
       case 'flagged':
       case 'verification_failed':
@@ -38,6 +40,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
       case 'disputed':
       case 'verification_unavailable':
         return theme.statusPending;
+      case 'claimed':
+        return theme.primaryPurple;
       default:
         return theme.textMuted;
     }
@@ -49,6 +53,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
       case 'under_review':
       case 'pending_admin_review':
         return 'AWAITING ADMIN REVIEW';
+      case 'queued_for_sync':
+      case 'queued_sync':
+        return 'QUEUED FOR SYNC';
+      case 'syncing':
+        return 'SYNCING';
       case 'flagged':
       case 'verification_failed':
         return 'VERIFICATION ISSUE';
@@ -57,11 +66,14 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, style }
       case 'disputed':
         return 'UNDER INVESTIGATION';
       case 'submitted':
-        return 'SUBMITTED';
+      case 'pending':
+        return 'AWAITING REVIEW';
       case 'approved':
         return 'APPROVED';
       case 'rejected':
         return 'REJECTED';
+      case 'claimed':
+        return 'CLAIMED';
       default:
         return status.replace(/_/g, ' ').toUpperCase();
     }

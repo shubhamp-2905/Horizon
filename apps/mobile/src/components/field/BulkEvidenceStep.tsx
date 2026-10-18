@@ -10,8 +10,10 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../../theme/ThemeContext';
 import { radius } from '../../theme/colors';
 import { HorizonButton } from '../ui/HorizonButton';
@@ -28,6 +30,7 @@ export interface BulkFilePayload {
     height?: number;
     is_link?: boolean;
     url?: string;
+    requires_access_check?: boolean;
   };
 }
 
@@ -62,6 +65,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [editingMediaId, setEditingMediaId] = useState<string | null>(null);
 
   const totalAttachments = mediaList.length;
@@ -86,14 +90,20 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
     return '📄';
   };
 
-  // Multi-select bulk picker from device (Images & Media Library)
-  const handlePickFromDevice = async () => {
+  // Multi-select bulk picker for Documents & Files (PDF, DOCX, CSV, XLSX, TXT, images)
+  const handlePickDocuments = async () => {
     setIsProcessing(true);
     setErrorMessage(null);
 
     try {
+      const remainingSlots = maxFiles - mediaList.length;
+      if (remainingSlots <= 0) {
+        setErrorMessage(`Batch limit reached: Maximum ${maxFiles} items allowed.`);
+        setIsProcessing(false);
+        return;
+      }
+
       if (Platform.OS === 'web') {
-        // Trigger web HTML5 multiple file input supporting all required document and image extensions
         const input = document.createElement('input');
         input.type = 'file';
         input.multiple = true;
@@ -106,8 +116,8 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             return;
           }
 
-          if (files.length + mediaList.length > maxFiles) {
-            setErrorMessage(`Batch limit exceeded: Maximum ${maxFiles} total files allowed.`);
+          if (files.length > remainingSlots) {
+            setErrorMessage(`Batch limit exceeded: You can only add ${remainingSlots} more items (maximum ${maxFiles} total).`);
             setIsProcessing(false);
             return;
           }
@@ -130,18 +140,78 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
         return;
       }
 
-      // Native iOS / Android Multi-Select Media Picker
+      // Native Document Picker
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'image/*',
+          'application/pdf',
+          'text/csv',
+          'text/plain',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+
+      const selected = result.assets.slice(0, remainingSlots);
+      if (result.assets.length > remainingSlots) {
+        setErrorMessage(`Selected ${result.assets.length} items, but only ${remainingSlots} slots remained (maximum ${maxFiles}). Added first ${remainingSlots} files.`);
+      }
+
+      const payloads: BulkFilePayload[] = selected.map((asset, idx) => {
+        const ext = asset.name ? asset.name.split('.').pop() || 'dat' : 'dat';
+        const fallbackName = `evidence_${Date.now()}_${idx + 1}.${ext}`;
+        return {
+          uri: asset.uri,
+          mime_type: asset.mimeType || 'application/octet-stream',
+          metadata: {
+            file_name: asset.name || fallbackName,
+            file_size_bytes: asset.size || 0,
+            mime_type: asset.mimeType || 'application/octet-stream',
+          },
+        };
+      });
+
+      await onAttachFiles(payloads);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to select files from device storage.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Multi-select bulk picker from Photo Gallery
+  const handlePickPhotos = async () => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+
+    try {
+      const remainingSlots = maxFiles - mediaList.length;
+      if (remainingSlots <= 0) {
+        setErrorMessage(`Batch limit reached: Maximum ${maxFiles} items allowed.`);
+        setIsProcessing(false);
+        return;
+      }
+
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setErrorMessage('Device storage permission required to select evidence files.');
+        setErrorMessage('Device photo library permission required to select evidence photos.');
         setIsProcessing(false);
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
-        selectionLimit: Math.min(50, maxFiles - mediaList.length),
+        selectionLimit: Math.min(50, remainingSlots),
         quality: 0.85,
         exif: true,
       });
@@ -152,7 +222,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
       }
 
       const payloads: BulkFilePayload[] = result.assets.map((asset, idx) => {
-        const fallbackName = `evidence_${Date.now()}_${idx + 1}.${asset.uri.split('.').pop() || 'jpg'}`;
+        const fallbackName = `photo_${Date.now()}_${idx + 1}.${asset.uri.split('.').pop() || 'jpg'}`;
         return {
           uri: asset.uri,
           mime_type: asset.mimeType || 'image/jpeg',
@@ -168,13 +238,37 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
 
       await onAttachFiles(payloads);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to select files from device.');
+      setErrorMessage(err.message || 'Failed to select photos from library.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Add or Edit Evidence Link Handler
+  // Real-time URL validator & cloud drive sharing permission checker
+  const handleUrlChange = (text: string) => {
+    setLinkUrl(text);
+    setLinkError(null);
+    const trimmed = text.trim().toLowerCase();
+    if (!trimmed) {
+      setAccessWarning(null);
+      return;
+    }
+    if (
+      trimmed.includes('drive.google.com') ||
+      trimmed.includes('docs.google.com') ||
+      trimmed.includes('dropbox.com') ||
+      trimmed.includes('onedrive') ||
+      trimmed.includes('1drv.ms') ||
+      trimmed.includes('sharepoint.com') ||
+      trimmed.includes('box.com')
+    ) {
+      setAccessWarning('Cloud storage link detected: Ensure sharing permissions are set to "Anyone with the link can view" so reviewers can verify your evidence.');
+    } else {
+      setAccessWarning(null);
+    }
+  };
+
+  // Add or Edit Evidence Link Handler with robust URL validation
   const handleSaveEvidenceLink = async () => {
     const trimmed = linkUrl.trim();
     if (!trimmed) {
@@ -182,21 +276,34 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
       return;
     }
 
-    const urlPattern = /^https?:\/\/[a-zA-Z0-9-._~:/?#[\]@!$&'()*+,;=]+$/i;
-    if (!urlPattern.test(trimmed)) {
-      setLinkError('URL must begin with http:// or https:// and contain a valid domain.');
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(trimmed);
+    } catch {
+      setLinkError('Please enter a valid, well-formed URL (e.g. https://drive.google.com/...)');
       return;
     }
 
-    let hostname = 'External Link';
-    try {
-      const match = trimmed.match(/^https?:\/\/([^/?#]+)/i);
-      if (match && match[1]) {
-        hostname = match[1];
-      }
-    } catch {
-      // fallback
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      setLinkError('Only http:// and https:// links are supported (unsafe schemes like javascript: are prohibited).');
+      return;
     }
+
+    if (!parsedUrl.hostname || !parsedUrl.hostname.includes('.')) {
+      setLinkError('URL must contain a valid domain name.');
+      return;
+    }
+
+    const hostname = parsedUrl.hostname;
+    const lower = trimmed.toLowerCase();
+    const isCloudHost =
+      lower.includes('drive.google.com') ||
+      lower.includes('docs.google.com') ||
+      lower.includes('dropbox.com') ||
+      lower.includes('onedrive') ||
+      lower.includes('1drv.ms') ||
+      lower.includes('sharepoint.com') ||
+      lower.includes('box.com');
 
     if (editingMediaId) {
       await onDeleteMedia(editingMediaId);
@@ -211,6 +318,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
         mime_type: 'link',
         is_link: true,
         url: trimmed,
+        requires_access_check: isCloudHost,
       },
     };
 
@@ -220,6 +328,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
       setLinkUrl('');
       setLinkTitle('');
       setLinkError(null);
+      setAccessWarning(null);
       setEditingMediaId(null);
     } catch (err: any) {
       setLinkError(err.message || 'Failed to register link.');
@@ -228,10 +337,21 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
 
   const handleOpenEditLink = (med: LocalMediaRecord) => {
     setEditingMediaId(med.local_media_id);
-    setLinkUrl((med.metadata?.url as string) || med.local_uri || '');
+    const existingUrl = (med.metadata?.url as string) || med.local_uri || '';
+    setLinkUrl(existingUrl);
     setLinkTitle((med.metadata?.file_name as string) || '');
     setLinkError(null);
+    handleUrlChange(existingUrl);
     setLinkModalVisible(true);
+  };
+
+  const handleOpenExternal = async (url?: string) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch (err: any) {
+      setErrorMessage(`Unable to open external link: ${err.message}`);
+    }
   };
 
   return (
@@ -272,14 +392,14 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
         </View>
 
         <Text style={[styles.instructionsText, { color: theme.textSecondary }]}>
-          Upload ground-truth evidence files directly from device storage (images: JPG, PNG, WebP, HEIC; documents: PDF, DOCX, CSV, XLSX up to 50 files) and register official public registry / GIS evidence links. Camera capture is disabled.
+          Upload ground-truth evidence files directly from device storage (images: JPG, PNG; documents: PDF, DOCX, CSV, XLSX up to 50 files) and register official public registry / shared cloud evidence links.
         </Text>
       </View>
 
-      {/* Action Controls: Bulk Upload & Add Link */}
+      {/* Action Controls: Documents, Photos & Evidence Link */}
       <View style={styles.actionRow}>
         <TouchableOpacity
-          onPress={handlePickFromDevice}
+          onPress={handlePickDocuments}
           disabled={isProcessing || totalAttachments >= maxFiles}
           style={[
             styles.actionButton,
@@ -295,9 +415,28 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
           ) : (
             <>
               <Text style={styles.actionIcon}>📁</Text>
-              <Text style={styles.actionBtnText}>Upload from Device</Text>
+              <Text style={styles.actionBtnText}>Files / Docs</Text>
             </>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handlePickPhotos}
+          disabled={isProcessing || totalAttachments >= maxFiles}
+          style={[
+            styles.actionButtonSecondary,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: theme.border,
+              opacity: isProcessing || totalAttachments >= maxFiles ? 0.6 : 1.0,
+            },
+          ]}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionIcon}>🖼️</Text>
+          <Text style={[styles.actionBtnTextSecondary, { color: theme.textPrimary }]}>
+            Photos
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -306,6 +445,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             setLinkUrl('');
             setLinkTitle('');
             setLinkError(null);
+            setAccessWarning(null);
             setLinkModalVisible(true);
           }}
           disabled={isProcessing || totalAttachments >= maxFiles}
@@ -314,13 +454,14 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             {
               backgroundColor: theme.surfaceElevated,
               borderColor: theme.border,
+              opacity: isProcessing || totalAttachments >= maxFiles ? 0.6 : 1.0,
             },
           ]}
           activeOpacity={0.8}
         >
           <Text style={styles.actionIcon}>🔗</Text>
           <Text style={[styles.actionBtnTextSecondary, { color: theme.textPrimary }]}>
-            Add Evidence Link
+            Add Link
           </Text>
         </TouchableOpacity>
       </View>
@@ -390,8 +531,14 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                   {/* Left: Thumbnail or Type Icon */}
                   <TouchableOpacity
                     style={[styles.thumbnailBox, { backgroundColor: theme.surfaceElevated }]}
-                    onPress={() => isImage && setPreviewMedia(item)}
-                    activeOpacity={isImage ? 0.7 : 1.0}
+                    onPress={() => {
+                      if (isImage) {
+                        setPreviewMedia(item);
+                      } else if (isLink) {
+                        handleOpenExternal((item.metadata?.url as string) || item.local_uri);
+                      }
+                    }}
+                    activeOpacity={isImage || isLink ? 0.7 : 1.0}
                   >
                     {isImage && item.local_uri ? (
                       <Image source={{ uri: item.local_uri }} style={styles.thumbnailImg} resizeMode="cover" />
@@ -441,10 +588,10 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                             {
                               color:
                                 item.sync_status === 'SYNCED'
-                                  ? theme.success
-                                  : isFailed
-                                  ? theme.error
-                                  : theme.primaryLight,
+                                    ? theme.success
+                                    : isFailed
+                                    ? theme.error
+                                    : theme.primaryLight,
                             },
                           ]}
                         >
@@ -455,19 +602,44 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                             : 'QUEUED / SYNCING'}
                         </Text>
                       </View>
+
+                      {Boolean(item.metadata?.requires_access_check) && (
+                        <View
+                          style={[
+                            styles.cloudWarningBadge,
+                            {
+                              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                              borderColor: 'rgba(245, 158, 11, 0.35)',
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.cloudWarningBadgeText, { color: '#F59E0B' }]}>
+                            Verify Sharing
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
-                  {/* Right: Actions (Edit Link, Retry, Remove) */}
+                  {/* Right: Actions (Open Link, Edit Link, Retry, Remove) */}
                   <View style={styles.itemActions}>
                     {isLink && (
-                      <TouchableOpacity
-                        onPress={() => handleOpenEditLink(item)}
-                        style={styles.editBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.editBtnText, { color: theme.primaryLight }]}>Edit</Text>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          onPress={() => handleOpenExternal((item.metadata?.url as string) || item.local_uri)}
+                          style={[styles.openBtn, { backgroundColor: theme.surfaceElevated }]}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.openBtnText, { color: theme.primaryLight }]}>Open ↗</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleOpenEditLink(item)}
+                          style={styles.editBtn}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.editBtnText, { color: theme.textSecondary }]}>Edit</Text>
+                        </TouchableOpacity>
+                      </>
                     )}
 
                     {isFailed && onRetryMedia && (
@@ -532,7 +704,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             </View>
 
             <Text style={[styles.modalSub, { color: theme.textSecondary }]}>
-              Enter a verified HTTP/HTTPS link to an official cadastre registry, spatial portal, public gazette, or environmental report.
+              Enter a valid HTTP/HTTPS link to an official cadastre registry, spatial portal, Google Drive document, Dropbox folder, or public report.
             </Text>
 
             <View style={styles.modalForm}>
@@ -542,13 +714,10 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                   styles.modalInput,
                   { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary },
                 ]}
-                placeholder="https://registry.lands.gov/parcel/10482"
+                placeholder="https://drive.google.com/... or https://registry.gov/..."
                 placeholderTextColor={theme.textMuted}
                 value={linkUrl}
-                onChangeText={(text) => {
-                  setLinkUrl(text);
-                  setLinkError(null);
-                }}
+                onChangeText={handleUrlChange}
                 autoCapitalize="none"
                 keyboardType="default"
               />
@@ -564,6 +733,22 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                 value={linkTitle}
                 onChangeText={setLinkTitle}
               />
+
+              {accessWarning && (
+                <View
+                  style={[
+                    styles.accessWarningBox,
+                    {
+                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                      borderColor: 'rgba(245, 158, 11, 0.35)',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.accessWarningText, { color: '#F59E0B' }]}>
+                    ℹ {accessWarning}
+                  </Text>
+                </View>
+              )}
 
               {linkError && (
                 <Text style={[styles.modalError, { color: theme.error }]}>⚠ {linkError}</Text>
@@ -617,14 +802,18 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 6,
   },
   headerTitle: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
+    flex: 1,
+    minWidth: 160,
   },
   progressBadge: {
     paddingHorizontal: 8,
@@ -644,39 +833,42 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionButton: {
-    flex: 1.2,
+    flex: 1,
+    minWidth: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
     borderRadius: radius.sm,
   },
   actionButtonSecondary: {
     flex: 1,
+    minWidth: 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
     borderRadius: radius.sm,
     borderWidth: 1,
   },
   actionIcon: {
-    fontSize: 16,
+    fontSize: 15,
   },
   actionBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   actionBtnTextSecondary: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   errorBox: {
@@ -690,22 +882,24 @@ const styles = StyleSheet.create({
   },
   summaryBanner: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.xs,
     borderWidth: 1,
+    gap: 6,
   },
   summaryText: {
     fontSize: 11,
+    flex: 1,
+    minWidth: 180,
   },
   listContainer: {
-    minHeight: 180,
+    minHeight: 140,
   },
-  scrollList: {
-    maxHeight: 340,
-  },
+  scrollList: {},
   emptyBox: {
     padding: 32,
     alignItems: 'center',
@@ -735,7 +929,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     marginBottom: 8,
-    gap: 12,
+    gap: 10,
   },
   thumbnailBox: {
     width: 44,
@@ -744,6 +938,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    flexShrink: 0,
   },
   thumbnailImg: {
     width: '100%',
@@ -754,6 +949,7 @@ const styles = StyleSheet.create({
   },
   itemMeta: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   itemFileName: {
@@ -762,8 +958,9 @@ const styles = StyleSheet.create({
   },
   itemMetaSub: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   itemSizeText: {
     fontSize: 10,
@@ -779,18 +976,38 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.4,
   },
+  cloudWarningBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+  },
+  cloudWarningBadgeText: {
+    fontSize: 8,
+    fontWeight: '700',
+  },
   itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexShrink: 0,
+    gap: 6,
+  },
+  openBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: radius.xs,
+  },
+  openBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   editBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 4,
   },
   editBtnText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   retryBtn: {
     paddingHorizontal: 8,
@@ -875,6 +1092,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
   },
+  accessWarningBox: {
+    padding: 8,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  accessWarningText: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
   modalError: {
     fontSize: 11,
     fontWeight: '600',
@@ -915,3 +1142,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

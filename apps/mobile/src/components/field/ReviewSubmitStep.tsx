@@ -395,8 +395,8 @@ export const ReviewSubmitStep: React.FC<ReviewSubmitStepProps> = ({
               </View>
               <View style={styles.modalSumRow}>
                 <Text style={[styles.modalSumLabel, { color: theme.textMuted }]}>Pipeline Phase</Text>
-                <Text style={[styles.modalSumValGreen, { color: theme.primaryLight }]}>
-                  {isOffline ? 'Offline Queue' : 'Admin Review Queue'}
+                <Text style={[styles.modalSumValGreen, { color: isOffline ? theme.tokenGold : theme.primaryLight }]}>
+                  {isOffline ? 'Queued for Sync (Offline)' : 'Server Persisted — Awaiting Admin Review'}
                 </Text>
               </View>
             </View>
