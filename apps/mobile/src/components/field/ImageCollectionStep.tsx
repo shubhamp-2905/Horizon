@@ -72,6 +72,7 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
         allowsEditing: false,
         quality: 0.85,
         exif: true,
+        base64: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -94,6 +95,7 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
         height: asset.height,
         captured_at: now,
         exif: asset.exif || {},
+        image_base64: asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : undefined,
       });
 
       setCapturing(false);
@@ -122,6 +124,7 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.85,
+        base64: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -143,6 +146,7 @@ export const ImageCollectionStep: React.FC<ImageCollectionStepProps> = ({
         width: asset.width,
         height: asset.height,
         captured_at: now,
+        image_base64: asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : undefined,
       });
 
       setCapturing(false);

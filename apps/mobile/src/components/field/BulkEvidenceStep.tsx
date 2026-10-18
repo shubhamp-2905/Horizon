@@ -214,6 +214,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
         selectionLimit: Math.min(50, remainingSlots),
         quality: 0.85,
         exif: true,
+        base64: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -232,6 +233,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             mime_type: asset.mimeType || 'image/jpeg',
             width: asset.width,
             height: asset.height,
+            image_base64: asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : undefined,
           },
         };
       });
