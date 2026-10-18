@@ -969,8 +969,78 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Contradiction / Anomaly / Unavailability Banner */}
               {(() => {
-                const isUnavailable = selectedSub.status === 'verification_unavailable' || Boolean(selectedSub.ai_results?.service_unavailable);
-                const isBlocked = isUnavailable || selectedSub.status === 'flagged' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.validation_status === 'FAILED';
+                const isIrrelevant =
+                  selectedSub.ai_results?.relevance_status === 'IRRELEVANT' ||
+                  Boolean(selectedSub.verification_notes?.toLowerCase().includes('not relevant')) ||
+                  Boolean(selectedSub.ai_results?.reasons?.some((r: string) => typeof r === 'string' && r.toLowerCase().includes('not relevant')));
+                const isUnavailable = !isIrrelevant && (selectedSub.status === 'verification_unavailable' || Boolean(selectedSub.ai_results?.service_unavailable));
+                const isBlocked = !isIrrelevant && (isUnavailable || selectedSub.status === 'flagged' || selectedSub.validation_status === 'FAILED');
+
+                if (isIrrelevant) {
+                  return (
+                    <div
+                      style={{
+                        background: '#FFFBEB',
+                        border: '1.5px solid #FCD34D',
+                        borderRadius: '10px',
+                        padding: '16px 20px',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <AlertTriangleIcon size={22} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#92400E', marginBottom: '4px' }}>
+                          Image Is Not Relevant — Admin Review Required
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#78350F', lineHeight: 1.4 }}>
+                          The submitted evidence image was evaluated by AI as not relevant to the task criteria. Admin review is required.
+                        </div>
+
+                        <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleRetryVerification(selectedSub.id)}
+                            disabled={verifying}
+                            style={{
+                              background: '#D97706',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px 14px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: verifying ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <RefreshCwIcon size={13} className={verifying ? 'animate-spin' : ''} />
+                            <span>{verifying ? 'Re-evaluating Image...' : '↻ Re-run AI Evaluation'}</span>
+                          </button>
+
+                          {verifyNotice && (
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                color: verifyNotice.type === 'success' ? '#166534' : verifyNotice.type === 'warning' ? '#92400E' : '#991B1B',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <span>{verifyNotice.type === 'success' ? '✓' : '⚠'}</span>
+                              <span>{verifyNotice.message}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 if (!isBlocked) {
                   if (verifyNotice && verifyNotice.type === 'success') {
@@ -1013,13 +1083,13 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: isUnavailable ? '#92400E' : '#991B1B', marginBottom: '4px' }}>
                         {isUnavailable
-                          ? 'AI Evidence Verification Unavailable — Approval Blocked'
-                          : 'Evidence Contradiction / Quality Anomaly Flagged — Approval Blocked'}
+                          ? 'Automated Verification Inconclusive — Admin Review Required'
+                          : 'Deterministic Validation Check Failed'}
                       </div>
                       <div style={{ fontSize: '12px', color: isUnavailable ? '#78350F' : '#7F1D1D', lineHeight: 1.4 }}>
                         {isUnavailable
-                          ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, admin approval, and token settlement are strictly blocked until verification succeeds.'
-                          : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
+                          ? 'The automated AI evaluation was inconclusive or timed out. Please review the submission manually.'
+                          : 'Mandatory automated validation checks failed. Admin review required.'}
                       </div>
 
                       <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

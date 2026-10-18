@@ -617,31 +617,17 @@ def review_submission_record(
     decision = payload.status.lower().strip()
 
     if decision in ["approved", "verified"]:
-        # Mandatory evidence verification policy enforcement:
+        # Mandatory validation checks:
         if verification:
-            relevance_failed = (
-                verification.ai_status == "FAIL"
-                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
-            )
+            validation_failed = (verification.validation_status == "FAILED")
             verification_unavailable = (
                 verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
                 or (verification.ai_results and verification.ai_results.get("service_unavailable"))
                 or verification.status == "verification_unavailable"
             )
-            validation_failed = (verification.validation_status == "FAILED")
 
-            is_failing = relevance_failed or verification_unavailable or validation_failed
-
-            if is_failing:
+            if validation_failed or verification_unavailable:
                 if not payload.admin_override:
-                    if relevance_failed:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={
-                                "code": "EVIDENCE_RELEVANCE_FAILED",
-                                "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved without an explicit administrator override.",
-                            },
-                        )
                     if verification_unavailable:
                         raise HTTPException(
                             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

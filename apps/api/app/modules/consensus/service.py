@@ -511,24 +511,14 @@ def settle_consensus(
         # Defensive enforcement: ensure mandatory evidence verification succeeded!
         verification = db.query(Verification).filter(Verification.submission_id == submission.id).first()
         if verification and not admin_override:
-            relevance_failed = (
-                verification.ai_status == "FAIL"
-                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
-            )
-            verification_unavailable = (
-                verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
-                or (verification.ai_results and verification.ai_results.get("service_unavailable"))
-                or verification.status == "verification_unavailable"
-            )
             validation_failed = (verification.validation_status == "FAILED")
-            if relevance_failed or verification_unavailable or validation_failed:
+            if validation_failed:
                 logger.warning(
-                    f"Consensus settlement blocked for submission {submission.id}: "
-                    f"relevance_failed={relevance_failed}, verification_unavailable={verification_unavailable}, validation_failed={validation_failed}"
+                    f"Consensus settlement blocked for submission {submission.id}: validation_failed={validation_failed}"
                 )
                 return {
                     "status": "blocked",
-                    "message": "Token reward payout blocked: Mandatory evidence verification failed or is unavailable.",
+                    "message": "Token reward payout blocked: Mandatory deterministic validation checks failed.",
                 }
 
         # 1. Unlock commitment stake from escrow back to available balance (exactly once)
@@ -893,33 +883,7 @@ def resolve_submission_dispute(
     if action == "approve":
         # Check mandatory evidence verification before dispute approval!
         if verification:
-            relevance_failed = (
-                verification.ai_status == "FAIL"
-                or (verification.ai_results and verification.ai_results.get("relevance_status") == "IRRELEVANT")
-            )
-            verification_unavailable = (
-                verification.ai_status in ["UNAVAILABLE", "verification_unavailable"]
-                or (verification.ai_results and verification.ai_results.get("service_unavailable"))
-                or verification.status == "verification_unavailable"
-            )
             validation_failed = (verification.validation_status == "FAILED")
-
-            if relevance_failed:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "EVIDENCE_RELEVANCE_FAILED",
-                        "message": "Cannot approve submission: Mandatory image relevance verification failed. Irrelevant evidence cannot be approved.",
-                    },
-                )
-            if verification_unavailable:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "code": "VERIFICATION_UNAVAILABLE",
-                        "message": "Cannot approve submission: AI evidence verification is unavailable. Required checks must succeed before approval.",
-                    },
-                )
             if validation_failed:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

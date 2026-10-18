@@ -287,6 +287,17 @@ class AIValidationService:
                             data["status"] = str(rec)
                             data["overall_status"] = str(rec)
                             data["overall_recommendation"] = str(rec)
+                        data["semantic_relevance"] = data.get("relevance_score", 0.0)
+                        data["image_quality_rating"] = "HIGH" if data.get("quality_status") == "PASS" else ("LOW" if data.get("quality_status") == "FAIL" else "MEDIUM")
+                        data["service_unavailable"] = False
+                        data["document_results"] = doc_results
+                        data["link_results"] = link_results
+                        data["evidence_summary"] = {
+                            "photo_count": len(image_media),
+                            "document_count": len(doc_results),
+                            "link_count": len(link_results),
+                            "verification_mode": "hybrid_ai_and_ordinary_validation",
+                        }
                         return data
                     elif resp.status_code == 404:
                         # Fallback to quality endpoint if older AI microservice container
@@ -297,6 +308,9 @@ class AIValidationService:
                             if rec:
                                 data["status"] = str(rec)
                                 data["overall_status"] = str(rec)
+                            data["semantic_relevance"] = data.get("relevance_score", 0.0)
+                            data["image_quality_rating"] = "HIGH" if data.get("quality_status") == "PASS" else ("LOW" if data.get("quality_status") == "FAIL" else "MEDIUM")
+                            data["service_unavailable"] = False
                             data["document_results"] = doc_results
                             data["link_results"] = link_results
                             data["evidence_summary"] = {
@@ -359,6 +373,9 @@ class AIValidationService:
             data["status"] = rec
             data["overall_status"] = rec
             data["overall_recommendation"] = rec
+            data["semantic_relevance"] = data.get("relevance_score", 0.0)
+            data["image_quality_rating"] = "HIGH" if data.get("quality_status") == "PASS" else ("LOW" if data.get("quality_status") == "FAIL" else "MEDIUM")
+            data["service_unavailable"] = False
             data["document_results"] = doc_results
             data["link_results"] = link_results
             data["evidence_summary"] = {
@@ -402,6 +419,8 @@ class AIValidationService:
             "quality_status": "UNAVAILABLE",
             "confidence": 0.0,
             "relevance_score": 0.0,
+            "semantic_relevance": 0.0,
+            "image_quality_rating": "UNAVAILABLE",
             "media_results": [],
             "reasons": [reason],
             "service_unavailable": True,
@@ -434,34 +453,34 @@ class AIValidationService:
         det_failed = bool(verification and verification.validation_status == "FAILED")
 
         # Fail-safe and relevance enforcement
-        if overall_status == "FAIL" or relevance_status == "IRRELEVANT" or det_failed:
+        if det_failed:
             is_blocked = True
             target_status = "flagged"
-        elif service_unavailable:
+            verif_note = "Verification Flagged: Deterministic validation checks failed."
+        elif service_unavailable or overall_status in ["UNAVAILABLE", "verification_unavailable"]:
             is_blocked = True
             target_status = "verification_unavailable"
-        elif overall_status == "WARNING" or relevance_status == "NEEDS_REVIEW":
-            is_blocked = False
-            target_status = "under_review"
-        else:
-            is_blocked = False
-            target_status = "under_review"
-
-        # Construct safe descriptive note for auditing & transparency
-        if is_blocked and target_status == "verification_unavailable":
             err_code = ai_data.get("error_code", "AI_SERVICE_UNAVAILABLE")
             first_reason = (ai_data.get("reasons") or ["AI evidence verification unavailable"])[0]
             verif_note = f"AI Verification Blocked ({err_code}): {first_reason}"
-        elif is_blocked and target_status == "flagged":
-            if det_failed:
-                verif_note = "Verification Flagged: Deterministic validation checks failed."
-            else:
-                first_reason = (ai_data.get("reasons") or ["Evidence contradiction / quality anomaly flagged"])[0]
-                verif_note = f"Verification Flagged: {first_reason}"
-        elif target_status == "under_review" and (overall_status == "WARNING" or relevance_status == "NEEDS_REVIEW"):
+        elif relevance_status == "IRRELEVANT":
+            # If image is not relevant, simply flag as under_review with clear note
+            is_blocked = False
+            target_status = "under_review"
+            verif_note = "Admin review required: Evidence image is not relevant to task criteria."
+        elif overall_status == "FAIL":
+            is_blocked = False
+            target_status = "under_review"
+            first_reason = (ai_data.get("reasons") or ["Image inspection failed"])[0]
+            verif_note = f"Admin review required: {first_reason}"
+        elif overall_status == "WARNING" or relevance_status == "NEEDS_REVIEW":
+            is_blocked = False
+            target_status = "under_review"
             first_reason = (ai_data.get("reasons") or ["Manual review required"])[0]
-            verif_note = f"Review Required: {first_reason}"
+            verif_note = f"Admin review required: {first_reason}"
         else:
+            is_blocked = False
+            target_status = "under_review"
             verif_note = "Automated verification passed all criteria. Ready for admin review."
 
         if not verification:

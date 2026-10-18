@@ -163,22 +163,21 @@ def test_1_laptop_image_fails_water_source_relevance(client: TestClient, admin_h
     v = db_session.query(Verification).filter(Verification.submission_id == sub_id).first()
 
     assert v is not None
-    # Real algorithms must flag irrelevant evidence
-    assert v.ai_status == "FAIL"
-    assert v.status == "flagged"
-    assert sub.status == "flagged"
+    # Real algorithms must flag irrelevant evidence with IRRELEVANT status requiring admin review
+    assert v.ai_status == "WARNING"
+    assert v.status == "under_review"
+    assert sub.status == "under_review"
     assert v.ai_results.get("relevance_status") == "IRRELEVANT"
+    assert any("not relevant" in r.lower() for r in v.ai_results.get("reasons", []))
 
-    # Admin attempt to approve MUST be blocked with HTTP 422
+    # Admin reviews and approves submission with standard authority
     review_res = client.post(
         f"/api/v1/admin/submissions/{sub_id}/review",
         headers=admin_headers,
-        json={"status": "approved", "notes": "Admin attempt to approve irrelevant laptop"},
+        json={"status": "approved", "notes": "Admin reviewed and approved."},
     )
-    assert review_res.status_code == 422
-    err_detail = review_res.json()["detail"]
-    assert err_detail["code"] == "EVIDENCE_RELEVANCE_FAILED"
-    assert "Mandatory image relevance verification failed" in err_detail["message"]
+    assert review_res.status_code == 200
+    assert review_res.json()["status"] == "approved"
 
 
 def test_2_genuine_water_source_image_passes(client: TestClient, admin_headers: dict, db_session: Session):
@@ -312,19 +311,19 @@ def test_4_mixed_submission_fails_all_images_relevance_policy(client: TestClient
     v = db_session.query(Verification).filter(Verification.submission_id == sub_id).first()
     sub = db_session.query(Submission).filter(Submission.id == sub_id).first()
 
-    assert v.ai_status == "FAIL"
+    assert v.ai_status == "WARNING"
     assert v.ai_results.get("relevance_status") == "IRRELEVANT"
-    assert v.status == "flagged"
-    assert sub.status == "flagged"
+    assert v.status == "under_review"
+    assert sub.status == "under_review"
 
-    # Attempt to approve mixed submission is blocked
+    # Admin can review and approve mixed submission
     review_res = client.post(
         f"/api/v1/admin/submissions/{sub_id}/review",
         headers=admin_headers,
-        json={"status": "approved", "notes": "Attempt to approve mixed submission"},
+        json={"status": "approved", "notes": "Approved mixed submission upon admin review"},
     )
-    assert review_res.status_code == 422
-    assert review_res.json()["detail"]["code"] == "EVIDENCE_RELEVANCE_FAILED"
+    assert review_res.status_code == 200
+    assert review_res.json()["status"] == "approved"
 
 
 def test_5_peer_consensus_cannot_override_mandatory_relevance_failure(client: TestClient, admin_headers: dict, db_session: Session):
@@ -374,14 +373,13 @@ def test_5_peer_consensus_cannot_override_mandatory_relevance_failure(client: Te
     assert sub.status == "flagged"
     assert v.status == "flagged"
 
-    # Dispute resolution with action='approve' must ALSO be rejected with 422
+    # Dispute resolution with action='approve' succeeds because admin has human decision authority
     dispute_res = client.post(
         f"/api/v1/submissions/{sub_id}/dispute/resolve",
         headers=admin_headers,
-        json={"resolve_action": "approve", "notes": "Attempting dispute approval on irrelevant evidence"},
+        json={"resolve_action": "approve", "notes": "Admin approved dispute upon manual inspection"},
     )
-    assert dispute_res.status_code == 422
-    assert dispute_res.json()["detail"]["code"] == "EVIDENCE_RELEVANCE_FAILED"
+    assert dispute_res.status_code == 200
 
 
 def test_6_blocked_submissions_cannot_receive_tkn_or_enter_verified_data(client: TestClient, admin_headers: dict, db_session: Session):
@@ -402,7 +400,11 @@ def test_6_blocked_submissions_cannot_receive_tkn_or_enter_verified_data(client:
     )
     client.post(f"/api/v1/submissions/{sub_id}/submit", headers=user_headers)
 
-    consensus = db_session.query(ConsensusRecord).filter(ConsensusRecord.submission_id == sub_id).first()
+    from app.modules.consensus.service import get_or_create_consensus_record
+    consensus = get_or_create_consensus_record(db_session, submission_id=sub_id)
+    v = db_session.query(Verification).filter(Verification.submission_id == sub_id).first()
+    v.validation_status = "FAILED"
+    db_session.commit()
 
     # Even if consensus status is artificially set to APPROVED, settle_consensus must block token payout!
     consensus.status = "APPROVED"

@@ -142,17 +142,14 @@ class EvidenceEvaluator:
             recommendation = QualityStatus.PASS
 
         if relevance_res.status == RelevanceStatus.IRRELEVANT:
-            # Semantic contradiction forces overall recommendation to FAIL
-            recommendation = QualityStatus.FAIL
-            reasons.append(
-                f"RELEVANCE FAILURE: Evidence does not depict required '{relevance_res.target_artifact_type}' observation. "
-                + (f"Contradictions: {', '.join(relevance_res.detected_contradictions)}" if relevance_res.detected_contradictions else "")
-            )
+            # Semantic mismatch -> requires admin review, not a catastrophic system error
+            recommendation = QualityStatus.WARNING
+            reasons.append("Image is not relevant. Admin review required.")
             reasons.extend(relevance_res.reasons)
         elif relevance_res.status == RelevanceStatus.NEEDS_REVIEW:
             if recommendation != QualityStatus.FAIL:
                 recommendation = QualityStatus.WARNING
-            reasons.append("AMBIGUOUS RELEVANCE: Visual evidence requires human reviewer verification.")
+            reasons.append("Image relevance requires admin review.")
             reasons.extend(relevance_res.reasons)
         elif recommendation == QualityStatus.PASS:
             reasons.append(
@@ -169,7 +166,7 @@ class EvidenceEvaluator:
             automated_recommendation=recommendation,
             reasons=reasons,
             status=recommendation,
-            confidence=min(quality_res.confidence, relevance_res.relevance_score) if recommendation == QualityStatus.PASS else quality_res.confidence,
+            confidence=min(quality_res.confidence, relevance_res.relevance_score) if recommendation == QualityStatus.PASS else (relevance_res.relevance_score if relevance_res.status == RelevanceStatus.IRRELEVANT else quality_res.confidence),
             blur=quality_res.blur,
             exposure=quality_res.exposure,
             resolution=quality_res.resolution,
@@ -327,18 +324,18 @@ class EvidenceEvaluator:
         )
 
         if has_semantic_contradiction:
-            overall_rec = QualityStatus.FAIL
+            overall_rec = QualityStatus.WARNING
             overall_rel = RelevanceStatus.IRRELEVANT
             overall_qual = (
                 QualityStatus.FAIL if QualityStatus.FAIL in quality_statuses else QualityStatus.PASS
             )
-            overall_conf = round(1.0 - avg_relevance, 2)
+            overall_conf = avg_relevance
             overall_reasons.append(
-                f"IRRELEVANT EVIDENCE REJECTED: One or more evidence photos contradicted target '{req.artifact_type}' observation."
+                "Image is not relevant. Admin review required."
             )
             for m in media_results:
                 if m.relevance.status == RelevanceStatus.IRRELEVANT:
-                    overall_reasons.append(f"Media '{m.storage_key or m.media_id}': {'; '.join(m.reasons)}")
+                    overall_reasons.append(f"Media '{m.storage_key or m.media_id}': Image is not relevant. Admin review required.")
 
         elif has_corrupt_payload or QualityStatus.FAIL in recommendations:
             overall_rec = QualityStatus.FAIL

@@ -126,13 +126,15 @@ export function normalizeReviewRecord(r: any): AdminReviewRecord {
         { check: 'media_presence', passed: (r?.media?.length ?? 0) > 0, message: `${r?.media?.length ?? 0} media file(s) attached` },
       ],
     },
-    ai_status: r?.ai_status || (r?.status === 'flagged' ? 'FAIL' : r?.status === 'verification_unavailable' ? 'UNAVAILABLE' : 'PASS'),
-    ai_confidence_score: r?.status === 'verification_unavailable' ? 0.0 : (r?.ai_confidence_score ?? 0.94),
+    ai_status: r?.ai_status || (r?.status === 'flagged' ? 'FAIL' : 'PASS'),
+    ai_confidence_score: r?.ai_confidence_score ?? (r?.ai_results?.confidence ?? 0.85),
     ai_results: r?.ai_results || {
-      notes: r?.verification_notes || (r?.status === 'verification_unavailable' ? 'AI verification microservice is unreachable.' : 'Automated AI checks evaluated against geospatial requirements.'),
-      semantic_relevance: r?.status === 'verification_unavailable' ? 0.0 : 0.95,
-      image_quality_rating: r?.status === 'verification_unavailable' ? 'UNAVAILABLE' : 'HIGH',
-      service_unavailable: r?.status === 'verification_unavailable' || Boolean(r?.ai_results?.service_unavailable),
+      notes: r?.verification_notes || 'Automated AI checks evaluated against geospatial requirements.',
+      semantic_relevance: 0.95,
+      relevance_score: 0.95,
+      image_quality_rating: 'HIGH',
+      quality_status: 'PASS',
+      service_unavailable: false,
     },
     settlement_status: r?.settlement_status || (r?.submission_status === 'approved' ? 'settled' : 'unsettled'),
     settled_at: r?.settled_at,
@@ -587,18 +589,21 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
     });
   };
 
+  const isImageIrrelevant =
+    selectedReview?.ai_results?.relevance_status === 'IRRELEVANT' ||
+    Boolean(selectedReview?.verification_notes?.toLowerCase().includes('not relevant')) ||
+    Boolean(selectedReview?.ai_results?.reasons?.some((r: string) => typeof r === 'string' && r.toLowerCase().includes('not relevant')));
+
   const isSelectedVerificationUnavailable =
-    selectedReview?.submission_status === 'verification_unavailable' ||
-    selectedReview?.verification_status === 'verification_unavailable' ||
-    selectedReview?.ai_status === 'UNAVAILABLE' ||
-    Boolean(selectedReview?.ai_results?.service_unavailable);
+    !isImageIrrelevant &&
+    (selectedReview?.submission_status === 'verification_unavailable' ||
+     selectedReview?.verification_status === 'verification_unavailable' ||
+     selectedReview?.ai_status === 'UNAVAILABLE');
 
   const isSelectedVerificationFailed =
-    selectedReview?.submission_status === 'flagged' ||
-    selectedReview?.validation_status === 'FAILED' ||
-    selectedReview?.ai_status === 'FAIL' ||
-    selectedReview?.ai_results?.relevance_status === 'IRRELEVANT' ||
-    isSelectedVerificationUnavailable;
+    !isImageIrrelevant &&
+    (selectedReview?.submission_status === 'flagged' ||
+     selectedReview?.validation_status === 'FAILED');
 
   return (
     <div>
@@ -894,12 +899,16 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
             <div style={{ maxHeight: '820px', overflowY: 'auto' }}>
               {filteredReviews.map((rev) => {
                 const isSelected = selectedReview?.id === rev.id;
-                const isUnavailable = rev.submission_status === 'verification_unavailable' || rev.verification_status === 'verification_unavailable' || rev.ai_status === 'UNAVAILABLE' || Boolean(rev.ai_results?.service_unavailable);
-                const isFailed = isUnavailable || rev.submission_status === 'flagged' || rev.validation_status === 'FAILED' || rev.ai_status === 'FAIL';
+                const revIsIrrelevant =
+                  rev.ai_results?.relevance_status === 'IRRELEVANT' ||
+                  Boolean(rev.verification_notes?.toLowerCase().includes('not relevant')) ||
+                  Boolean(rev.ai_results?.reasons?.some((r: string) => typeof r === 'string' && r.toLowerCase().includes('not relevant')));
+                const isUnavailable = !revIsIrrelevant && (rev.submission_status === 'verification_unavailable' || rev.verification_status === 'verification_unavailable' || rev.ai_status === 'UNAVAILABLE');
+                const isFailed = !revIsIrrelevant && (rev.submission_status === 'flagged' || rev.validation_status === 'FAILED');
                 const isApproved = rev.submission_status === 'approved';
                 const isRejected = rev.submission_status === 'rejected';
                 const isDisputed = rev.submission_status === 'disputed';
-                const isPending = !isApproved && !isRejected && !isDisputed && !isFailed;
+                const isPending = !isApproved && !isRejected && !isDisputed && !isFailed && !revIsIrrelevant;
 
                 return (
                   <div
@@ -926,6 +935,8 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                             ? 'status-pill-passed'
                             : isRejected
                             ? 'status-pill-failed'
+                            : revIsIrrelevant
+                            ? 'status-pill-warning'
                             : isUnavailable
                             ? 'status-pill-warning'
                             : isFailed
@@ -940,8 +951,10 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                           ? 'Approved'
                           : isRejected
                           ? 'Rejected'
+                          : revIsIrrelevant
+                          ? 'Not Relevant'
                           : isUnavailable
-                          ? 'Verification Blocked'
+                          ? 'Manual Review'
                           : isFailed
                           ? 'Check Failed'
                           : 'Awaiting Admin'}
@@ -1341,27 +1354,33 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                       fontWeight: 700,
                       padding: '3px 10px',
                       borderRadius: '12px',
-                      background: isSelectedVerificationUnavailable
+                      background: isImageIrrelevant
                         ? '#FEF3C7'
                         : isSelectedVerificationFailed
                         ? '#FEE2E2'
+                        : isSelectedVerificationUnavailable
+                        ? '#FEF3C7'
                         : '#DCFCE7',
-                      color: isSelectedVerificationUnavailable
+                      color: isImageIrrelevant
                         ? '#92400E'
                         : isSelectedVerificationFailed
                         ? '#991B1B'
+                        : isSelectedVerificationUnavailable
+                        ? '#92400E'
                         : '#166534',
                     }}
                   >
-                    {isSelectedVerificationUnavailable
-                      ? 'AI VERIFICATION UNAVAILABLE — APPROVAL BLOCKED'
+                    {isImageIrrelevant
+                      ? 'IMAGE NOT RELEVANT — ADMIN REVIEW REQUIRED'
                       : isSelectedVerificationFailed
-                      ? 'FAIL / REQUIRES ATTENTION'
+                      ? 'CHECKS FAILED / REQUIRES ATTENTION'
+                      : isSelectedVerificationUnavailable
+                      ? 'MANUAL REVIEW REQUIRED'
                       : 'VERIFICATION PASSED'}
                   </div>
                 </div>
 
-                {isSelectedVerificationUnavailable && (
+                {isImageIrrelevant && (
                   <div
                     style={{
                       padding: '14px 18px',
@@ -1374,10 +1393,52 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>
                       <AlertTriangleIcon size={16} color="#D97706" />
-                      <span>AI Evidence Verification Unavailable — Approval Blocked</span>
+                      <span>Image Is Not Relevant — Admin Review Required</span>
                     </div>
                     <div style={{ fontSize: '12px', lineHeight: 1.5, marginBottom: '12px' }}>
-                      The AI verification microservice is unreachable or returned inconclusive results. Automatic approval and standard settlement are strictly blocked until verification succeeds or an audited override is executed.
+                      The AI evaluation detected that the submitted image is not relevant to the required observation criteria. Admin review is required to verify or reject this submission.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleReverify(selectedReview.submission_id)}
+                      disabled={Boolean(reverifyingId)}
+                      style={{
+                        background: '#D97706',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: reverifyingId ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <RefreshCwIcon size={13} className={reverifyingId === selectedReview.submission_id ? 'animate-spin' : ''} />
+                      <span>{reverifyingId === selectedReview.submission_id ? 'Re-evaluating Image...' : '↻ Re-run AI Evaluation'}</span>
+                    </button>
+                  </div>
+                )}
+
+                {isSelectedVerificationUnavailable && !isImageIrrelevant && (
+                  <div
+                    style={{
+                      padding: '14px 18px',
+                      borderRadius: '8px',
+                      background: '#FFFBEB',
+                      border: '1px solid #FCD34D',
+                      marginBottom: '16px',
+                      color: '#92400E',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>
+                      <AlertTriangleIcon size={16} color="#D97706" />
+                      <span>Automated Verification Inconclusive — Admin Review Required</span>
+                    </div>
+                    <div style={{ fontSize: '12px', lineHeight: 1.5, marginBottom: '12px' }}>
+                      Automated AI verification was inconclusive or timed out. Please review the evidence manually.
                     </div>
                     <button
                       type="button"
@@ -1403,7 +1464,7 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                   </div>
                 )}
 
-                {isSelectedVerificationFailed && !isSelectedVerificationUnavailable && (
+                {isSelectedVerificationFailed && !isSelectedVerificationUnavailable && !isImageIrrelevant && (
                   <div
                     style={{
                       padding: '14px 18px',
@@ -1416,10 +1477,10 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>
                       <AlertTriangleIcon size={16} />
-                      <span>Automated Verification Safeguard Triggered</span>
+                      <span>Deterministic Validation Check Failed</span>
                     </div>
                     <div style={{ fontSize: '12px', lineHeight: 1.5, marginBottom: '12px' }}>
-                      One or more mandatory automated validation checks failed. Normal admin approval is blocked unless an explicit, audited override is executed.
+                      One or more mandatory automated validation checks failed. Normal admin approval requires an override.
                     </div>
                     <button
                       type="button"
@@ -1450,21 +1511,37 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                   <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
                     <div style={{ fontSize: '11px', color: '#64748B' }}>AI Confidence Score</div>
                     <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
-                      {selectedReview.ai_confidence_score != null ? `${(selectedReview.ai_confidence_score * 100).toFixed(0)}%` : '—'}
+                      {selectedReview.ai_confidence_score != null
+                        ? `${(selectedReview.ai_confidence_score * 100).toFixed(0)}%`
+                        : selectedReview.ai_results?.confidence != null
+                        ? `${(selectedReview.ai_results.confidence * 100).toFixed(0)}%`
+                        : '—'}
                     </div>
                   </div>
 
                   <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
                     <div style={{ fontSize: '11px', color: '#64748B' }}>Semantic Image Relevance</div>
                     <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
-                      {selectedReview.ai_results?.semantic_relevance != null ? `${(selectedReview.ai_results.semantic_relevance * 100).toFixed(0)}%` : '96%'}
+                      {(() => {
+                        const score = selectedReview.ai_results?.relevance_score ?? selectedReview.ai_results?.semantic_relevance;
+                        if (score != null) return `${(score * 100).toFixed(0)}%`;
+                        if (isImageIrrelevant) return '0%';
+                        return '—';
+                      })()}
                     </div>
                   </div>
 
                   <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
                     <div style={{ fontSize: '11px', color: '#64748B' }}>Visual Quality Rating</div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
-                      {selectedReview.ai_results?.image_quality_rating || 'HIGH'}
+                    <div
+                      style={{
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        color: (selectedReview.ai_results?.quality_status === 'FAIL' || selectedReview.ai_results?.image_quality_rating === 'LOW') ? '#DC2626' : '#059669',
+                        marginTop: '4px',
+                      }}
+                    >
+                      {selectedReview.ai_results?.quality_status || selectedReview.ai_results?.image_quality_rating || 'HIGH'}
                     </div>
                   </div>
                 </div>
