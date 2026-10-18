@@ -51,6 +51,15 @@ class AutomatedValidationService:
     """Deterministic server-side validation layer for ground-truth field submissions."""
 
     ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
+    ALLOWED_DOCUMENT_MIME_TYPES = {
+        "application/pdf",
+        "text/csv",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        "text/plain",
+        "application/geo+json",
+        "application/json",
+    }
     MAX_CLOCK_DRIFT_MINUTES = 5.0
     DEFAULT_MAX_SURVEY_RADIUS_METERS = 500.0
     MAX_TOLERABLE_DISTANCE_METERS = 1000.0
@@ -134,16 +143,41 @@ class AutomatedValidationService:
         media_warnings = []
         seen_hashes = set()
 
-        # 2a. Photo count
-        if len(media_list) < schema.minimum_photos:
+        # Separate images, external links, and documents
+        images = []
+        links = []
+        documents = []
+        for m in media_list:
+            meta = m.media_metadata or {}
+            is_link = (m.media_type.lower() == "link") or bool(meta.get("is_link")) or bool(m.storage_key and m.storage_key.startswith("links/"))
+            if is_link:
+                links.append(m)
+            elif m.media_type.lower().startswith("image/"):
+                images.append(m)
+            else:
+                documents.append(m)
+
+        # 2a. Photo count (links do not satisfy photo requirements, but photos are counted accurately)
+        photo_count = len(images)
+        if photo_count < schema.minimum_photos:
             media_errors.append(
-                f"Insufficient photos: captured {len(media_list)}, required minimum {schema.minimum_photos}"
+                f"Insufficient photos: captured {photo_count}, required minimum {schema.minimum_photos}"
             )
 
         # 2b. Inspect each media item
         for idx, m in enumerate(media_list):
-            # MIME type
-            if m.media_type.lower() not in cls.ALLOWED_MIME_TYPES:
+            meta = m.media_metadata or {}
+            is_link = (m.media_type.lower() == "link") or bool(meta.get("is_link")) or bool(m.storage_key and m.storage_key.startswith("links/"))
+
+            if is_link:
+                link_url = meta.get("url") or meta.get("external_url") or (m.storage_key if (m.storage_key and m.storage_key.startswith("http")) else None)
+                if not link_url or not str(link_url).startswith(("http://", "https://")):
+                    media_errors.append(f"Evidence link #{idx+1} has an invalid or missing destination URL")
+                continue
+
+            # MIME type check for uploaded binary files (images & documents)
+            m_type = m.media_type.lower()
+            if m_type not in cls.ALLOWED_MIME_TYPES and m_type not in cls.ALLOWED_DOCUMENT_MIME_TYPES:
                 media_errors.append(
                     f"Media #{idx+1} ({m.storage_key}) has unsupported MIME type '{m.media_type}'"
                 )
