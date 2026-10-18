@@ -8,10 +8,12 @@ import {
   ClockIcon,
   SearchIcon,
   ArrowRightIcon,
+  ArrowUpRightIcon,
   EyeIcon,
   CameraIcon,
   MapPinIcon,
   LayersIcon,
+  RefreshCwIcon,
 } from './Icons';
 import {
   SPREADSHEET_FACTORS,
@@ -19,6 +21,15 @@ import {
   type SpreadsheetFactor,
   type SpreadsheetSection,
 } from '../data/spreadsheetData';
+
+export interface ActiveEvidencePreview {
+  url: string;
+  fileName: string;
+  fileSize?: number | string;
+  mediaType?: string;
+  id?: string;
+  storageKey?: string;
+}
 
 export interface ImageQualityItem {
   id: string;
@@ -86,11 +97,37 @@ export function mapSubmissionItem(s: any): AdminSubmissionItem {
   };
 
   const aiRes = s?.ai_results || null;
-  const isAiFail = aiRes?.overall_recommendation === 'FAIL' || aiRes?.relevance_status === 'IRRELEVANT' || s?.ai_status === 'FAIL';
-  const isAiWarn = aiRes?.overall_recommendation === 'WARNING' || aiRes?.relevance_status === 'NEEDS_REVIEW' || s?.ai_status === 'WARNING';
-  const overallAiStatus: 'PASSED' | 'WARNING' | 'FAILED' = isAiFail ? 'FAILED' : isAiWarn ? 'WARNING' : 'PASSED';
-  const aiConfidence = aiRes?.confidence !== undefined ? aiRes.confidence : (s?.ai_confidence_score ?? 0.95);
-  const primaryReason = aiRes?.reasons?.[0] || (isAiFail ? 'Visual contradiction: Evidence contradicts expected spatial domain.' : 'Field evidence verified against task criteria.');
+  const isUnavailable =
+    s?.status === 'verification_unavailable' ||
+    Boolean(aiRes?.service_unavailable) ||
+    s?.ai_status === 'UNAVAILABLE';
+  const isAiFail =
+    aiRes?.overall_recommendation === 'FAIL' ||
+    aiRes?.relevance_status === 'IRRELEVANT' ||
+    s?.ai_status === 'FAIL';
+  const isAiWarn =
+    isUnavailable ||
+    aiRes?.overall_recommendation === 'WARNING' ||
+    aiRes?.relevance_status === 'NEEDS_REVIEW' ||
+    s?.ai_status === 'WARNING';
+  const overallAiStatus: 'PASSED' | 'WARNING' | 'FAILED' = isAiFail
+    ? 'FAILED'
+    : isAiWarn
+    ? 'WARNING'
+    : 'PASSED';
+  const aiConfidence =
+    aiRes?.confidence !== undefined
+      ? aiRes.confidence
+      : isUnavailable
+      ? 0.0
+      : (s?.ai_confidence_score ?? 0.95);
+  const primaryReason =
+    aiRes?.reasons?.[0] ||
+    (isUnavailable
+      ? 'AI evidence verification microservice is currently unreachable. Re-evaluation required.'
+      : isAiFail
+      ? 'Visual contradiction: Evidence contradicts expected spatial domain.'
+      : 'Field evidence verified against task criteria.');
 
   const mediaQualityResults: ImageQualityItem[] = Array.isArray(aiRes?.media_results)
     ? aiRes.media_results.map((m: any, idx: number) => ({
@@ -187,11 +224,55 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Active enlarged photo preview modal
-  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+  const [activeEvidence, setActiveEvidence] = useState<ActiveEvidencePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(true);
+  const [previewError, setPreviewError] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
-  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
+  const [verifyNotice, setVerifyNotice] = useState<{
+    type: 'success' | 'warning' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Helper to reliably resolve media access URLs with authentication token query param
+  const getResolvedMediaUrl = (med: any, subId: string) => {
+    const base64Data = med.metadata?.image_base64 || med.metadata?.base64;
+    if (base64Data) {
+      return base64Data.startsWith('data:') ? base64Data : `data:${med.media_type || 'image/jpeg'};base64,${base64Data}`;
+    }
+    if (med.url && typeof med.url === 'string' && med.url.startsWith('http')) {
+      return med.url;
+    }
+    if (med.metadata?.url && typeof med.metadata.url === 'string' && med.metadata.url.startsWith('http')) {
+      return med.metadata.url;
+    }
+    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_BASE_URL}/submissions/${subId}/media/${med.id}/content${tokenParam}`;
+  };
+
+  const isEvidenceLink = (m: any) =>
+    Boolean(m.is_link || m.media_type === 'link' || m.metadata?.is_link || (typeof m.url === 'string' && m.url.startsWith('http')) || (typeof m.storage_key === 'string' && m.storage_key.startsWith('links/')));
+
+  const isEvidenceImage = (m: any) =>
+    !isEvidenceLink(m) && Boolean(m.media_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(m.storage_key || m.metadata?.file_name || ''));
+
+  const isEvidenceDocument = (m: any) =>
+    !isEvidenceLink(m) && !isEvidenceImage(m);
+
+  // Close preview on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeEvidence) {
+        setActiveEvidence(null);
+        setPreviewError(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeEvidence]);
 
   const handleRetryVerification = async (submissionId: string) => {
+    if (verifying) return; // Prevent duplicate concurrent requests
     try {
       setVerifying(true);
       setVerifyNotice(null);
@@ -205,7 +286,19 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
         headers,
       }).catch(() => null);
 
-      // Re-fetch fresh submissions list
+      let retryData: any = null;
+      if (res && res.ok) {
+        retryData = await res.json().catch(() => null);
+      } else {
+        const errJson = await res?.json().catch(() => null);
+        const errMsg = errJson?.detail?.message || (typeof errJson?.detail === 'string' ? errJson.detail : null) || 'AI verification service request failed.';
+        setVerifyNotice({
+          type: 'error',
+          message: `${errMsg} Approval remains blocked.`,
+        });
+      }
+
+      // Re-fetch fresh submissions list to synchronize UI with persisted backend state
       const listRes = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, {
         headers,
       }).catch(() => null);
@@ -222,11 +315,44 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
           } catch {
             // ignore
           }
-          setVerifyNotice('AI verification successfully re-evaluated with current multimodal models.');
+
+          if (retryData) {
+            const isStillUnavailable =
+              retryData.status === 'verification_unavailable' ||
+              Boolean(retryData.ai_results?.service_unavailable) ||
+              retryData.ai_status === 'UNAVAILABLE';
+            const isFlagged =
+              retryData.status === 'flagged' ||
+              retryData.validation_status === 'FAILED' ||
+              retryData.ai_status === 'FAIL' ||
+              retryData.ai_results?.relevance_status === 'IRRELEVANT';
+
+            if (isStillUnavailable) {
+              const reason = retryData.ai_results?.reasons?.[0] || retryData.notes || 'AI microservice unreachable';
+              setVerifyNotice({
+                type: 'warning',
+                message: `AI verification remains unavailable: ${reason}. Approval remains blocked.`,
+              });
+            } else if (isFlagged) {
+              const reason = retryData.ai_results?.reasons?.[0] || retryData.notes || 'Evidence contradiction flagged';
+              setVerifyNotice({
+                type: 'error',
+                message: `Verification flagged: ${reason}. Approval remains blocked.`,
+              });
+            } else {
+              setVerifyNotice({
+                type: 'success',
+                message: 'AI verification successfully completed and passed. Ground evidence verified.',
+              });
+            }
+          }
         }
       }
     } catch (err: any) {
-      setVerifyNotice(`Verification retry failed: ${err.message || 'Network error'}`);
+      setVerifyNotice({
+        type: 'error',
+        message: `Verification retry failed: ${err.message || 'Network error'}. Approval remains blocked.`,
+      });
     } finally {
       setVerifying(false);
     }
@@ -599,62 +725,103 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
           {selectedSub && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Contradiction / Anomaly / Unavailability Banner */}
-              {(selectedSub.status === 'flagged' || selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.ai_results?.service_unavailable || selectedSub.validation_status === 'FAILED') && (
-                <div
-                  style={{
-                    background: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#FFFBEB' : '#FEF2F2',
-                    border: `1.5px solid ${selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#FCD34D' : '#FCA5A5'}`,
-                    borderRadius: '10px',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <AlertTriangleIcon size={22} color={selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#D97706' : '#DC2626'} style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#92400E' : '#991B1B', marginBottom: '4px' }}>
-                      {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
-                        ? 'AI Evidence Verification Unavailable — Approval Blocked'
-                        : 'Evidence Contradiction / Quality Anomaly Flagged — Approval Blocked'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#78350F' : '#7F1D1D', lineHeight: 1.4 }}>
-                      {selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable
-                        ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, admin approval, and token settlement are strictly blocked until verification succeeds.'
-                        : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
-                    </div>
+              {(() => {
+                const isUnavailable = selectedSub.status === 'verification_unavailable' || Boolean(selectedSub.ai_results?.service_unavailable);
+                const isBlocked = isUnavailable || selectedSub.status === 'flagged' || selectedSub.ai_results?.relevance_status === 'IRRELEVANT' || selectedSub.validation_status === 'FAILED';
 
-                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleRetryVerification(selectedSub.id)}
-                        disabled={verifying}
+                if (!isBlocked) {
+                  if (verifyNotice && verifyNotice.type === 'success') {
+                    return (
+                      <div
                         style={{
-                          background: selectedSub.status === 'verification_unavailable' || selectedSub.ai_results?.service_unavailable ? '#D97706' : '#DC2626',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '6px 14px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: verifying ? 'not-allowed' : 'pointer',
-                          display: 'inline-flex',
+                          background: '#F0FDF4',
+                          border: '1.5px solid #86EFAC',
+                          borderRadius: '10px',
+                          padding: '14px 18px',
+                          display: 'flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '10px',
+                          color: '#166534',
+                          fontSize: '13px',
+                          fontWeight: 600,
                         }}
                       >
-                        {verifying ? 'Running AI Verification...' : '↻ Re-run AI Evidence Verification'}
-                      </button>
+                        <CheckCircle2Icon size={20} color="#15803D" />
+                        <span>{verifyNotice.message}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                }
 
-                      {verifyNotice && (
-                        <span style={{ fontSize: '12px', color: '#166534', fontWeight: 600 }}>
-                          {verifyNotice}
-                        </span>
-                      )}
+                return (
+                  <div
+                    style={{
+                      background: isUnavailable ? '#FFFBEB' : '#FEF2F2',
+                      border: `1.5px solid ${isUnavailable ? '#FCD34D' : '#FCA5A5'}`,
+                      borderRadius: '10px',
+                      padding: '16px 20px',
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <AlertTriangleIcon size={22} color={isUnavailable ? '#D97706' : '#DC2626'} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: isUnavailable ? '#92400E' : '#991B1B', marginBottom: '4px' }}>
+                        {isUnavailable
+                          ? 'AI Evidence Verification Unavailable — Approval Blocked'
+                          : 'Evidence Contradiction / Quality Anomaly Flagged — Approval Blocked'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: isUnavailable ? '#78350F' : '#7F1D1D', lineHeight: 1.4 }}>
+                        {isUnavailable
+                          ? 'The AI verification microservice is temporarily unreachable or returned inconclusive results. Automatic approval, admin approval, and token settlement are strictly blocked until verification succeeds.'
+                          : 'Visual evidence contradicted task domain requirements or failed automated inspection criteria. Irrelevant or invalid evidence cannot be approved or promoted downstream.'}
+                      </div>
+
+                      <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRetryVerification(selectedSub.id)}
+                          disabled={verifying}
+                          style={{
+                            background: isUnavailable ? '#D97706' : '#DC2626',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px 14px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: verifying ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <RefreshCwIcon size={13} className={verifying ? 'animate-spin' : ''} />
+                          <span>{verifying ? 'Running AI Verification...' : '↻ Re-run AI Evidence Verification'}</span>
+                        </button>
+
+                        {verifyNotice && (
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              color: verifyNotice.type === 'success' ? '#166534' : verifyNotice.type === 'warning' ? '#92400E' : '#991B1B',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <span>{verifyNotice.type === 'success' ? '✓' : '⚠'}</span>
+                            <span>{verifyNotice.message}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Cross-Link Action: Open Corresponding Review Record in Reviews Queue */}
               <div
@@ -891,21 +1058,21 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
 
               {/* Card 3: Categorized Evidence Inspector (Photos, Documents, Links) */}
               <div className="table-container" style={{ padding: '20px 24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
                     Attached Evidence Packages ({selectedSub.media?.length || 0})
                   </h3>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '11px', color: '#64748B' }}>
-                      Photos: {selectedSub.media?.filter((m: any) => m.media_type?.startsWith('image/')).length || 0}
+                      Photos: {selectedSub.media?.filter(isEvidenceImage).length || 0}
                     </span>
                     <span style={{ fontSize: '11px', color: '#64748B' }}>•</span>
                     <span style={{ fontSize: '11px', color: '#64748B' }}>
-                      Docs: {selectedSub.media?.filter((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link).length || 0}
+                      Docs: {selectedSub.media?.filter(isEvidenceDocument).length || 0}
                     </span>
                     <span style={{ fontSize: '11px', color: '#64748B' }}>•</span>
                     <span style={{ fontSize: '11px', color: '#64748B' }}>
-                      Links: {selectedSub.media?.filter((m: any) => m.media_type === 'link' || m.metadata?.is_link).length || 0}
+                      Links: {selectedSub.media?.filter(isEvidenceLink).length || 0}
                     </span>
                   </div>
                 </div>
@@ -920,7 +1087,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {/* 1. Visual Photo Evidence */}
-                    {selectedSub.media.some((m: any) => m.media_type?.startsWith('image/')) && (
+                    {selectedSub.media.some(isEvidenceImage) && (
                       <div>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>📸 Visual Photographic Evidence</span>
@@ -930,37 +1097,70 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                           {selectedSub.media
-                            .filter((m: any) => m.media_type?.startsWith('image/'))
+                            .filter(isEvidenceImage)
                             .map((med: any, idx: number) => {
-                              const base64Data = med.metadata?.image_base64 || med.metadata?.base64;
-                              const imgSrc = base64Data
-                                ? (base64Data.startsWith('data:') ? base64Data : `data:image/jpeg;base64,${base64Data}`)
-                                : `${API_BASE_URL}/submissions/${selectedSub.id}/media/${med.id}/content`;
+                              const imgSrc = getResolvedMediaUrl(med, selectedSub.id);
+                              const fileName = med.metadata?.file_name || med.metadata?.filename || (med.storage_key ? med.storage_key.split('/').pop() : `Photo ${idx + 1}`);
+                              const fileSize = med.metadata?.file_size_bytes || med.metadata?.file_size;
 
                               return (
                                 <div key={med.id || idx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden', background: '#FFFFFF' }}>
                                   <div
-                                    style={{ height: '140px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}
-                                    onClick={() => setActivePhotoUrl(imgSrc)}
+                                    style={{ height: '140px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
+                                    onClick={() => {
+                                      setActiveEvidence({
+                                        url: imgSrc,
+                                        fileName,
+                                        fileSize,
+                                        mediaType: med.media_type || 'image/jpeg',
+                                        id: med.id,
+                                        storageKey: med.storage_key,
+                                      });
+                                      setPreviewLoading(true);
+                                      setPreviewError(false);
+                                    }}
                                   >
                                     <img
                                       src={imgSrc}
-                                      alt={`Evidence ${idx + 1}`}
+                                      alt={fileName}
                                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                       onError={(e) => {
-                                        // Fallback if image content requires auth header
                                         (e.target as HTMLElement).style.display = 'none';
+                                        const fallback = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.thumbnail-fallback');
+                                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
                                       }}
                                     />
+                                    <div
+                                      className="thumbnail-fallback"
+                                      style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#94A3B8', height: '100%', width: '100%', padding: '10px', textAlign: 'center' }}
+                                    >
+                                      <CameraIcon size={24} />
+                                      <span style={{ fontSize: '11px' }}>Click to inspect preview</span>
+                                    </div>
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        bottom: '6px',
+                                        right: '6px',
+                                        background: 'rgba(0,0,0,0.65)',
+                                        color: '#FFFFFF',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Zoom ↗
+                                    </div>
                                   </div>
                                   <div style={{ padding: '10px 12px' }}>
-                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                      {med.metadata?.file_name || `Photo ${idx + 1}`}
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={fileName}>
+                                      {fileName}
                                     </div>
                                     <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', display: 'flex', justifyContent: 'space-between' }}>
                                       <span>{med.media_type || 'image/jpeg'}</span>
-                                      {med.metadata?.file_size_bytes && (
-                                        <span>{(med.metadata.file_size_bytes / 1024).toFixed(0)} KB</span>
+                                      {fileSize && (
+                                        <span>{(fileSize / 1024).toFixed(0)} KB</span>
                                       )}
                                     </div>
                                   </div>
@@ -972,7 +1172,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     )}
 
                     {/* 2. Uploaded Supporting Documents */}
-                    {selectedSub.media.some((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link) && (
+                    {selectedSub.media.some(isEvidenceDocument) && (
                       <div>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>📄 Supporting Documents (PDF, DOCX, CSV, XLSX)</span>
@@ -982,20 +1182,21 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
                           {selectedSub.media
-                            .filter((m: any) => !m.media_type?.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link)
+                            .filter(isEvidenceDocument)
                             .map((med: any, idx: number) => {
-                              const fname = med.metadata?.file_name || med.metadata?.filename || `Document ${idx + 1}`;
-                              const fsize = med.metadata?.file_size_bytes ? `${(med.metadata.file_size_bytes / 1024).toFixed(1)} KB` : 'Attached File';
-                              const downloadUrl = `${API_BASE_URL}/submissions/${selectedSub.id}/media/${med.id}/content`;
+                              const fname = med.metadata?.file_name || med.metadata?.filename || (med.storage_key ? med.storage_key.split('/').pop() : `Document ${idx + 1}`);
+                              const fsize = med.metadata?.file_size_bytes || med.metadata?.file_size;
+                              const fsizeStr = fsize ? `${(fsize / 1024).toFixed(1)} KB` : 'Attached File';
+                              const downloadUrl = getResolvedMediaUrl(med, selectedSub.id);
 
                               return (
-                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div>
-                                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={fname}>
                                       📄 {fname}
                                     </div>
-                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                                      Type: {med.media_type} • {fsize}
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                      Type: {med.media_type || 'Document'} • {fsizeStr}
                                     </div>
                                     <div style={{ fontSize: '10px', color: '#15803D', fontWeight: 600, marginTop: '2px' }}>
                                       ✓ Verified Document Evidence
@@ -1004,9 +1205,10 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                                   <a
                                     href={downloadUrl}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
+                                    download={fname}
                                     className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '11px', padding: '4px 8px', textDecoration: 'none' }}
+                                    style={{ fontSize: '11px', padding: '4px 10px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
                                   >
                                     Download ⬇
                                   </a>
@@ -1018,7 +1220,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     )}
 
                     {/* 3. Evidence Links */}
-                    {selectedSub.media.some((m: any) => m.media_type === 'link' || m.metadata?.is_link) && (
+                    {selectedSub.media.some(isEvidenceLink) && (
                       <div>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>🔗 Evidence Links (Registry &amp; Spatial Portals)</span>
@@ -1028,36 +1230,54 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
                           {selectedSub.media
-                            .filter((m: any) => m.media_type === 'link' || m.metadata?.is_link)
+                            .filter(isEvidenceLink)
                             .map((med: any, idx: number) => {
-                              const linkUrl = med.metadata?.url || med.storage_key;
-                              const hostname = med.metadata?.hostname || 'External Portal';
-                              const title = med.metadata?.title || linkUrl;
+                              const rawUrl = med.url || med.metadata?.url || (typeof med.storage_key === 'string' && med.storage_key.startsWith('http') ? med.storage_key : '');
+                              let safeUrl = rawUrl;
+                              if (safeUrl && !safeUrl.startsWith('http://') && !safeUrl.startsWith('https://')) {
+                                safeUrl = `https://${safeUrl}`;
+                              }
+                              let hostname = med.metadata?.hostname;
+                              if (!hostname && safeUrl) {
+                                try {
+                                  hostname = new URL(safeUrl).hostname;
+                                } catch {
+                                  hostname = 'External Portal';
+                                }
+                              }
+                              const title = med.metadata?.title || med.file_name || hostname || 'External Evidence Citation';
 
                               return (
-                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div style={{ flex: 1, marginRight: '10px', overflow: 'hidden' }}>
+                                <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: 700, background: '#EFF6FF', color: '#1D4ED8', padding: '1px 6px', borderRadius: '4px' }}>
-                                        {hostname}
+                                        {hostname || 'Web Link'}
                                       </span>
                                     </div>
-                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={title}>
                                       {title}
                                     </div>
-                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                      {linkUrl}
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', wordBreak: 'break-all' }} title={safeUrl}>
+                                      {safeUrl || 'Attached external evidence link'}
                                     </div>
                                   </div>
-                                  <a
-                                    href={linkUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '11px', padding: '4px 8px', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                                  >
-                                    Open Link ↗
-                                  </a>
+                                  {safeUrl ? (
+                                    <a
+                                      href={safeUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ fontSize: '11px', padding: '4px 10px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                      <ArrowUpRightIcon size={12} />
+                                      <span>Open Link</span>
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>
+                                      No URL
+                                    </span>
+                                  )}
                                 </div>
                               );
                             })}
@@ -1179,33 +1399,198 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
         </div>
       )}
 
-      {/* Photo Modal */}
-      {activePhotoUrl && (
-        <div className="modal-overlay" onClick={() => setActivePhotoUrl(null)}>
-          <div style={{ maxWidth: '90vw', maxHeight: '90vh', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-            <img
-              src={activePhotoUrl}
-              alt="Enlarged Ground Evidence"
-              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '8px', objectFit: 'contain' }}
-            />
-            <button
-              type="button"
-              onClick={() => setActivePhotoUrl(null)}
+      {/* Enhanced Photo / Evidence Modal */}
+      {activeEvidence && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setActiveEvidence(null);
+            setPreviewError(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ground Evidence Preview"
+        >
+          <div
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              width: 'auto',
+              background: '#0F172A',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
               style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'rgba(0,0,0,0.7)',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
+                padding: '12px 18px',
+                background: '#1E293B',
+                borderBottom: '1px solid #334155',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
               }}
             >
-              ✕
-            </button>
+              <div style={{ overflow: 'hidden', flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#F8FAFC', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {activeEvidence.fileName || 'Ground Observation Evidence'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                  <span>{activeEvidence.mediaType || 'image/jpeg'}</span>
+                  {activeEvidence.fileSize && (
+                    <>
+                      <span>•</span>
+                      <span>
+                        {typeof activeEvidence.fileSize === 'number'
+                          ? `${(activeEvidence.fileSize / 1024).toFixed(0)} KB`
+                          : activeEvidence.fileSize}
+                      </span>
+                    </>
+                  )}
+                  {activeEvidence.storageKey && (
+                    <>
+                      <span>•</span>
+                      <span style={{ fontFamily: 'monospace' }}>{activeEvidence.storageKey.split('/').pop()}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <a
+                  href={activeEvidence.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    background: '#334155',
+                    color: '#F8FAFC',
+                    borderColor: '#475569',
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  download={activeEvidence.fileName}
+                >
+                  <ArrowUpRightIcon size={12} />
+                  <span>Open Full / Download</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveEvidence(null);
+                    setPreviewError(false);
+                  }}
+                  aria-label="Close preview modal"
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#F8FAFC',
+                    border: 'none',
+                    borderRadius: '6px',
+                    width: '28px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Image Preview / Loading / Fallback */}
+            <div
+              style={{
+                position: 'relative',
+                minWidth: '320px',
+                minHeight: '260px',
+                maxWidth: '90vw',
+                maxHeight: 'calc(88vh - 60px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '16px',
+                background: '#0B0F19',
+              }}
+            >
+              {previewLoading && !previewError && (
+                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#94A3B8', fontSize: '12px' }}>
+                  <RefreshCwIcon size={24} className="animate-spin" color="#6366F1" />
+                  <span>Loading ground evidence preview...</span>
+                </div>
+              )}
+
+              {previewError ? (
+                <div style={{ padding: '36px 24px', textAlign: 'center', color: '#CBD5E1', maxWidth: '420px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <AlertTriangleIcon size={24} />
+                  </div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#F8FAFC', marginBottom: '6px' }}>
+                    Evidence Preview Unavailable
+                  </h4>
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: 1.5, marginBottom: '16px' }}>
+                    The evidence image could not be loaded into the browser viewport. The file may be in private persistent storage, pending synchronization, or in an external format.
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewError(false);
+                        setPreviewLoading(true);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ background: '#1E293B', color: '#F8FAFC', borderColor: '#334155', fontSize: '12px' }}
+                    >
+                      <RefreshCwIcon size={12} />
+                      <span>Retry Loading</span>
+                    </button>
+                    <a
+                      href={activeEvidence.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '12px', textDecoration: 'none' }}
+                    >
+                      Direct Download / Inspect ↗
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={activeEvidence.url}
+                  alt={activeEvidence.fileName || 'Enlarged Ground Evidence'}
+                  onLoad={() => {
+                    setPreviewLoading(false);
+                    setPreviewError(false);
+                  }}
+                  onError={() => {
+                    setPreviewLoading(false);
+                    setPreviewError(true);
+                  }}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: 'calc(85vh - 70px)',
+                    borderRadius: '6px',
+                    objectFit: 'contain',
+                    display: previewLoading ? 'none' : 'block',
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

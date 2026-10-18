@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.database.models.user import User
 from app.database.models.submission import Submission
-from app.core.security import get_current_user, require_role
+from app.core.security import get_current_user, require_role, get_current_user_from_header_or_query
 from app.core.storage import (
     generate_presigned_upload,
     verify_local_hmac_token,
@@ -252,17 +252,24 @@ def remove_submission_media(
     "/submissions/{submission_id}/media/{media_id}/content",
     summary="Securely view or download an authorized evidence document/photo",
 )
+@router.get(
+    "/admin/submissions/{submission_id}/media/{media_id}/content",
+    summary="Securely view or download an authorized evidence document/photo (admin alias)",
+)
 def get_media_content(
     submission_id: uuid.UUID = Path(..., description="Submission UUID"),
     media_id: uuid.UUID = Path(..., description="Media UUID"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_header_or_query),
     db: Session = Depends(get_db),
 ):
     """Stream authorized evidence file to authenticated contributor or reviewer."""
-    from fastapi.responses import FileResponse, RedirectResponse
+    from fastapi.responses import FileResponse, RedirectResponse, Response
     from app.database.models.submission_media import SubmissionMedia
     from app.core.storage import get_safe_local_path
+    from app.core.config import settings
     import os
+    import base64
+    from pathlib import Path
 
     sub = db.query(Submission).filter(Submission.id == submission_id).first()
     if not sub:
@@ -278,23 +285,76 @@ def get_media_content(
         raise HTTPException(status_code=404, detail="Media record not found")
 
     meta = m.media_metadata or {}
-    if m.media_type == "link" or meta.get("is_link"):
-        url = meta.get("url")
+
+    # 1. External link redirection
+    if m.media_type == "link" or meta.get("is_link") or (m.storage_key and m.storage_key.startswith("links/")):
+        url = meta.get("url") or (m.storage_key if m.storage_key.startswith("http") else None)
         if url:
+            if not url.startswith(("http://", "https://")):
+                url = f"https://{url}"
             return RedirectResponse(url)
         raise HTTPException(status_code=400, detail="Invalid link metadata")
 
-    try:
-        local_path = get_safe_local_path(m.storage_key)
-        if local_path.exists():
-            fname = meta.get("file_name") or os.path.basename(m.storage_key)
-            return FileResponse(
-                path=str(local_path),
-                media_type=m.media_type or "application/octet-stream",
-                filename=fname,
+    # 2. Direct external or presigned cloud URL (e.g. S3 / Supabase Storage / Cloudflare R2)
+    direct_url = meta.get("url") or meta.get("external_url")
+    if direct_url and isinstance(direct_url, str) and direct_url.startswith(("http://", "https://")):
+        return RedirectResponse(direct_url)
+
+    # 3. Embedded base64 image or document content
+    b64_str = meta.get("image_base64") or meta.get("base64")
+    if b64_str and isinstance(b64_str, str):
+        try:
+            if "," in b64_str:
+                b64_str = b64_str.split(",", 1)[1]
+            raw_bytes = base64.b64decode(b64_str)
+            fname = meta.get("file_name") or "evidence.jpg"
+            return Response(
+                content=raw_bytes,
+                media_type=m.media_type or "image/jpeg",
+                headers={
+                    "Content-Disposition": f'inline; filename="{fname}"',
+                    "Cache-Control": "private, max-age=3600",
+                },
             )
-    except Exception:
-        pass
+        except Exception:
+            pass
+
+    # 4. Local storage file resolution (with path traversal guard and candidate paths)
+    fname = meta.get("file_name") or os.path.basename(m.storage_key)
+    target_path = None
+
+    if m.storage_key:
+        try:
+            local_p = get_safe_local_path(m.storage_key)
+            if local_p.exists():
+                target_path = local_p
+        except Exception:
+            pass
+
+        if not target_path:
+            candidates = [
+                Path(getattr(settings, "STORAGE_PERSISTENT_DIR", "storage/media")).resolve() / m.storage_key.lstrip("/\\"),
+                Path("storage/media").resolve() / m.storage_key.lstrip("/\\"),
+                Path("../storage/media").resolve() / m.storage_key.lstrip("/\\"),
+                Path("../../storage/media").resolve() / m.storage_key.lstrip("/\\"),
+            ]
+            for cand in candidates:
+                if cand.exists():
+                    target_path = cand
+                    break
+
+    # 5. Metadata explicit file_path fallback
+    if not target_path and meta.get("file_path"):
+        cand_p = Path(meta.get("file_path"))
+        if cand_p.exists():
+            target_path = cand_p
+
+    if target_path and target_path.exists():
+        return FileResponse(
+            path=str(target_path),
+            media_type=m.media_type or "application/octet-stream",
+            filename=fname,
+        )
 
     raise HTTPException(status_code=404, detail="Evidence content not found in persistent storage")
 

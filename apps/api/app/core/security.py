@@ -2,13 +2,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
 import bcrypt
 from jose import jwt, JWTError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.database.session import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
@@ -46,11 +47,8 @@ def create_access_token(subject: str, role: str, expires_delta: Optional[timedel
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
-    """Dependency that decodes bearer JWT and retrieves the active user."""
+def verify_token_and_get_user(token: str, db: Session):
+    """Verify a JWT or Horizon admin session token and return the active user."""
     from app.database.models.user import User
 
     credentials_exception = HTTPException(
@@ -94,6 +92,30 @@ def get_current_user(
             detail="User account is suspended or inactive",
         )
     return user
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    """Dependency that decodes bearer JWT and retrieves the active user."""
+    return verify_token_and_get_user(token, db)
+
+
+def get_current_user_from_header_or_query(
+    auth_header_token: Optional[str] = Depends(oauth2_scheme_optional),
+    token: Optional[str] = Query(None, description="Auth token for direct media preview"),
+    db: Session = Depends(get_db),
+):
+    """Dependency that accepts JWT or admin session token via either Authorization header or query param."""
+    effective_token = auth_header_token or token
+    if not effective_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication credentials were not provided",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return verify_token_and_get_user(effective_token, db)
 
 
 def require_role(*required_roles):

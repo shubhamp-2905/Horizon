@@ -48,9 +48,9 @@ def _submission_to_response(sub: Submission) -> SubmissionResponse:
     if sub.media:
         for m in sub.media:
             meta = m.media_metadata or {}
-            is_link = (m.media_type == "link") or bool(meta.get("is_link"))
-            link_url = meta.get("url") if is_link else None
-            fname = meta.get("file_name") or meta.get("filename") or (os.path.basename(m.storage_key) if not is_link else meta.get("title", "Evidence Link"))
+            is_link = (m.media_type == "link") or bool(meta.get("is_link")) or bool(m.storage_key and m.storage_key.startswith("links/"))
+            link_url = meta.get("url") or meta.get("external_url") or (m.storage_key if (m.storage_key and m.storage_key.startswith("http")) else None)
+            fname = meta.get("file_name") or meta.get("filename") or (os.path.basename(m.storage_key) if not is_link else meta.get("title", link_url or "Evidence Link"))
             fsize = meta.get("file_size_bytes") or meta.get("file_size")
             media_list.append(
                 SubmissionMediaResponse(
