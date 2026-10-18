@@ -1291,9 +1291,30 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                       <AlertTriangleIcon size={16} color="#D97706" />
                       <span>AI Evidence Verification Unavailable — Approval Blocked</span>
                     </div>
-                    <div style={{ fontSize: '12px', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: '12px', lineHeight: 1.5, marginBottom: '12px' }}>
                       The AI verification microservice is unreachable or returned inconclusive results. Automatic approval and standard settlement are strictly blocked until verification succeeds or an audited override is executed.
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleReverify(selectedReview.submission_id)}
+                      disabled={Boolean(reverifyingId)}
+                      style={{
+                        background: '#D97706',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: reverifyingId ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <RefreshCwIcon size={13} className={reverifyingId === selectedReview.submission_id ? 'animate-spin' : ''} />
+                      <span>{reverifyingId === selectedReview.submission_id ? 'Running AI Verification...' : '↻ Re-run AI Evidence Verification'}</span>
+                    </button>
                   </div>
                 )}
 
@@ -1312,9 +1333,30 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                       <AlertTriangleIcon size={16} />
                       <span>Automated Verification Safeguard Triggered</span>
                     </div>
-                    <div style={{ fontSize: '12px', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: '12px', lineHeight: 1.5, marginBottom: '12px' }}>
                       One or more mandatory automated validation checks failed. Normal admin approval is blocked unless an explicit, audited override is executed.
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleReverify(selectedReview.submission_id)}
+                      disabled={Boolean(reverifyingId)}
+                      style={{
+                        background: '#DC2626',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: reverifyingId ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <RefreshCwIcon size={13} className={reverifyingId === selectedReview.submission_id ? 'animate-spin' : ''} />
+                      <span>{reverifyingId === selectedReview.submission_id ? 'Running AI Verification...' : '↻ Re-run AI Evidence Verification'}</span>
+                    </button>
                   </div>
                 )}
 

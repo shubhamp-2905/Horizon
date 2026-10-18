@@ -276,7 +276,8 @@ class AIValidationService:
 
         for attempt in range(max_retries + 1):
             try:
-                with httpx.Client(timeout=timeout_sec) as client:
+                client_timeout = httpx.Timeout(timeout=timeout_sec, connect=min(2.5, timeout_sec))
+                with httpx.Client(timeout=client_timeout) as client:
                     # Prefer comprehensive evidence endpoint
                     resp = client.post(f"{base_url}/evidence/evaluate", json=request_body, headers=headers)
                     if resp.status_code == 200:
