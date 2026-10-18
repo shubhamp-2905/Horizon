@@ -53,12 +53,15 @@ class TaskFormFieldDefinition(BaseModel):
     required: bool = True
     options: Optional[List[str]] = None
     placeholder: Optional[str] = None
-    section: Optional[str] = None  # Tenure & Governance, Environmental & Climatic, Development Suitability
+    section_id: Optional[str] = None
+    section_title: Optional[str] = None
+    subcategory: Optional[str] = None
     factor_type: Optional[str] = None  # Risk, Opportunity
     metric: Optional[str] = None
     scoring_method: Optional[str] = None
     source: Optional[str] = None
     description: Optional[str] = None
+    help_text: Optional[str] = None
 
 
 class TaskFormSchemaResponse(BaseModel):

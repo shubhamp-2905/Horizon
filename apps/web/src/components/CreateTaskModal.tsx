@@ -7,6 +7,7 @@ import {
   SPREADSHEET_PROJECT_TYPES,
   SPREADSHEET_SECTIONS,
   SPREADSHEET_FACTORS,
+  EXCLUDED_YELLOW_FACTORS,
   type SpreadsheetFactor,
   type SpreadsheetSection,
   type SpreadsheetProjectType,
@@ -468,6 +469,25 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     <span style={{ fontSize: '11px', color: '#64748B' }}>Source: Tab 2</span>
                   </div>
 
+                  {/* Informational Notice: 10 Field Questions vs 6 Automated Factors */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    marginBottom: '10px',
+                    fontSize: '11px',
+                    color: '#166534',
+                  }}>
+                    <span>💡</span>
+                    <span>
+                      Contributor field survey is streamlined to a <strong>maximum of 10 observable questions</strong>. The 6 yellow-highlighted factors and GIS metrics are processed by automated backend pipelines.
+                    </span>
+                  </div>
+
                   {/* Domain Tabs */}
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                     {SPREADSHEET_SECTIONS.map((sec: SpreadsheetSection) => {
@@ -541,6 +561,19 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                               }}>
                                 {factor.factor_type}
                               </span>
+                              {EXCLUDED_YELLOW_FACTORS.some((yf) => yf.factor.toLowerCase() === factor.label.toLowerCase()) && (
+                                <span style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 700,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: '#FEF9C3',
+                                  color: '#854D0E',
+                                  border: '1px solid #FDE047',
+                                }}>
+                                  Automated GIS
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
                               <strong>Metric:</strong> {factor.metric}
@@ -671,82 +704,152 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                 {/* 4. Task Economics */}
                 <div className="form-section">
-                  <div className="form-section-title">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>4</span>
-                    <span>Task Economics</span>
+                  <div className="form-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>4</span>
+                      <span>Task Economics &amp; Incentives</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#15803D', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                      Horizon Escrow Protocol
+                    </span>
                   </div>
-                  <div className="form-grid" style={{ marginBottom: '14px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Base Reward (Tokens)
-                        {renderInfoIcon('baseReward', 'left')}
-                      </label>
-                      <input
-                        type="number"
-                        className="form-input-text"
-                        value={baseReward}
-                        onChange={(e) => setBaseReward(e.target.value)}
-                      />
+
+                  {/* Polished, Aligned Economics Card Container */}
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Row 1: Token Rewards & Commitment Stake */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px', marginBottom: '6px' }}>
+                          <label className="form-label" style={{ marginBottom: 0, fontSize: '12px', fontWeight: 600, color: '#344054' }}>
+                            Base Reward (Tokens)
+                          </label>
+                          {renderInfoIcon('baseReward', 'left')}
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            className="form-input-text"
+                            value={baseReward}
+                            onChange={(e) => setBaseReward(e.target.value)}
+                            style={{ height: '42px', boxSizing: 'border-box', width: '100%', fontSize: '13px', paddingRight: '48px', borderRadius: '8px', border: '1px solid #D0D5DD', background: '#FFFFFF' }}
+                            placeholder="50"
+                            min={1}
+                          />
+                          <span style={{ position: 'absolute', right: '12px', fontSize: '11px', fontWeight: 700, color: '#15803D', pointerEvents: 'none' }}>
+                            TKN
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px', marginBottom: '6px' }}>
+                          <label className="form-label" style={{ marginBottom: 0, fontSize: '12px', fontWeight: 600, color: '#344054' }}>
+                            Commitment Stake (Tokens)
+                          </label>
+                          {renderInfoIcon('commitmentStake', 'right')}
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            className="form-input-text"
+                            value={commitmentStake}
+                            onChange={(e) => setCommitmentStake(e.target.value)}
+                            style={{ height: '42px', boxSizing: 'border-box', width: '100%', fontSize: '13px', paddingRight: '48px', borderRadius: '8px', border: '1px solid #D0D5DD', background: '#FFFFFF' }}
+                            placeholder="10"
+                            min={0}
+                          />
+                          <span style={{ position: 'absolute', right: '12px', fontSize: '11px', fontWeight: 700, color: '#B45309', pointerEvents: 'none' }}>
+                            TKN
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Commitment Stake (Tokens)
-                        {renderInfoIcon('commitmentStake', 'right')}
-                      </label>
-                      <input
-                        type="number"
-                        className="form-input-text"
-                        value={commitmentStake}
-                        onChange={(e) => setCommitmentStake(e.target.value)}
-                      />
+
+                    {/* Row 2: Difficulty, Scarcity, and Estimated Effort (Strictly Aligned) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px', marginBottom: '6px' }}>
+                          <label className="form-label" style={{ marginBottom: 0, fontSize: '12px', fontWeight: 600, color: '#344054', whiteSpace: 'nowrap' }}>
+                            Task Difficulty
+                          </label>
+                          {renderInfoIcon('taskDifficulty', 'left')}
+                        </div>
+                        <select
+                          className="form-select"
+                          value={difficultyLevel}
+                          onChange={(e) => setDifficultyLevel(e.target.value as DifficultyLevel)}
+                          aria-label="Task Difficulty"
+                          style={{ height: '42px', boxSizing: 'border-box', width: '100%', fontSize: '13px', borderRadius: '8px', border: '1px solid #D0D5DD', background: '#FFFFFF', padding: '0 10px' }}
+                        >
+                          <option value="easy">Easy (1.0x)</option>
+                          <option value="medium">Medium (2.5x)</option>
+                          <option value="hard">Hard (4.0x)</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px', marginBottom: '6px' }}>
+                          <label className="form-label" style={{ marginBottom: 0, fontSize: '12px', fontWeight: 600, color: '#344054', whiteSpace: 'nowrap' }}>
+                            Data Scarcity
+                          </label>
+                          {renderInfoIcon('dataScarcity', 'center')}
+                        </div>
+                        <select
+                          className="form-select"
+                          value={dataScarcity}
+                          onChange={(e) => setDataScarcity(e.target.value as DataScarcityLevel)}
+                          aria-label="Data Scarcity"
+                          style={{ height: '42px', boxSizing: 'border-box', width: '100%', fontSize: '13px', borderRadius: '8px', border: '1px solid #D0D5DD', background: '#FFFFFF', padding: '0 10px' }}
+                        >
+                          <option value="readily_available">Readily Available</option>
+                          <option value="limited">Limited</option>
+                          <option value="rare">Rare</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px', marginBottom: '6px' }}>
+                          <label className="form-label" style={{ marginBottom: 0, fontSize: '12px', fontWeight: 600, color: '#344054', whiteSpace: 'nowrap' }}>
+                            Estimated Effort (min)
+                          </label>
+                          {renderInfoIcon('estimatedEffort', 'right')}
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            className="form-input-text"
+                            value={effortMinutes}
+                            onChange={(e) => setEffortMinutes(e.target.value)}
+                            placeholder="45"
+                            min={5}
+                            style={{ height: '42px', boxSizing: 'border-box', width: '100%', fontSize: '13px', paddingRight: '40px', borderRadius: '8px', border: '1px solid #D0D5DD', background: '#FFFFFF' }}
+                          />
+                          <span style={{ position: 'absolute', right: '12px', fontSize: '11px', color: '#64748B', pointerEvents: 'none' }}>
+                            min
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Task Difficulty
-                        {renderInfoIcon('taskDifficulty', 'left')}
-                      </label>
-                      <select
-                        className="form-select"
-                        value={difficultyLevel}
-                        onChange={(e) => setDifficultyLevel(e.target.value as DifficultyLevel)}
-                        aria-label="Task Difficulty"
-                      >
-                        <option value="easy">Easy</option>
-                        <option value="medium">Medium</option>
-                        <option value="hard">Hard</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Data Scarcity
-                        {renderInfoIcon('dataScarcity', 'center')}
-                      </label>
-                      <select
-                        className="form-select"
-                        value={dataScarcity}
-                        onChange={(e) => setDataScarcity(e.target.value as DataScarcityLevel)}
-                        aria-label="Data Scarcity"
-                      >
-                        <option value="readily_available">Readily Available</option>
-                        <option value="limited">Limited</option>
-                        <option value="rare">Rare</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                        Estimated Effort (minutes)
-                        {renderInfoIcon('estimatedEffort', 'right')}
-                      </label>
-                      <input
-                        type="number"
-                        className="form-input-text"
-                        value={effortMinutes}
-                        onChange={(e) => setEffortMinutes(e.target.value)}
-                        placeholder="45"
-                        min={5}
-                      />
+
+                    {/* Row 3: Live Financial Economics Live Metrics */}
+                    <div style={{ paddingTop: '10px', borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>⚡ Hourly Payout Rate:</span>
+                        <strong style={{ color: '#15803D', fontWeight: 700 }}>
+                          {effortMinutes && Number(effortMinutes) > 0
+                            ? `~${((Number(baseReward) || 0) / (Number(effortMinutes) / 60)).toFixed(0)} TKN/hr`
+                            : '—'}
+                        </strong>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🔒 Commitment Stake Ratio:</span>
+                        <strong style={{ color: '#B45309', fontWeight: 700 }}>
+                          {baseReward && Number(baseReward) > 0
+                            ? `${(((Number(commitmentStake) || 0) / Number(baseReward)) * 100).toFixed(0)}%`
+                            : '0%'}
+                        </strong>
+                        <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>(refunded upon approval)</span>
+                      </div>
                     </div>
                   </div>
                 </div>

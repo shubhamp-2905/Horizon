@@ -364,6 +364,7 @@ export interface TaskFormFieldDefinitionDTO {
   section_id?: string;
   section_title?: string;
   section?: string;
+  subcategory?: string;
   factor_type?: 'Risk' | 'Opportunity' | string;
   metric?: string;
   scoring_method?: string;
