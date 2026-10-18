@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Path, Query, status, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.database.session import get_db
 from app.database.models.user import User
@@ -305,14 +305,17 @@ def admin_list_reviews(
     from app.modules.submissions.service import _extract_coordinates
     from app.modules.consensus.schemas import AdminReviewSummaryCounts
 
-    # Base query across all submitted observations (excluding unfinished drafts)
+    # Base query across all submitted observations (excluding unfinished drafts) with eager loaded relationships
     base_query = (
         db.query(Submission)
+        .options(
+            joinedload(Submission.task),
+            joinedload(Submission.user),
+            joinedload(Submission.verification),
+            joinedload(Submission.consensus_record),
+            selectinload(Submission.media),
+        )
         .filter(Submission.status != "draft")
-        .outerjoin(Task, Submission.task_id == Task.id)
-        .outerjoin(User, Submission.user_id == User.id)
-        .outerjoin(Verification, Submission.id == Verification.submission_id)
-        .outerjoin(ConsensusRecord, Submission.id == ConsensusRecord.submission_id)
     )
 
     all_subs = base_query.all()

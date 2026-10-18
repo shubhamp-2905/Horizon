@@ -97,23 +97,57 @@ def admin_get_system_stats(
     from app.database.models.token import TokenAccount
     from sqlalchemy import func
 
-    total_tasks = db.query(Task).count()
-    active_tasks = db.query(Task).filter(Task.status == "published").count()
+    task_counts_raw = (
+        db.query(Task.status, func.count(Task.id))
+        .group_by(Task.status)
+        .all()
+    )
+    task_counts = {st: cnt for st, cnt in task_counts_raw}
+    total_tasks = sum(task_counts.values())
+    active_tasks = task_counts.get("published", 0)
 
-    total_submissions = db.query(Submission).count()
-    pending_submissions = db.query(Submission).filter(Submission.status.in_(["submitted", "validating", "pending_verification"])).count()
-    awaiting_review = db.query(Submission).filter(Submission.status.in_(["under_review", "pending_admin_review"])).count()
-    approved_count = db.query(Submission).filter(Submission.status.in_(["approved", "verified"])).count()
-    rejected_count = db.query(Submission).filter(Submission.status == "rejected").count()
-    flagged_count = db.query(Submission).filter(Submission.status.in_(["flagged", "verification_failed", "verification_unavailable"])).count()
+    sub_counts_raw = (
+        db.query(Submission.status, func.count(Submission.id))
+        .group_by(Submission.status)
+        .all()
+    )
+    sub_counts = {st: cnt for st, cnt in sub_counts_raw}
+    total_submissions = sum(sub_counts.values())
+    pending_submissions = (
+        sub_counts.get("submitted", 0)
+        + sub_counts.get("validating", 0)
+        + sub_counts.get("pending_verification", 0)
+    )
+    awaiting_review = (
+        sub_counts.get("under_review", 0)
+        + sub_counts.get("pending_admin_review", 0)
+    )
+    approved_count = (
+        sub_counts.get("approved", 0)
+        + sub_counts.get("verified", 0)
+    )
+    rejected_count = sub_counts.get("rejected", 0)
+    flagged_count = (
+        sub_counts.get("flagged", 0)
+        + sub_counts.get("verification_failed", 0)
+        + sub_counts.get("verification_unavailable", 0)
+    )
 
-    # Also check verification records
-    if approved_count == 0:
-        approved_count = db.query(Verification).filter(Verification.status == "approved").count()
-    if rejected_count == 0:
-        rejected_count = db.query(Verification).filter(Verification.status == "rejected").count()
+    # Check verification records if approved or rejected count is zero
+    if approved_count == 0 or rejected_count == 0:
+        ver_counts_raw = (
+            db.query(Verification.status, func.count(Verification.id))
+            .filter(Verification.status.in_(["approved", "rejected"]))
+            .group_by(Verification.status)
+            .all()
+        )
+        ver_counts = {st: cnt for st, cnt in ver_counts_raw}
+        if approved_count == 0:
+            approved_count = ver_counts.get("approved", 0)
+        if rejected_count == 0:
+            rejected_count = ver_counts.get("rejected", 0)
 
-    total_contributors = db.query(User).filter(User.role == "contributor").count()
+    total_contributors = db.query(func.count(User.id)).filter(User.role == "contributor").scalar() or 0
     total_tokens = db.query(func.coalesce(func.sum(TokenAccount.available_balance + TokenAccount.locked_balance), 0)).scalar() or 0
 
     # Calculate authoritative cumulative TKN distributed to non-admin members

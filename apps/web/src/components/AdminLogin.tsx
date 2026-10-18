@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoMark, ArrowRightIcon, ShieldCheckIcon, AlertTriangleIcon } from './Icons';
+import { LogoMark, ArrowRightIcon, ShieldCheckIcon, AlertTriangleIcon, ActivityIcon } from './Icons';
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://horizon-backend-api.onrender.com/api/v1').replace(/\/+$/, '');
 
@@ -11,6 +11,7 @@ export const AdminLogin: React.FC = () => {
   const [ident, setIdent] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -21,7 +22,12 @@ export const AdminLogin: React.FC = () => {
     }
 
     setLoading(true);
+    setIsWarmingUp(false);
     setErrorMsg(null);
+
+    const warmUpTimer = setTimeout(() => setIsWarmingUp(true), 3500);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -31,9 +37,13 @@ export const AdminLogin: React.FC = () => {
           email_or_username: ident.trim(),
           password: password,
         }),
-      }).catch(() => null);
+        signal: controller.signal,
+      });
 
-      if (res && res.ok) {
+      clearTimeout(warmUpTimer);
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
         const data = await res.json();
         // Check role
         if (data.user?.role !== 'admin' && data.user?.role !== 'reviewer') {
@@ -46,28 +56,30 @@ export const AdminLogin: React.FC = () => {
           localStorage.setItem('horizon_admin_user', JSON.stringify(data.user));
         }
         router.push('/admin');
-      } else if (res && res.status === 401) {
+      } else if (res.status === 401) {
         setErrorMsg('Invalid administrative credentials. Please verify your credentials.');
+      } else if (res.status === 403) {
+        setErrorMsg('Access denied. Administrator or reviewer privileges required.');
+      } else if (res.status === 429) {
+        setErrorMsg('Too many authentication attempts. Please wait a moment and try again.');
       } else {
-        // Fallback for staging/dev when API server is offline
-        const simulatedToken = `hzn_admin_token_${Date.now()}`;
-        const simulatedUser = {
-          id: 'admin-dev-001',
-          username: ident.trim() || 'admin',
-          email: 'admin@horizon.dev',
-          role: 'admin',
-          display_name: 'Operations Administrator',
-        };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('horizon_admin_token', simulatedToken);
-          localStorage.setItem('horizon_admin_user', JSON.stringify(simulatedUser));
-        }
-        router.push('/admin');
+        const errJson = await res.json().catch(() => null);
+        const detailMsg = typeof errJson?.detail === 'string' ? errJson.detail : (errJson?.detail?.message || null);
+        setErrorMsg(detailMsg || `Authentication server returned status ${res.status}. Please try again.`);
       }
-    } catch {
-      setErrorMsg('Network error connecting to authentication endpoint.');
+    } catch (err: any) {
+      clearTimeout(warmUpTimer);
+      clearTimeout(timeoutId);
+      if (err?.name === 'AbortError') {
+        setErrorMsg('Connection to authentication endpoint timed out (20s). If the backend is waking up, please retry in a few moments.');
+      } else {
+        setErrorMsg('Network error connecting to authentication endpoint. Please verify backend service connectivity.');
+      }
     } finally {
+      clearTimeout(warmUpTimer);
+      clearTimeout(timeoutId);
       setLoading(false);
+      setIsWarmingUp(false);
     }
   };
 
@@ -128,6 +140,27 @@ export const AdminLogin: React.FC = () => {
           </div>
         )}
 
+        {isWarmingUp && (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(37, 99, 235, 0.08)',
+              border: '1px solid rgba(37, 99, 235, 0.25)',
+              color: '#1D4ED8',
+              fontSize: '12px',
+              marginBottom: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              animation: 'pulse 2s infinite',
+            }}
+          >
+            <ActivityIcon size={16} />
+            <span>Connecting to backend services... If idle, the server on Render may take 10-15s to wake up.</span>
+          </div>
+        )}
+
         <form onSubmit={handleSignIn}>
           <div className="form-group">
             <label className="form-label" htmlFor="admin-ident">
@@ -170,7 +203,7 @@ export const AdminLogin: React.FC = () => {
             disabled={loading}
           >
             {loading ? (
-              <span>Authenticating...</span>
+              <span>{isWarmingUp ? 'Waking up server...' : 'Authenticating...'}</span>
             ) : (
               <>
                 <span>Sign In to Console</span>

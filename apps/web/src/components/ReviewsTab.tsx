@@ -18,6 +18,7 @@ import {
   RefreshCwIcon,
   CheckIcon,
   UploadCloudIcon,
+  ActivityIcon,
 } from './Icons';
 
 export interface AdminReviewRecord {
@@ -167,6 +168,8 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
     total: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isAuthoritativeSuccess, setIsAuthoritativeSuccess] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [reverifyingId, setReverifyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -257,21 +260,29 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
   }, [initialSelectedId]);
 
   // Primary Data Fetch: Query Authoritative /admin/reviews Endpoint
-  const fetchReviewsData = useCallback(async () => {
+  const fetchReviewsData = useCallback(async (isManual = false) => {
     try {
+      if (isManual) {
+        setIsRefreshing(true);
+      } else {
+        if (reviews.length === 0) setLoading(true);
+      }
       setError(null);
       const headers: Record<string, string> = {};
       const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       // Attempt 1: Authoritative /admin/reviews endpoint
       const res = await fetch(`${API_BASE_URL}/admin/reviews?page_size=50`, {
         headers,
         signal: controller.signal,
-      }).catch(() => null);
+      }).catch((err) => {
+        if (err?.name === 'AbortError') throw err;
+        return null;
+      });
 
       clearTimeout(timeoutId);
 
@@ -280,6 +291,8 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
         if (data && Array.isArray(data.reviews)) {
           const mappedRecords: AdminReviewRecord[] = data.reviews.map(normalizeReviewRecord);
           setReviews(mappedRecords);
+          setIsAuthoritativeSuccess(true);
+          setError(null);
 
           if (data.counts) {
             setCounts(data.counts);
@@ -313,6 +326,11 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
         }
       }
 
+      if (res && (res.status === 401 || res.status === 403)) {
+        setError('Your administrator session has expired or is unauthorized. Please sign in again.');
+        return;
+      }
+
       // Attempt 2 Fallback: Query /admin/submissions?page_size=50
       const subRes = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers }).catch(() => null);
       if (subRes && subRes.ok) {
@@ -320,6 +338,8 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
         if (subData && Array.isArray(subData.submissions)) {
           const mappedFallback: AdminReviewRecord[] = subData.submissions.map(normalizeReviewRecord);
           setReviews(mappedFallback);
+          setIsAuthoritativeSuccess(true);
+          setError(null);
 
           const computedCounts = {
             pending_admin_review: mappedFallback.filter((r) => r.submission_status === 'under_review' || r.submission_status === 'submitted').length,
@@ -345,14 +365,22 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
           } else {
             setSelectedReview((prev) => (prev ? mappedFallback.find((m) => m.id === prev.id) || mappedFallback[0] || null : mappedFallback[0] || null));
           }
+          return;
         }
       }
+
+      setError('Unable to load review records from server. Please check backend availability.');
     } catch (err: any) {
-      setError(err.message || 'Failed to load review records');
+      if (err?.name === 'AbortError') {
+        setError('Review queue request timed out (15s). The backend may be slow or spinning up.');
+      } else {
+        setError(err.message || 'Failed to load review records');
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [adminToken, initialSelectedId]);
+  }, [adminToken, initialSelectedId, reviews.length]);
 
   useEffect(() => {
     fetchReviewsData();
@@ -650,6 +678,41 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
         </div>
       </div>
 
+      {/* Sync Warning Banner if fetch failed but we have cached review records */}
+      {error && reviews.length > 0 && (
+        <div
+          style={{
+            padding: '12px 18px',
+            borderRadius: 'var(--radius-md)',
+            background: '#FFFBEB',
+            border: '1px solid #FCD34D',
+            color: '#92400E',
+            fontSize: '13px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertTriangleIcon size={18} color="#D97706" />
+            <span>
+              <strong>Sync Warning:</strong> {error} Displaying previously loaded data ({reviews.length} reviews).
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => fetchReviewsData(true)}
+            disabled={isRefreshing}
+            style={{ borderColor: '#D97706', color: '#92400E', whiteSpace: 'nowrap' }}
+          >
+            {isRefreshing ? 'Retrying...' : 'Retry Sync'}
+          </button>
+        </div>
+      )}
+
       {/* 2. Filter & Search Toolbar */}
       <div className="table-container" style={{ padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -700,41 +763,81 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
             </button>
           </div>
 
-          {/* Search Box */}
-          <div style={{ position: 'relative', width: '280px' }}>
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
-              <SearchIcon size={14} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search task, contributor, ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input"
-              style={{ paddingLeft: '32px', height: '34px', fontSize: '13px' }}
-            />
+          {/* Search Box & Manual Refresh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ position: 'relative', width: '280px' }}>
+              <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
+                <SearchIcon size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search task, contributor, ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '32px', height: '34px', fontSize: '13px' }}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => fetchReviewsData(true)}
+              disabled={loading || isRefreshing}
+              title="Refresh review queue from database"
+              style={{ height: '34px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCwIcon size={14} className={isRefreshing ? 'spin' : ''} />
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* 3. Main Workspace: Two-Column Admin Review Queue & Submission Inspector */}
-      {loading ? (
-        <div className="table-container" style={{ padding: '56px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: '#64748B' }}>Loading admin review queue and verification results...</div>
+      {loading && reviews.length === 0 ? (
+        <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px' }}>
+            <ActivityIcon size={24} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+            Loading Admin Review Queue...
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto' }}>
+            Querying submissions awaiting administrative verification and decision governance.
+          </p>
         </div>
-      ) : filteredReviews.length === 0 ? (
-        /* Honest Empty State */
+      ) : error && reviews.length === 0 ? (
+        <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <AlertTriangleIcon size={28} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+            Unable to Load Review Queue
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+            {error}
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => fetchReviewsData(true)}
+            disabled={isRefreshing}
+          >
+            <RefreshCwIcon size={14} className={isRefreshing ? 'spin' : ''} />
+            <span>{isRefreshing ? 'Retrying Connection...' : 'Retry Connection'}</span>
+          </button>
+        </div>
+      ) : isAuthoritativeSuccess && reviews.length === 0 ? (
+        /* Honest Authoritative Empty State */
         <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#F0FDF4', color: '#15803D', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <CheckCircle2Icon size={28} />
           </div>
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
-            {reviews.length === 0 ? 'No Submissions Currently in Review Queue' : 'No Submissions Match Selected Filter'}
+            No Submissions Currently in Review Queue
           </h3>
           <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto 20px' }}>
-            {reviews.length === 0
-              ? 'All verified field submissions have received an administrator decision.'
-              : 'Try selecting "All Submissions" or adjusting your search term.'}
+            All verified field submissions have received an administrator decision.
           </p>
           {onNavigateToSubmissions && (
             <button
@@ -746,6 +849,28 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
               <ArrowRightIcon size={14} />
             </button>
           )}
+        </div>
+      ) : filteredReviews.length === 0 ? (
+        <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#F8FAFC', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <SearchIcon size={28} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+            No Submissions Match Selected Filter
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto 16px' }}>
+            There are {reviews.length} total reviews in the database, but none match the current filter selection.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setFilter('all');
+              setSearchQuery('');
+            }}
+          >
+            Reset All Filters ({reviews.length} total)
+          </button>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 420px) 1fr', gap: '24px', alignItems: 'start' }}>

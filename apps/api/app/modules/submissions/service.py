@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import desc, func
 from geoalchemy2.shape import to_shape, from_shape
 from shapely.geometry import Point
 import os
@@ -509,7 +509,17 @@ def get_task_form_schema(db: Session, task_id: uuid.UUID) -> TaskFormSchemaRespo
 
 
 def get_submission_details(db: Session, submission_id: uuid.UUID) -> Submission:
-    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    submission = (
+        db.query(Submission)
+        .options(
+            joinedload(Submission.task),
+            joinedload(Submission.user),
+            joinedload(Submission.verification),
+            selectinload(Submission.media),
+        )
+        .filter(Submission.id == submission_id)
+        .first()
+    )
     if not submission:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -524,13 +534,26 @@ def list_user_submissions(
     page: int = 1,
     page_size: int = 50,
 ) -> Tuple[List[Submission], int]:
-    query = (
+    total = (
+        db.query(func.count(Submission.id))
+        .filter(Submission.user_id == user_id)
+        .scalar()
+        or 0
+    )
+    items = (
         db.query(Submission)
+        .options(
+            joinedload(Submission.task),
+            joinedload(Submission.user),
+            joinedload(Submission.verification),
+            selectinload(Submission.media),
+        )
         .filter(Submission.user_id == user_id)
         .order_by(desc(Submission.captured_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
     )
-    total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
 
 
@@ -540,12 +563,27 @@ def list_all_submissions(
     page: int = 1,
     page_size: int = 50,
 ) -> Tuple[List[Submission], int]:
-    query = db.query(Submission)
+    count_query = db.query(func.count(Submission.id))
+    data_query = (
+        db.query(Submission)
+        .options(
+            joinedload(Submission.task),
+            joinedload(Submission.user),
+            joinedload(Submission.verification),
+            selectinload(Submission.media),
+        )
+    )
     if status_filter:
-        query = query.filter(Submission.status == status_filter)
-    query = query.order_by(desc(Submission.captured_at))
-    total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+        count_query = count_query.filter(Submission.status == status_filter)
+        data_query = data_query.filter(Submission.status == status_filter)
+
+    total = count_query.scalar() or 0
+    items = (
+        data_query.order_by(desc(Submission.captured_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     return items, total
 
 

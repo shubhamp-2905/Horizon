@@ -214,21 +214,37 @@ export default function AdminPage() {
       const authHeaders: Record<string, string> = {};
       if (token) authHeaders['Authorization'] = `Bearer ${token}`;
 
-      // Parallel concurrent execution with 7-second timeout protection
+      // Parallel concurrent execution with 15-second timeout protection for cold starts
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const [healthSettled, tasksSettled, statsSettled, subsSettled] = await Promise.allSettled([
+      const fetchPromises: Promise<Response>[] = [
         fetch(`${API_ROOT_URL}/health`, { signal: controller.signal }),
         fetch(`${API_BASE_URL}/tasks?page_size=50`, { signal: controller.signal }),
         fetch(`${API_BASE_URL}/admin/stats`, { signal: controller.signal }),
-        fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, { headers: authHeaders, signal: controller.signal }),
-      ]);
+      ];
 
+      // Query overview queue only when on overview tab to prevent duplicate requests with SubmissionsTab
+      if (currentTab === 'overview') {
+        fetchPromises.push(
+          fetch(`${API_BASE_URL}/admin/submissions?page_size=15`, { headers: authHeaders, signal: controller.signal })
+        );
+      }
+
+      const settledResults = await Promise.allSettled(fetchPromises);
       clearTimeout(timeoutId);
 
-      // Process health
-      if (healthSettled.status === 'fulfilled' && healthSettled.value.ok) {
+      const healthSettled = settledResults[0];
+      const tasksSettled = settledResults[1];
+      const statsSettled = settledResults[2];
+      const subsSettled = settledResults[3];
+
+      // Process health & connection: if any major endpoint succeeded, API is alive
+      if (
+        (healthSettled?.status === 'fulfilled' && healthSettled.value.ok) ||
+        (tasksSettled?.status === 'fulfilled' && tasksSettled.value.ok) ||
+        (statsSettled?.status === 'fulfilled' && statsSettled.value.ok)
+      ) {
         setApiConnected(true);
       } else {
         setApiConnected(false);
@@ -239,7 +255,7 @@ export default function AdminPage() {
       let freshQueue: ReviewQueueItem[] = [];
 
       // Process tasks in parallel
-      if (tasksSettled.status === 'fulfilled' && tasksSettled.value.ok) {
+      if (tasksSettled?.status === 'fulfilled' && tasksSettled.value.ok) {
         const tData = await tasksSettled.value.json().catch(() => null);
         if (tData && Array.isArray(tData.tasks)) {
           freshTasks = tData.tasks.map((t: any) => ({
@@ -263,7 +279,7 @@ export default function AdminPage() {
       }
 
       // Process stats in parallel
-      if (statsSettled.status === 'fulfilled' && statsSettled.value.ok) {
+      if (statsSettled?.status === 'fulfilled' && statsSettled.value.ok) {
         const sData = await statsSettled.value.json().catch(() => null);
         if (sData) {
           freshStats = sData;
@@ -272,7 +288,7 @@ export default function AdminPage() {
       }
 
       // Process submissions in parallel for the overview queue
-      if (subsSettled.status === 'fulfilled' && subsSettled.value.ok) {
+      if (subsSettled && subsSettled.status === 'fulfilled' && subsSettled.value.ok) {
         const subData = await subsSettled.value.json().catch(() => null);
         if (subData && Array.isArray(subData.submissions)) {
           // Filter to items needing review/attention for the overview review queue
@@ -317,7 +333,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentTab]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -340,13 +356,9 @@ export default function AdminPage() {
         setTasks((prev) => [created, ...prev]);
         showToast(`Task "${created.title}" successfully created and saved to PostGIS!`);
       } else {
-        const simulated: AdminTaskItem = {
-          ...newTask,
-          id: `task-${Date.now()}`,
-          created_at: new Date().toISOString(),
-        };
-        setTasks((prev) => [simulated, ...prev]);
-        showToast(`Task "${simulated.title}" created successfully.`);
+        const errJson = await res?.json().catch(() => null);
+        const detail = errJson?.detail?.message || errJson?.detail || 'Failed to create task';
+        showToast(`Error creating task: ${detail}`);
       }
     } finally {
       setLoading(false);

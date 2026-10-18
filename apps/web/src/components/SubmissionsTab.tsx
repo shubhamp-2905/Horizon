@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CheckCircle2Icon,
   AlertTriangleIcon,
@@ -14,6 +15,8 @@ import {
   MapPinIcon,
   LayersIcon,
   RefreshCwIcon,
+  ShieldCheckIcon,
+  ActivityIcon,
 } from './Icons';
 import {
   SPREADSHEET_FACTORS,
@@ -201,6 +204,35 @@ export function mapSubmissionItem(s: any): AdminSubmissionItem {
   };
 }
 
+export const matchesStatusFilter = (sub: AdminSubmissionItem, filter: string): boolean => {
+  const s = (sub.status || '').toLowerCase();
+  const v = (sub.verification_status || '').toLowerCase();
+  if (filter === 'all') return true;
+  if (filter === 'received') {
+    return s === 'submitted' || s === 'validating' || s === 'draft' || s === 'pending_verification';
+  }
+  if (filter === 'under_review') {
+    return s === 'under_review' || s === 'pending_admin_review';
+  }
+  if (filter === 'approved') {
+    return s === 'approved' || s === 'verified' || v === 'approved';
+  }
+  if (filter === 'rejected') {
+    return s === 'rejected' || v === 'rejected';
+  }
+  if (filter === 'flagged') {
+    return (
+      s === 'flagged' ||
+      s === 'verification_failed' ||
+      s === 'verification_unavailable' ||
+      v === 'flagged' ||
+      v === 'verification_failed' ||
+      v === 'verification_unavailable'
+    );
+  }
+  return true;
+};
+
 export interface SubmissionsTabProps {
   initialSelectedId?: string | null;
   adminToken?: string | null;
@@ -213,9 +245,17 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
   adminToken,
   onNavigateToReview,
 }) => {
+  const router = useRouter();
   const [submissions, setSubmissions] = useState<AdminSubmissionItem[]>([]);
   const [selectedSub, setSelectedSub] = useState<AdminSubmissionItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isAuthoritativeSuccess, setIsAuthoritativeSuccess] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<{
+    type: 'network' | 'timeout' | 'auth' | 'server';
+    message: string;
+    statusCode?: number;
+  } | null>(null);
 
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState<'all' | 'received' | 'under_review' | 'approved' | 'rejected' | 'flagged'>('all');
@@ -382,56 +422,91 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
   }, [initialSelectedId]);
 
   // Fast mapping of real incoming submissions from database
-  useEffect(() => {
-    let isMounted = true;
-    const fetchRealSubmissions = async () => {
-      try {
-        const headers: Record<string, string> = {};
-        const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+  const fetchRealSubmissions = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    } else {
+      if (submissions.length === 0) setLoading(true);
+    }
+    setFetchError(null);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const res = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, {
-          headers,
-          signal: controller.signal,
-        }).catch(() => null);
+    try {
+      const headers: Record<string, string> = {};
+      const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        clearTimeout(timeoutId);
+      const res = await fetch(`${API_BASE_URL}/admin/submissions?page_size=50`, {
+        headers,
+        signal: controller.signal,
+      });
 
-        if (res && res.ok && isMounted) {
-          const data = await res.json().catch(() => null);
-          if (data && Array.isArray(data.submissions)) {
-            const mapped: AdminSubmissionItem[] = data.submissions.map(mapSubmissionItem);
+      clearTimeout(timeoutId);
 
-            setSubmissions(mapped);
-            if (initialSelectedId) {
-              const target = mapped.find((m) => m.id === initialSelectedId);
-              setSelectedSub(target || mapped[0] || null);
-            } else {
-              setSelectedSub((prev) => (prev ? mapped.find((m) => m.id === prev.id) || mapped[0] || null : mapped[0] || null));
-            }
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && Array.isArray(data.submissions)) {
+          const mapped: AdminSubmissionItem[] = data.submissions.map(mapSubmissionItem);
 
-            try {
-              sessionStorage.setItem('horizon_admin_submissions_cache_v5', JSON.stringify(mapped));
-            } catch {
-              // ignore cache write error
-            }
+          setSubmissions(mapped);
+          setIsAuthoritativeSuccess(true);
+          setFetchError(null);
+
+          if (initialSelectedId) {
+            const target = mapped.find((m) => m.id === initialSelectedId);
+            setSelectedSub(target || mapped[0] || null);
+          } else {
+            setSelectedSub((prev) => (prev ? mapped.find((m) => m.id === prev.id) || mapped[0] || null : mapped[0] || null));
           }
-        }
-      } catch {
-        // fallback
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
 
+          try {
+            sessionStorage.setItem('horizon_admin_submissions_cache_v5', JSON.stringify(mapped));
+          } catch {
+            // ignore cache write error
+          }
+        } else {
+          throw new Error('Invalid submissions data structure returned by API.');
+        }
+      } else if (res.status === 401 || res.status === 403) {
+        setFetchError({
+          type: 'auth',
+          message: 'Your administrator session has expired or lacks permissions. Please sign in again.',
+          statusCode: res.status,
+        });
+      } else {
+        const errJson = await res.json().catch(() => null);
+        const detail = typeof errJson?.detail === 'string' ? errJson.detail : (errJson?.detail?.message || null);
+        setFetchError({
+          type: 'server',
+          message: detail || `Submissions service returned HTTP status ${res.status}.`,
+          statusCode: res.status,
+        });
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name === 'AbortError') {
+        setFetchError({
+          type: 'timeout',
+          message: 'The request to load field submissions timed out (15s). The database or backend service may be slow or cold-starting.',
+        });
+      } else {
+        setFetchError({
+          type: 'network',
+          message: err?.message || 'Network error communicating with the field submissions endpoint.',
+        });
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [adminToken, initialSelectedId, submissions.length]);
+
+  useEffect(() => {
     fetchRealSubmissions();
-    return () => {
-      isMounted = false;
-    };
-  }, [adminToken, initialSelectedId]);
+  }, [fetchRealSubmissions]);
 
   useEffect(() => {
     if (initialSelectedId && submissions.length > 0) {
@@ -443,17 +518,9 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
   // Filtering & Sorting
   const filteredSubmissions = submissions
     .filter((sub) => {
-      // 1. Status Filter
-      if (statusFilter === 'received') {
-        if (sub.status !== 'submitted' && sub.status !== 'validating' && sub.status !== 'draft') return false;
-      } else if (statusFilter === 'under_review') {
-        if (sub.status !== 'under_review') return false;
-      } else if (statusFilter === 'approved') {
-        if (sub.status !== 'approved' && sub.verification_status !== 'approved') return false;
-      } else if (statusFilter === 'rejected') {
-        if (sub.status !== 'rejected' && sub.verification_status !== 'rejected') return false;
-      } else if (statusFilter === 'flagged') {
-        if (sub.status !== 'flagged' && sub.status !== 'verification_unavailable') return false;
+      // 1. Status Filter using authoritative helper
+      if (!matchesStatusFilter(sub, statusFilter)) {
+        return false;
       }
 
       // 2. Validation Status Filter
@@ -581,6 +648,41 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
         </div>
       </div>
 
+      {/* Sync Warning Banner if fetch failed but we have cached/previous records */}
+      {fetchError && submissions.length > 0 && (
+        <div
+          style={{
+            padding: '12px 18px',
+            borderRadius: 'var(--radius-md)',
+            background: '#FFFBEB',
+            border: '1px solid #FCD34D',
+            color: '#92400E',
+            fontSize: '13px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertTriangleIcon size={18} color="#D97706" />
+            <span>
+              <strong>Sync Warning:</strong> {fetchError.message} Displaying previously loaded data ({submissions.length} submissions).
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => fetchRealSubmissions(true)}
+            disabled={isRefreshing}
+            style={{ borderColor: '#D97706', color: '#92400E', whiteSpace: 'nowrap' }}
+          >
+            {isRefreshing ? 'Retrying...' : 'Retry Sync'}
+          </button>
+        </div>
+      )}
+
       {/* 2. Filter & Search Controls */}
       <div className="table-container" style={{ padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -598,73 +700,175 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
               onClick={() => setStatusFilter('received')}
               className={`btn btn-sm ${statusFilter === 'received' ? 'btn-primary' : 'btn-secondary'}`}
             >
-              Received / Validating ({submissions.filter((s) => s.status === 'submitted' || s.status === 'validating' || s.status === 'draft').length})
+              Received / Validating ({submissions.filter((s) => matchesStatusFilter(s, 'received')).length})
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('under_review')}
               className={`btn btn-sm ${statusFilter === 'under_review' ? 'btn-primary' : 'btn-secondary'}`}
             >
-              Awaiting Review ({submissions.filter((s) => s.status === 'under_review').length})
+              Awaiting Review ({submissions.filter((s) => matchesStatusFilter(s, 'under_review')).length})
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('approved')}
               className={`btn btn-sm ${statusFilter === 'approved' ? 'btn-primary' : 'btn-secondary'}`}
             >
-              Approved ({submissions.filter((s) => s.status === 'approved' || s.verification_status === 'approved').length})
+              Approved ({submissions.filter((s) => matchesStatusFilter(s, 'approved')).length})
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('rejected')}
               className={`btn btn-sm ${statusFilter === 'rejected' ? 'btn-primary' : 'btn-secondary'}`}
             >
-              Rejected ({submissions.filter((s) => s.status === 'rejected' || s.verification_status === 'rejected').length})
+              Rejected ({submissions.filter((s) => matchesStatusFilter(s, 'rejected')).length})
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('flagged')}
               className={`btn btn-sm ${statusFilter === 'flagged' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ color: submissions.filter((s) => matchesStatusFilter(s, 'flagged')).length > 0 ? '#DC2626' : undefined }}
             >
-              Flagged ({submissions.filter((s) => s.status === 'flagged').length})
+              Flagged ({submissions.filter((s) => matchesStatusFilter(s, 'flagged')).length})
             </button>
           </div>
 
-          {/* Search Box */}
-          <div style={{ position: 'relative', width: '280px' }}>
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
-              <SearchIcon size={14} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search task, contributor, ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input"
-              style={{ paddingLeft: '32px', height: '34px', fontSize: '13px' }}
-            />
+          {/* Search Box & Manual Refresh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ position: 'relative', width: '280px' }}>
+              <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
+                <SearchIcon size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search task, contributor, ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '32px', height: '34px', fontSize: '13px' }}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => fetchRealSubmissions(true)}
+              disabled={loading || isRefreshing}
+              title="Fetch latest field submissions from database"
+              style={{ height: '34px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCwIcon size={14} className={isRefreshing ? 'spin' : ''} />
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Main Workspace: Two-Column Ingestion List & Field Evidence Inspector */}
-      {loading ? (
-        <div className="table-container" style={{ padding: '56px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: '#64748B' }}>Loading field submissions from database...</div>
+      {/* 3. Main Workspace: Separated UI States */}
+      {loading && submissions.length === 0 ? (
+        <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px' }}>
+            <ActivityIcon size={24} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+            Loading Field Submissions...
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto' }}>
+            Querying authoritative ground-truth observation records from database and synchronizing verification status.
+          </p>
         </div>
-      ) : filteredSubmissions.length === 0 ? (
+      ) : fetchError && submissions.length === 0 ? (
+        fetchError.type === 'auth' ? (
+          <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <ShieldCheckIcon size={28} />
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+              Administrative Session Expired
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+              Your administrator authentication session is invalid or has expired. Please sign in again to access live field observations.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('horizon_admin_token');
+                  localStorage.removeItem('horizon_admin_user');
+                }
+                router.push('/');
+              }}
+            >
+              Sign In Again
+            </button>
+          </div>
+        ) : (
+          <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <AlertTriangleIcon size={28} />
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+              Unable to Load Field Submissions
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+              {fetchError.message}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => fetchRealSubmissions(true)}
+                disabled={isRefreshing}
+              >
+                <RefreshCwIcon size={14} className={isRefreshing ? 'spin' : ''} />
+                <span>{isRefreshing ? 'Retrying Connection...' : 'Retry Connection'}</span>
+              </button>
+            </div>
+          </div>
+        )
+      ) : isAuthoritativeSuccess && submissions.length === 0 ? (
         <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#F0FDF4', color: '#15803D', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <CheckCircle2Icon size={28} />
           </div>
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
-            {submissions.length === 0 ? 'No Field Submissions in Database' : 'No Submissions Match Filter'}
+            No Field Submissions in Database
           </h3>
-          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto' }}>
-            {submissions.length === 0
-              ? 'Submissions submitted by scouts via the mobile application will synchronize here in real-time for spatial intake and automated validation.'
-              : 'Try clearing your search query or selecting "All" to inspect all field observation records.'}
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto 16px' }}>
+            Submissions submitted by scouts via the mobile application will synchronize here in real-time for spatial intake and automated validation.
           </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => fetchRealSubmissions(true)}
+            disabled={isRefreshing}
+          >
+            <RefreshCwIcon size={14} className={isRefreshing ? 'spin' : ''} />
+            <span>Check Again</span>
+          </button>
+        </div>
+      ) : filteredSubmissions.length === 0 ? (
+        <div className="table-container" style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#F8FAFC', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <SearchIcon size={28} />
+          </div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#101828', marginBottom: '6px' }}>
+            No Submissions Match Filter
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '440px', margin: '0 auto 16px' }}>
+            There are {submissions.length} total field submissions in the database, but none match the currently active status and search filters.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setStatusFilter('all');
+              setValidationFilter('all');
+              setSearchQuery('');
+            }}
+          >
+            Reset All Filters ({submissions.length} total)
+          </button>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 400px) 1fr', gap: '24px', alignItems: 'start' }}>
