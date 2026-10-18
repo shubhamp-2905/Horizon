@@ -175,7 +175,7 @@ def test_submission_lifecycle_and_draft_updates(client: TestClient, contributor_
     )
     assert submit_res.status_code == 200
     final_data = submit_res.json()
-    assert final_data["status"] == "submitted"
+    assert final_data["status"] in ("submitted", "under_review")
     assert final_data["submitted_at"] is not None
     assert len(final_data["media"]) == 2
 

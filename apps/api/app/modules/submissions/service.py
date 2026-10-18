@@ -52,13 +52,15 @@ def _submission_to_response(sub: Submission) -> SubmissionResponse:
             link_url = meta.get("url") or meta.get("external_url") or (m.storage_key if (m.storage_key and m.storage_key.startswith("http")) else None)
             fname = meta.get("file_name") or meta.get("filename") or (os.path.basename(m.storage_key) if not is_link else meta.get("title", link_url or "Evidence Link"))
             fsize = meta.get("file_size_bytes") or meta.get("file_size")
+            # Exclude massive raw base64 data from metadata to avoid multi-megabyte payloads
+            clean_meta = {k: v for k, v in meta.items() if k not in ("image_base64", "base64")}
             media_list.append(
                 SubmissionMediaResponse(
                     id=str(m.id),
                     submission_id=str(m.submission_id),
                     storage_key=m.storage_key,
                     media_type=m.media_type,
-                    metadata=meta,
+                    metadata=clean_meta,
                     created_at=m.created_at.isoformat() if m.created_at else "",
                     url=link_url,
                     file_name=fname,

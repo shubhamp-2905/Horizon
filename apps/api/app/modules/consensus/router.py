@@ -433,11 +433,12 @@ def admin_list_reviews(
                 link_url = meta.get("url") if is_link else None
                 fname = meta.get("file_name") or meta.get("filename") or (os.path.basename(m.storage_key) if not is_link else meta.get("title", "Evidence Link"))
                 fsize = meta.get("file_size_bytes") or meta.get("file_size")
+                clean_meta = {k: v for k, v in meta.items() if k not in ("image_base64", "base64")}
                 media_list.append({
                     "id": str(m.id),
                     "storage_key": m.storage_key,
                     "media_type": m.media_type,
-                    "metadata": meta,
+                    "metadata": clean_meta,
                     "created_at": m.created_at.isoformat() if m.created_at else "",
                     "url": link_url,
                     "file_name": fname,

@@ -279,14 +279,19 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
     if (base64Data) {
       return base64Data.startsWith('data:') ? base64Data : `data:${med.media_type || 'image/jpeg'};base64,${base64Data}`;
     }
-    if (med.url && typeof med.url === 'string' && med.url.startsWith('http')) {
-      return med.url;
+    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+
+    if (med.url && typeof med.url === 'string') {
+      if (med.url.startsWith('http')) return med.url;
+      if (med.url.startsWith('/')) {
+        const root = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+        return `${root}${med.url}${tokenParam}`;
+      }
     }
     if (med.metadata?.url && typeof med.metadata.url === 'string' && med.metadata.url.startsWith('http')) {
       return med.metadata.url;
     }
-    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
-    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     return `${API_BASE_URL}/submissions/${subId}/media/${med.id}/content${tokenParam}`;
   };
 
@@ -431,7 +436,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
     setFetchError(null);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const headers: Record<string, string> = {};
@@ -489,7 +494,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
       if (err?.name === 'AbortError') {
         setFetchError({
           type: 'timeout',
-          message: 'The request to load field submissions timed out (15s). The database or backend service may be slow or cold-starting.',
+          message: 'The request to load field submissions timed out. The backend service may be cold-starting; please retry.',
         });
       } else {
         setFetchError({
@@ -502,7 +507,7 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [adminToken, initialSelectedId, submissions.length]);
+  }, [adminToken, initialSelectedId]);
 
   useEffect(() => {
     fetchRealSubmissions();

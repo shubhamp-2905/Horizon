@@ -208,14 +208,19 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
     if (base64Data) {
       return base64Data.startsWith('data:') ? base64Data : `data:${item.media_type || 'image/jpeg'};base64,${base64Data}`;
     }
-    if (item.url && typeof item.url === 'string' && item.url.startsWith('http')) {
-      return item.url;
+    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+
+    if (item.url && typeof item.url === 'string') {
+      if (item.url.startsWith('http')) return item.url;
+      if (item.url.startsWith('/')) {
+        const root = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+        return `${root}${item.url}${tokenParam}`;
+      }
     }
     if (item.metadata?.url && typeof item.metadata.url === 'string' && item.metadata.url.startsWith('http')) {
       return item.metadata.url;
     }
-    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
-    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     const mediaId = item.id;
     if (subId && mediaId) {
       return `${API_BASE_URL}/submissions/${subId}/media/${mediaId}/content${tokenParam}`;
@@ -273,7 +278,7 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       // Attempt 1: Authoritative /admin/reviews endpoint
       const res = await fetch(`${API_BASE_URL}/admin/reviews?page_size=50`, {
@@ -372,7 +377,7 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
       setError('Unable to load review records from server. Please check backend availability.');
     } catch (err: any) {
       if (err?.name === 'AbortError') {
-        setError('Review queue request timed out (15s). The backend may be slow or spinning up.');
+        setError('Review queue request timed out. The backend service may be cold-starting; please retry.');
       } else {
         setError(err.message || 'Failed to load review records');
       }
@@ -380,7 +385,7 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [adminToken, initialSelectedId, reviews.length]);
+  }, [adminToken, initialSelectedId]);
 
   useEffect(() => {
     fetchReviewsData();
