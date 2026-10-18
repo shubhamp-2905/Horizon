@@ -22,6 +22,8 @@ out/
 
 # Mobile (React Native / Expo / Android / iOS)
 .expo/
+*.apk
+*.aab
 *.jks
 *.p8
 *.p12

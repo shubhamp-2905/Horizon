@@ -100,6 +100,7 @@ declare module 'react-native' {
     accessibilityRole?: string;
     accessibilityState?: { selected?: boolean; disabled?: boolean; busy?: boolean; expanded?: boolean; [key: string]: any };
     hitSlop?: { top?: number; bottom?: number; left?: number; right?: number } | number;
+    collapsable?: boolean;
     ref?: any;
   }
 
@@ -237,4 +238,12 @@ declare module 'react-native' {
   }
   export const Image: React.FC<ImageProps>;
   export const StatusBar: React.FC<{ barStyle?: 'default' | 'light-content' | 'dark-content'; backgroundColor?: string }>;
+
+  export namespace Keyboard {
+    export function addListener(
+      eventType: 'keyboardWillShow' | 'keyboardDidShow' | 'keyboardWillHide' | 'keyboardDidHide',
+      subscription: () => void
+    ): { remove: () => void };
+    export function dismiss(): void;
+  }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../services/api';
@@ -56,6 +57,28 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<any>(null);
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Sync mode if initialMode prop changes
+  useEffect(() => {
+    setIsLogin(initialMode === 'login');
+  }, [initialMode]);
+
+  // Track keyboard visibility so safe area padding doesn't jump or double-pad on Android
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Form Fields
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -77,15 +100,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  const scrollToField = (field: string) => {
-    // Smoothly scroll down so inputs and submit button stay in view above the soft keyboard
-    setTimeout(() => {
-      if (field === 'password' || field === 'confirmPassword' || field === 'email') {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }
-    }, 150);
-  };
 
   const validateForm = (): boolean => {
     const errors: FieldErrors = {};
@@ -149,6 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   const switchMode = (loginMode: boolean) => {
     setIsLogin(loginMode);
+    setFocusedField(null);
     setErrorMessage(null);
     setFieldErrors({});
     setShowPassword(false);
@@ -168,7 +183,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           styles.content,
           {
             paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom + 28, 44),
+            paddingBottom: isKeyboardVisible ? 24 : Math.max(insets.bottom + 20, 36),
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -316,6 +331,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Username or Email
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -331,6 +347,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="Enter your username or email"
                       placeholderTextColor={theme.textMuted}
@@ -362,6 +379,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Password
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -377,6 +395,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="Enter your password"
                       placeholderTextColor={theme.textMuted}
@@ -391,10 +410,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => {
-                        setFocusedField('password');
-                        scrollToField('password');
-                      }}
+                      onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
                       textContentType="password"
                       autoComplete="current-password"
@@ -425,6 +441,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Username
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -440,6 +457,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="e.g. scout_alex"
                       placeholderTextColor={theme.textMuted}
@@ -471,6 +489,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Email Address
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -486,6 +505,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="e.g. alex@example.com"
                       placeholderTextColor={theme.textMuted}
@@ -500,10 +520,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => {
-                        setFocusedField('email');
-                        scrollToField('email');
-                      }}
+                      onFocus={() => setFocusedField('email')}
                       onBlur={() => setFocusedField(null)}
                       textContentType="emailAddress"
                       autoComplete="email"
@@ -521,6 +538,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Full Name (Optional)
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -534,6 +552,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="e.g. Alex River"
                       placeholderTextColor={theme.textMuted}
@@ -554,6 +573,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Password
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -569,6 +589,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="At least 8 characters"
                       placeholderTextColor={theme.textMuted}
@@ -583,10 +604,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => {
-                        setFocusedField('password');
-                        scrollToField('password');
-                      }}
+                      onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
                       textContentType="newPassword"
                       autoComplete="new-password"
@@ -614,6 +632,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     Confirm Password
                   </Text>
                   <View
+                    collapsable={false}
                     style={[
                       styles.inputBox,
                       {
@@ -629,6 +648,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     ]}
                   >
                     <TextInput
+                      collapsable={false}
                       style={[styles.inputElement, { color: theme.textPrimary }]}
                       placeholder="Re-enter your password"
                       placeholderTextColor={theme.textMuted}
@@ -643,10 +663,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loading}
-                      onFocus={() => {
-                        setFocusedField('confirmPassword');
-                        scrollToField('confirmPassword');
-                      }}
+                      onFocus={() => setFocusedField('confirmPassword')}
                       onBlur={() => setFocusedField(null)}
                       textContentType="newPassword"
                       autoComplete="new-password"
@@ -842,16 +859,13 @@ const styles = StyleSheet.create({
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.2,
+    borderWidth: 1.5,
     borderRadius: radius.sm,
     paddingHorizontal: 12,
     minHeight: 46,
   },
   inputFocused: {
-    shadowColor: '#15803D',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
+    // Layout and layer remain stable: focus indication is driven by borderColor
   },
   inputElement: {
     flex: 1,

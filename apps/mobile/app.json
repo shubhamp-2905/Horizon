@@ -26,6 +26,7 @@
     },
     "android": {
       "package": "org.earthlens.horizon.contributor",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#07060B"
       },

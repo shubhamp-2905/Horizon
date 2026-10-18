@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.expo.dev/eas-json.json",
   "cli": {
     "version": ">= 12.0.0"
   },
