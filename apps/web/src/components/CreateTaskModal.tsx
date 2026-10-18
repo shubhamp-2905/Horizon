@@ -5,11 +5,8 @@ import dynamic from 'next/dynamic';
 import type { AdminTaskItem } from './OverviewTab';
 import {
   SPREADSHEET_PROJECT_TYPES,
-  SPREADSHEET_SECTIONS,
   SPREADSHEET_FACTORS,
-  EXCLUDED_YELLOW_FACTORS,
   type SpreadsheetFactor,
-  type SpreadsheetSection,
   type SpreadsheetProjectType,
 } from '../data/spreadsheetData';
 
@@ -141,7 +138,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const [selectedDomain, setSelectedDomain] = useState<string>('Tenure & Governance');
   const [selectedFactors, setSelectedFactors] = useState<string[]>(() =>
     SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.relevance.includes('Real Estate Development')).map((f: SpreadsheetFactor) => f.id)
   );
@@ -364,8 +360,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       <div className="modal-card" onClick={(e) => { e.stopPropagation(); if (activeInfoField) setActiveInfoField(null); }} style={{ maxWidth: '960px', width: '95%' }}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">Create Spreadsheet-Driven Task</h2>
-            <div className="modal-subtitle">Configured from Google Sheets (7 Project Types &amp; 29 Assessment Factors)</div>
+            <h2 className="modal-title">Create Field Task</h2>
+            <div className="modal-subtitle">Configure project type, spatial scope, and field observation requirements.</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
@@ -374,7 +370,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               className="btn btn-secondary btn-sm"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>⚡ Load Spreadsheet Preset</span>
+              <span>⚡ Load Template Preset</span>
             </button>
             <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close modal">
               ✕
@@ -402,11 +398,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '28px', alignItems: 'start' }}>
               {/* Left Column: Structured Form Sections */}
               <div>
-                {/* 1. Basic Information & Spreadsheet Project Type */}
+                {/* 1. Basic Information & Project Type */}
                 <div className="form-section">
                   <div className="form-section-title">
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>1</span>
-                    <span>Basic Information &amp; Project Type (Tab 1)</span>
+                    <span>Basic Information &amp; Project Type</span>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Task Title</label>
@@ -433,7 +429,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
                   <div className="form-group">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label className="form-label" style={{ marginBottom: 0 }}>Project Type (Source: Tab 1)</label>
+                      <label className="form-label" style={{ marginBottom: 0 }}>Project Type</label>
                       {currentProjectType && (
                         <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803D', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px' }}>
                           Target Profile: {currentProjectType.user_profile}
@@ -456,132 +452,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         {currentProjectType.description}
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* 1B. Spreadsheet Assessment Factors Checklist (Tab 2: 29 Factors) */}
-                <div className="form-section">
-                  <div className="form-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', background: '#ECFDF5', color: '#15803D', fontSize: '11px', fontWeight: 800 }}>✓</span>
-                      <span>Assessment Factors ({selectedFactors.length} Active / 29 Total)</span>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Source: Tab 2</span>
-                  </div>
-
-                  {/* Informational Notice: 10 Field Questions vs 6 Automated Factors */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    background: '#F0FDF4',
-                    border: '1px solid #BBF7D0',
-                    marginBottom: '10px',
-                    fontSize: '11px',
-                    color: '#166534',
-                  }}>
-                    <span>💡</span>
-                    <span>
-                      Contributor field survey is streamlined to a <strong>maximum of 10 observable questions</strong>. The 6 yellow-highlighted factors and GIS metrics are processed by automated backend pipelines.
-                    </span>
-                  </div>
-
-                  {/* Domain Tabs */}
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                    {SPREADSHEET_SECTIONS.map((sec: SpreadsheetSection) => {
-                      const isDomainActive = selectedDomain === sec.title;
-                      const count = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === sec.title && selectedFactors.includes(f.id)).length;
-                      const total = SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === sec.title).length;
-                      return (
-                        <button
-                          key={sec.id}
-                          type="button"
-                          onClick={() => setSelectedDomain(sec.title)}
-                          style={{
-                            padding: '6px 10px',
-                            fontSize: '11px',
-                            fontWeight: isDomainActive ? 700 : 500,
-                            borderRadius: '6px',
-                            border: isDomainActive ? '1.5px solid #10B981' : '1px solid #E2E8F0',
-                            background: isDomainActive ? '#ECFDF5' : '#FFFFFF',
-                            color: isDomainActive ? '#065F46' : '#64748B',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {sec.icon} {sec.title} ({count}/{total})
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Factor items checklist */}
-                  <div style={{ maxHeight: '190px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px', background: '#FAFAFA' }}>
-                    {SPREADSHEET_FACTORS.filter((f: SpreadsheetFactor) => f.section === selectedDomain).map((factor: SpreadsheetFactor) => {
-                      const isChecked = selectedFactors.includes(factor.id);
-                      return (
-                        <label
-                          key={factor.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '8px',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            background: isChecked ? '#FFFFFF' : 'transparent',
-                            border: isChecked ? '1px solid #E2E8F0' : '1px solid transparent',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedFactors((prev) => [...prev, factor.id]);
-                              } else {
-                                setSelectedFactors((prev) => prev.filter((id) => id !== factor.id));
-                              }
-                            }}
-                            style={{ marginTop: '3px' }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 600, color: '#0F172A' }}>{factor.label}</span>
-                              <span style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                background: factor.factor_type === 'Risk' ? '#FEF2F2' : '#F0FDF4',
-                                color: factor.factor_type === 'Risk' ? '#B91C1C' : '#15803D',
-                              }}>
-                                {factor.factor_type}
-                              </span>
-                              {EXCLUDED_YELLOW_FACTORS.some((yf) => yf.factor.toLowerCase() === factor.label.toLowerCase()) && (
-                                <span style={{
-                                  fontSize: '9.5px',
-                                  fontWeight: 700,
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  background: '#FEF9C3',
-                                  color: '#854D0E',
-                                  border: '1px solid #FDE047',
-                                }}>
-                                  Automated GIS
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
-                              <strong>Metric:</strong> {factor.metric}
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
                   </div>
                 </div>
 

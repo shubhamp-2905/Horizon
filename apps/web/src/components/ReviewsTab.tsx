@@ -20,6 +20,7 @@ import {
   UploadCloudIcon,
   ActivityIcon,
 } from './Icons';
+import { AuthenticatedEvidenceImage } from './AuthenticatedEvidenceImage';
 
 export interface AdminReviewRecord {
   id: string;
@@ -1239,64 +1240,18 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                             }}
                           >
                             {isImage ? (
-                              <div
-                                style={{ height: '130px', background: '#F1F5F9', position: 'relative', cursor: fileUrl ? 'pointer' : 'default', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                onClick={() => {
-                                  if (fileUrl) {
-                                    setActiveEvidence({
-                                      url: fileUrl,
-                                      fileName,
-                                      fileSize,
-                                      mediaType: item.media_type || 'image/jpeg',
-                                      id: item.id,
-                                      storageKey: item.storage_key,
-                                    });
-                                    setPreviewLoading(true);
-                                    setPreviewError(false);
-                                  }
+                              <AuthenticatedEvidenceImage
+                                submissionId={selectedReview.submission_id}
+                                media={item}
+                                adminToken={adminToken}
+                                alt={fileName}
+                                height="130px"
+                                onPreview={(preview) => {
+                                  setActiveEvidence(preview);
+                                  setPreviewLoading(false);
+                                  setPreviewError(false);
                                 }}
-                              >
-                                {fileUrl ? (
-                                  <>
-                                    <img
-                                      src={fileUrl}
-                                      alt={fileName}
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                        const fallback = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.thumbnail-fallback');
-                                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                                      }}
-                                    />
-                                    <div
-                                      className="thumbnail-fallback"
-                                      style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#94A3B8', height: '100%', width: '100%', padding: '10px', textAlign: 'center' }}
-                                    >
-                                      <CameraIcon size={24} />
-                                      <span style={{ fontSize: '10px' }}>Click to inspect preview</span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
-                                    <CameraIcon size={32} />
-                                  </div>
-                                )}
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    bottom: '6px',
-                                    right: '6px',
-                                    background: 'rgba(0,0,0,0.65)',
-                                    color: '#FFFFFF',
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  Zoom ↗
-                                </div>
-                              </div>
+                              />
                             ) : (
                               <div style={{ height: '130px', background: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#64748B' }}>
                                 <UploadCloudIcon size={32} />
@@ -1969,10 +1924,22 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <a
-                  href={activeEvidence.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeEvidence) {
+                      if (activeEvidence.url.startsWith('blob:') || activeEvidence.url.startsWith('data:')) {
+                        const a = document.createElement('a');
+                        a.href = activeEvidence.url;
+                        a.download = activeEvidence.fileName || 'evidence.jpg';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else {
+                        window.open(activeEvidence.url, '_blank');
+                      }
+                    }
+                  }}
                   className="btn btn-secondary btn-sm"
                   style={{
                     background: '#334155',
@@ -1980,16 +1947,15 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
                     borderColor: '#475569',
                     fontSize: '11px',
                     padding: '4px 10px',
-                    textDecoration: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
+                    cursor: 'pointer',
                   }}
-                  download={activeEvidence.fileName}
                 >
                   <ArrowUpRightIcon size={12} />
-                  <span>Open Full / Download</span>
-                </a>
+                  <span>Download / Save</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {

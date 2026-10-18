@@ -24,6 +24,7 @@ import {
   type SpreadsheetFactor,
   type SpreadsheetSection,
 } from '../data/spreadsheetData';
+import { AuthenticatedEvidenceImage } from './AuthenticatedEvidenceImage';
 
 export interface ActiveEvidencePreview {
   url: string;
@@ -315,6 +316,39 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeEvidence]);
+
+  const handleDownloadMedia = async (med: any) => {
+    const isLink = isEvidenceLink(med);
+    const fname = med.metadata?.file_name || med.metadata?.filename || (med.storage_key ? med.storage_key.split('/').pop() : 'evidence_file');
+    if (isLink) {
+      const linkUrl = med.url || med.metadata?.url || (typeof med.storage_key === 'string' && med.storage_key.startsWith('http') ? med.storage_key : '');
+      const safeUrl = linkUrl.startsWith('http://') || linkUrl.startsWith('https://') ? linkUrl : `https://${linkUrl}`;
+      window.open(safeUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const token = adminToken || (typeof window !== 'undefined' ? localStorage.getItem('horizon_admin_token') : null);
+    const targetUrl = `${API_BASE_URL}/submissions/${selectedSub?.id}/media/${med.id}/content`;
+    const urlWithToken = token ? `${targetUrl}?token=${encodeURIComponent(token)}` : targetUrl;
+
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(urlWithToken, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch {
+      window.open(urlWithToken, '_blank');
+    }
+  };
 
   const handleRetryVerification = async (submissionId: string) => {
     if (verifying) return; // Prevent duplicate concurrent requests
@@ -1137,14 +1171,14 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
               <div className="table-container" style={{ padding: '20px 24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                    Spreadsheet Assessment Observations
+                    Field Assessment Observations
                   </h3>
                   <span style={{ fontSize: '11px', color: '#15803D', background: '#ECFDF5', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                    Source: Google Sheets Tab 2 (29 Factors)
+                    Authoritative Assessment Matrix
                   </span>
                 </div>
                 <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
-                  Contributor field evaluations grouped across the 3 authoritative spreadsheet assessment domains
+                  Contributor field evaluations grouped across authoritative risk assessment domains
                 </p>
 
                 {Object.keys(selectedSub.form_data).length === 0 ? (
@@ -1308,60 +1342,23 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                           {selectedSub.media
                             .filter(isEvidenceImage)
                             .map((med: any, idx: number) => {
-                              const imgSrc = getResolvedMediaUrl(med, selectedSub.id);
                               const fileName = med.metadata?.file_name || med.metadata?.filename || (med.storage_key ? med.storage_key.split('/').pop() : `Photo ${idx + 1}`);
                               const fileSize = med.metadata?.file_size_bytes || med.metadata?.file_size;
 
                               return (
                                 <div key={med.id || idx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden', background: '#FFFFFF' }}>
-                                  <div
-                                    style={{ height: '140px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
-                                    onClick={() => {
-                                      setActiveEvidence({
-                                        url: imgSrc,
-                                        fileName,
-                                        fileSize,
-                                        mediaType: med.media_type || 'image/jpeg',
-                                        id: med.id,
-                                        storageKey: med.storage_key,
-                                      });
-                                      setPreviewLoading(true);
+                                  <AuthenticatedEvidenceImage
+                                    submissionId={selectedSub.id}
+                                    media={med}
+                                    adminToken={adminToken}
+                                    alt={fileName}
+                                    height="140px"
+                                    onPreview={(preview) => {
+                                      setActiveEvidence(preview);
+                                      setPreviewLoading(false);
                                       setPreviewError(false);
                                     }}
-                                  >
-                                    <img
-                                      src={imgSrc}
-                                      alt={fileName}
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                      onError={(e) => {
-                                        (e.target as HTMLElement).style.display = 'none';
-                                        const fallback = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.thumbnail-fallback');
-                                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                                      }}
-                                    />
-                                    <div
-                                      className="thumbnail-fallback"
-                                      style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#94A3B8', height: '100%', width: '100%', padding: '10px', textAlign: 'center' }}
-                                    >
-                                      <CameraIcon size={24} />
-                                      <span style={{ fontSize: '11px' }}>Click to inspect preview</span>
-                                    </div>
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        bottom: '6px',
-                                        right: '6px',
-                                        background: 'rgba(0,0,0,0.65)',
-                                        color: '#FFFFFF',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '10px',
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      Zoom ↗
-                                    </div>
-                                  </div>
+                                  />
                                   <div style={{ padding: '10px 12px' }}>
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={fileName}>
                                       {fileName}
@@ -1396,7 +1393,6 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                               const fname = med.metadata?.file_name || med.metadata?.filename || (med.storage_key ? med.storage_key.split('/').pop() : `Document ${idx + 1}`);
                               const fsize = med.metadata?.file_size_bytes || med.metadata?.file_size;
                               const fsizeStr = fsize ? `${(fsize / 1024).toFixed(1)} KB` : 'Attached File';
-                              const downloadUrl = getResolvedMediaUrl(med, selectedSub.id);
 
                               return (
                                 <div key={med.id || idx} style={{ padding: '12px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
@@ -1411,16 +1407,14 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                                       ✓ Verified Document Evidence
                                     </div>
                                   </div>
-                                  <a
-                                    href={downloadUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    download={fname}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadMedia(med)}
                                     className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '11px', padding: '4px 10px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                    style={{ fontSize: '11px', padding: '4px 10px', whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer' }}
                                   >
                                     Download ⬇
-                                  </a>
+                                  </button>
                                 </div>
                               );
                             })}
@@ -1673,10 +1667,22 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <a
-                  href={activeEvidence.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeEvidence) {
+                      if (activeEvidence.url.startsWith('blob:') || activeEvidence.url.startsWith('data:')) {
+                        const a = document.createElement('a');
+                        a.href = activeEvidence.url;
+                        a.download = activeEvidence.fileName || 'evidence.jpg';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else {
+                        window.open(activeEvidence.url, '_blank');
+                      }
+                    }
+                  }}
                   className="btn btn-secondary btn-sm"
                   style={{
                     background: '#334155',
@@ -1684,16 +1690,15 @@ export const SubmissionsTab: React.FC<SubmissionsTabProps> = ({
                     borderColor: '#475569',
                     fontSize: '11px',
                     padding: '4px 10px',
-                    textDecoration: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
+                    cursor: 'pointer',
                   }}
-                  download={activeEvidence.fileName}
                 >
                   <ArrowUpRightIcon size={12} />
-                  <span>Open Full / Download</span>
-                </a>
+                  <span>Download / Save</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
