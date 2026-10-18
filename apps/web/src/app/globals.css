@@ -728,6 +728,18 @@ body {
   border: 1px solid #EAECF0;
 }
 
+.kpi-icon-purple {
+  background: #F5F3FF;
+  color: #7C3AED;
+  border: 1px solid #DDD6FE;
+}
+
+.kpi-icon-indigo {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+}
+
 .kpi-content {
   flex: 1;
 }
@@ -905,10 +917,17 @@ body {
 
 .status-pill-published,
 .status-pill-approved,
-.status-pill-passed {
+.status-pill-passed,
+.status-pill-completed {
   background: #ECFDF5;
   color: #027A48;
   border: 1px solid #A6F4C5;
+}
+
+.status-pill-running {
+  background: #EFF8FF;
+  color: #175CD3;
+  border: 1px solid #B2DDFF;
 }
 
 .status-pill-draft {
@@ -919,7 +938,8 @@ body {
 
 .status-pill-pending,
 .status-pill-warning,
-.status-pill-flagged {
+.status-pill-flagged,
+.status-pill-retrying {
   background: #FEF3C7;
   color: #B54708;
   border: 1px solid #FEDF89;
@@ -1306,3 +1326,460 @@ body {
     padding-right: 18px;
   }
 }
+
+/* ==============================================================================
+   VERIFIED GEOSPATIAL DATA PIPELINE SYSTEM
+   ============================================================================== */
+
+/* Section Container */
+.pipeline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Pipeline Page Sub-header */
+.pipeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.pipeline-header-info {
+  max-width: 680px;
+}
+
+.pipeline-header-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #101828;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-header-subtitle {
+  font-size: 13px;
+  color: #475467;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.pipeline-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 3-Stage Pipeline Stepper Visualization (Bronze -> Silver -> Gold) */
+.pipeline-flow-card {
+  background: #FFFFFF;
+  border: 1px solid #EAECF0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.pipeline-flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pipeline-flow-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #101828;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pipeline-flow-spec {
+  font-size: 12px;
+  color: #64748B;
+  font-family: 'JetBrains Mono', monospace;
+  background: #F8F9FA;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #EAECF0;
+}
+
+.pipeline-stepper-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.pipeline-step-item {
+  background: #FFFFFF;
+  border: 1px solid #EAECF0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.pipeline-step-item:hover {
+  transform: translateY(-1px);
+  border-color: #D0D5DD;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.04);
+}
+
+.pipeline-step-item-bronze {
+  border-top: 3px solid #D97706;
+}
+
+.pipeline-step-item-silver {
+  border-top: 3px solid #0284C7;
+}
+
+.pipeline-step-item-gold {
+  border-top: 3px solid #15803D;
+}
+
+.pipeline-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pipeline-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.pipeline-step-badge-bronze {
+  background: #FEF3C7;
+  color: #B54708;
+  border: 1px solid #FEDF89;
+}
+
+.pipeline-step-badge-silver {
+  background: #F0F9FF;
+  color: #0284C7;
+  border: 1px solid #BAE6FD;
+}
+
+.pipeline-step-badge-gold {
+  background: #ECFDF5;
+  color: #027A48;
+  border: 1px solid #A6F4C5;
+}
+
+.pipeline-step-status {
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pipeline-step-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+  margin-bottom: 6px;
+}
+
+.pipeline-step-desc {
+  font-size: 12px;
+  color: #475467;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.pipeline-step-meta {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #64748B;
+  background: #F8F9FA;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #F2F4F7;
+  align-self: flex-start;
+}
+
+.pipeline-arrow-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #98A2B3;
+  padding: 0 4px;
+}
+
+/* Verified Datasets Card & Items */
+.dataset-card-modern {
+  background: #FFFFFF;
+  border: 1px solid #EAECF0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dataset-card-modern:hover {
+  border-color: #D0D5DD;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.04);
+}
+
+.dataset-card-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.dataset-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dataset-version-pill {
+  font-size: 14px;
+  font-weight: 800;
+  color: #101828;
+  font-family: 'JetBrains Mono', monospace;
+  background: #F8F9FA;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #EAECF0;
+}
+
+.dataset-badge-obs {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #ECFDF5;
+  color: #027A48;
+  border: 1px solid #A6F4C5;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dataset-badge-score {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #FFFDF0;
+  color: #B54708;
+  border: 1px solid #FEDF89;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dataset-artifacts-summary {
+  font-size: 12px;
+  color: #475467;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dataset-artifact-chip {
+  background: #F2F4F7;
+  color: #344054;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.dataset-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dataset-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: #344054;
+  border: 1px solid #D0D5DD;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.dataset-download-btn:hover {
+  background: #F9FAFB;
+  border-color: #98A2B3;
+  color: #101828;
+}
+
+.dataset-download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dataset-publish-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #15803D;
+  color: #FFFFFF !important;
+  border: 1px solid #15803D;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.dataset-publish-btn:hover {
+  background: #166534;
+  border-color: #166534;
+}
+
+.dataset-publish-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Downstream Sync Callout Banner */
+.sync-banner {
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sync-banner-live {
+  background: #ECFDF5;
+  border: 1px solid #A6F4C5;
+  color: #027A48;
+}
+
+.sync-banner-dry {
+  background: #F0F9FF;
+  border: 1px solid #BAE6FD;
+  color: #0284C7;
+}
+
+.sync-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sync-banner-title {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-banner-details {
+  font-size: 12px;
+  color: #344054;
+  line-height: 1.5;
+}
+
+.code-chip {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(16, 24, 40, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* Modal Radio Options */
+.radio-card-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.radio-card-option {
+  border: 1.5px solid #EAECF0;
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #FFFFFF;
+}
+
+.radio-card-option:hover {
+  border-color: #D0D5DD;
+  background: #F9FAFB;
+}
+
+.radio-card-option.selected {
+  border-color: #15803D;
+  background: #F0FDF4;
+}
+
+.radio-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.radio-card-desc {
+  font-size: 11px;
+  color: #64748B;
+  line-height: 1.4;
+  padding-left: 24px;
+}
+
+/* Responsive tweaks for pipeline page */
+@media (max-width: 960px) {
+  .pipeline-stepper-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .pipeline-arrow-separator {
+    transform: rotate(90deg);
+    padding: 6px 0;
+  }
+  .radio-card-group {
+    grid-template-columns: 1fr;
+  }
+}
+
