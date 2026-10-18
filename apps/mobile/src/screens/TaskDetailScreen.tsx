@@ -309,15 +309,26 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     if (currentDraft?.local_status === 'SYNCING') {
       return 'Syncing / Uploading';
     }
-    if (currentDraft?.local_status === 'SYNCED' || currentDraft?.server_status) {
+    if (
+      currentDraft?.local_status === 'SYNCED' ||
+      (currentDraft?.server_status && currentDraft.server_status !== 'draft')
+    ) {
       const serverStatus = currentDraft.server_status?.toLowerCase();
-      if (serverStatus === 'approved' || serverStatus === 'verified') {
+      if (serverStatus === 'approved' || serverStatus === 'verified' || serverStatus === 'completed') {
         return 'Approved';
       }
       if (serverStatus === 'rejected' || serverStatus === 'flagged') {
         return 'Needs Revision';
       }
-      return 'Awaiting Review';
+      if (
+        serverStatus === 'submitted' ||
+        serverStatus === 'under_review' ||
+        serverStatus === 'pending_admin_review' ||
+        serverStatus === 'pending' ||
+        currentDraft?.local_status === 'SYNCED'
+      ) {
+        return 'Awaiting Review';
+      }
     }
     if (claimRecord?.status === 'completed' || claimRecord?.status === 'approved' || task.status === 'completed') {
       return 'Approved';

@@ -93,13 +93,13 @@ export const FieldStepIndicator: React.FC<FieldStepIndicatorProps> = ({
       case 'overview':
         return 'Task Scope';
       case 'location':
-        return stepStatus.hasLocation ? '✓ GPS Captured' : 'Pending GPS';
+        return stepStatus.hasLocation ? '✓ GPS Captured' : 'GPS Required';
       case 'images':
         return `${stepStatus.photoCount}/${stepStatus.requiredPhotos} Evidence Items`;
       case 'observations':
         return stepStatus.observationsCount > 0
           ? `${stepStatus.observationsCount}/${stepStatus.requiredObservationsCount} Fields`
-          : 'Pending Data';
+          : 'Form Incomplete';
       case 'review':
         return 'Finalize & Submit';
     }

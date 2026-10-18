@@ -70,7 +70,7 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
 
   const totalAttachments = mediaList.length;
   const canProceed = totalAttachments >= requiredCount;
-  const pendingCount = mediaList.filter((m) => m.sync_status === 'UPLOADING' || m.sync_status === 'PENDING_UPLOAD').length;
+  const uploadingCount = mediaList.filter((m) => m.sync_status === 'UPLOADING').length;
   const failedCount = mediaList.filter((m) => m.sync_status === 'FAILED').length;
 
   const formatFileSize = (bytes?: unknown): string => {
@@ -482,9 +482,13 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
             Documents: {mediaList.filter((m) => !m.media_type.startsWith('image/') && m.media_type !== 'link' && !m.metadata?.is_link).length} •{' '}
             Links: {mediaList.filter((m) => m.media_type === 'link' || m.metadata?.is_link).length}
           </Text>
-          {pendingCount > 0 && (
+          {uploadingCount > 0 ? (
             <Text style={{ fontSize: 11, color: theme.tokenGold, fontWeight: '700' }}>
-              ⏳ {pendingCount} uploading...
+              ⏳ {uploadingCount} uploading...
+            </Text>
+          ) : (
+            <Text style={{ fontSize: 11, color: theme.success, fontWeight: '700' }}>
+              ✓ {totalAttachments} attached (ready for submission)
             </Text>
           )}
           {failedCount > 0 && (
@@ -572,12 +576,16 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                                 ? theme.successMuted
                                 : isFailed
                                 ? theme.errorMuted
+                                : item.sync_status === 'UPLOADING'
+                                ? theme.tokenGoldMuted
                                 : theme.primaryMuted,
                             borderColor:
                               item.sync_status === 'SYNCED'
                                 ? theme.success
                                 : isFailed
                                 ? theme.error
+                                : item.sync_status === 'UPLOADING'
+                                ? theme.tokenGold
                                 : theme.primary,
                           },
                         ]}
@@ -591,6 +599,8 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                                     ? theme.success
                                     : isFailed
                                     ? theme.error
+                                    : item.sync_status === 'UPLOADING'
+                                    ? theme.tokenGold
                                     : theme.primaryLight,
                             },
                           ]}
@@ -599,7 +609,9 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
                             ? 'PERSISTED'
                             : isFailed
                             ? 'FAILED'
-                            : 'QUEUED / SYNCING'}
+                            : item.sync_status === 'UPLOADING'
+                            ? 'UPLOADING...'
+                            : 'ATTACHED'}
                         </Text>
                       </View>
 
@@ -676,14 +688,12 @@ export const BulkEvidenceStep: React.FC<BulkEvidenceStepProps> = ({
 
         <HorizonButton
           title={
-            pendingCount > 0
-              ? `Uploading (${pendingCount} pending)...`
-              : !canProceed
+            !canProceed
               ? `Attach at least ${requiredCount} item`
               : 'Proceed to Attributes →'
           }
           onPress={onNext}
-          disabled={!canProceed || pendingCount > 0}
+          disabled={!canProceed}
           size="md"
           variant="primary"
           style={styles.nextBtn}
